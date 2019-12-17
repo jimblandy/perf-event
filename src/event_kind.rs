@@ -135,13 +135,13 @@ impl From<Software> for EventKind {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Cache {
     /// Which cache is being monitored? (data, instruction, ...)
-    which: WhichCache,
+    pub which: WhichCache,
 
     /// What operation is being monitored? (read, write, etc.)
-    operation: CacheOp,
+    pub operation: CacheOp,
 
     /// All accesses, or just misses?
-    result: CacheResult,
+    pub result: CacheResult,
 }
 
 impl From<Cache> for EventKind {
