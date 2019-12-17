@@ -5,7 +5,6 @@ use event_kind::EventKind;
 use libc::pid_t;
 use std::fs::File;
 use std::io::{self, Read};
-use std::num::NonZeroUsize;
 use std::os::raw::{c_int, c_ulong};
 use std::os::unix::io::AsRawFd;
 
@@ -19,7 +18,7 @@ pub struct Event {
 
 pub struct Builder {
     who: EventPid,
-    cpu: Option<NonZeroUsize>,
+    cpu: Option<usize>,
     kind: EventKind,
 }
 
@@ -78,6 +77,17 @@ impl Builder {
         self
     }
 
+    pub fn one_cpu(mut self, cpu: usize) -> Builder {
+        self.cpu = Some(cpu);
+        self
+    }
+
+
+    pub fn any_cpu(mut self) -> Builder {
+        self.cpu = None;
+        self
+    }
+
     pub fn kind<K: Into<EventKind>>(mut self, kind: K) -> Builder {
         self.kind = kind.into();
         self
@@ -98,7 +108,7 @@ impl Builder {
         Ok(Event {
             file: syscalls::perf_event_open(&attrs,
                                             pid,
-                                            self.cpu.map(|nzu| nzu.get() as c_int).unwrap_or(-1 as c_int),
+                                            self.cpu.map(|u| u as c_int).unwrap_or(-1 as c_int),
                                             -1,
                                             flags as c_ulong)?,
         })
