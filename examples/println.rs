@@ -1,4 +1,4 @@
-use perf_event::{Builder, Event};
+use perf_event::Builder;
 use std::io;
 
 fn main() -> io::Result<()> {
@@ -8,9 +8,9 @@ fn main() -> io::Result<()> {
 
     cycles.enable()?;
     println!("{:?}", vec);
-    let count = cycles.read()?;
+    cycles.disable()?;
 
-    println!("{} cycles", count);
+    println!("{} cycles", cycles.read()?);
 
     Ok(())
 }
