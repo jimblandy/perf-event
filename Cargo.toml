@@ -5,6 +5,7 @@ authors = ["Jim Blandy <jimb@red-bean.com>"]
 repository = "https://github.com/jimblandy/perf-event.git"
 license = "MIT OR Apache-2.0"
 edition = "2018"
+readme = "README.md"
 description = "A Rust interface to Linux performance monitoring"
 
 [dependencies]
