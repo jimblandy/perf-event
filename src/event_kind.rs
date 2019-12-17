@@ -67,6 +67,12 @@ pub enum Hardware {
     REF_CPU_CYCLES = bindings::perf_hw_id_PERF_COUNT_HW_REF_CPU_CYCLES,
 }
 
+impl From<Hardware> for EventKind {
+    fn from(hw: Hardware) -> EventKind {
+        EventKind::Hardware(hw)
+    }
+}
+
 /// `PERF_COUNT_SW_`... values. See 'man perf_event_open(2)' for authoritative
 /// documentation.
 #[repr(u32)]
@@ -115,6 +121,12 @@ pub enum Software {
     DUMMY = bindings::perf_sw_ids_PERF_COUNT_SW_DUMMY,
 }
 
+impl From<Software> for EventKind {
+    fn from(hw: Software) -> EventKind {
+        EventKind::Software(hw)
+    }
+}
+
 /// A cache event.
 ///
 /// A cache event is characterized by 1) which cache to observe, 2) what sort of
@@ -130,6 +142,12 @@ pub struct Cache {
 
     /// All accesses, or just misses?
     result: CacheResult,
+}
+
+impl From<Cache> for EventKind {
+    fn from(hw: Cache) -> EventKind {
+        EventKind::Cache(hw)
+    }
 }
 
 impl Cache {

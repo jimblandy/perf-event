@@ -62,6 +62,27 @@ impl Builder {
         Builder::default()
     }
 
+    pub fn observe_self(mut self) -> Builder {
+        self.who = EventPid::ThisProcess;
+        self
+    }
+
+    pub fn observe_pid(mut self, pid: pid_t) -> Builder {
+        self.who = EventPid::Other(pid);
+        self
+    }
+
+    // Ugly that this takes `cgroup` by value...
+    pub fn observe_cgroup(mut self, cgroup: File) -> Builder {
+        self.who = EventPid::CGroup(cgroup);
+        self
+    }
+
+    pub fn kind<K: Into<EventKind>>(mut self, kind: K) -> Builder {
+        self.kind = kind.into();
+        self
+    }
+
     pub fn build(self) -> std::io::Result<Event> {
         let mut attrs = bindings::perf_event_attr::default();
 
