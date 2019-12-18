@@ -1,0 +1,5 @@
+- group API
+- raw API
+  - expose syscalls, bindgen-generated bindings
+- systematic naming rules for PERF_COUNT_* analogues
+- documentation
