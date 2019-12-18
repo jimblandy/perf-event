@@ -16,7 +16,7 @@ fn main() -> std::io::Result<()> {
     println!("{:?}", vec);
     branch_counter.disable()?;
 
-    println!("{} branches", branch_counter.read()?);
+    println!("{} L1D cache misses", branch_counter.read()?);
 
     Ok(())
 }
