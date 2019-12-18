@@ -1,7 +1,7 @@
 //! Types that identify kinds of performance events we can monitor or count.
 #![allow(non_camel_case_types)]
 
-use crate::bindings;
+use perf_event_open_sys::bindings as bindings;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum EventKind {
@@ -19,7 +19,7 @@ impl EventKind {
         }
     }
 
-    pub(crate) fn as_config(self) -> bindings::__u64 {
+    pub(crate) fn as_config(self) -> u64 {
         match self {
             EventKind::Hardware(hw) => hw as _,
             EventKind::Software(sw) => sw as _,

@@ -1,16 +1,14 @@
 //! A Rust API for Linux performance monitoring
 
-use bindings::__u32;
 use event_kind::EventKind;
 use libc::pid_t;
+use perf_event_open_sys as sys;
 use std::fs::File;
 use std::io::{self, Read};
 use std::os::raw::{c_int, c_ulong};
-use std::os::unix::io::AsRawFd;
+use std::os::unix::io::{AsRawFd, FromRawFd};
 
-mod bindings;
 pub mod event_kind;
-mod syscalls;
 
 pub struct Event {
     file: File,
@@ -36,10 +34,10 @@ pub enum EventPid {
 
 impl EventPid {
     // Return the `pid` arg and the `flags` bits representing `self`.
-    fn as_args(&self) -> (bindings::__kernel_pid_t, u32) {
+    fn as_args(&self) -> (pid_t, u32) {
         match self {
-            EventPid::ThisProcess => (0, bindings::PERF_FLAG_FD_NO_GROUP),
-            EventPid::Other(pid) => (*pid, bindings::PERF_FLAG_FD_NO_GROUP),
+            EventPid::ThisProcess => (0, sys::bindings::PERF_FLAG_FD_NO_GROUP),
+            EventPid::Other(pid) => (*pid, sys::bindings::PERF_FLAG_FD_NO_GROUP),
             EventPid::CGroup(file) =>
                 (file.as_raw_fd(), 0),
         }
@@ -94,23 +92,28 @@ impl Builder {
     }
 
     pub fn build(self) -> std::io::Result<Event> {
-        let mut attrs = bindings::perf_event_attr::default();
+        let mut attrs = sys::bindings::perf_event_attr::default();
 
         attrs.type_ = self.kind.as_type();
-        attrs.size = std::mem::size_of::<bindings::perf_event_attr>() as __u32;
+        attrs.size = std::mem::size_of::<sys::bindings::perf_event_attr>() as u32;
         attrs.config = self.kind.as_config();
         attrs.set_disabled(1);
         attrs.set_exclude_kernel(1);
         attrs.set_exclude_hv(1);
 
         let (pid, flags) = self.who.as_args();
+        let fd = unsafe {
+            sys::perf_event_open(&mut attrs,
+                                 pid,
+                                 self.cpu.map(|u| u as c_int).unwrap_or(-1 as c_int),
+                                 -1,
+                                 flags as c_ulong)?
+        };
 
         Ok(Event {
-            file: syscalls::perf_event_open(&attrs,
-                                            pid,
-                                            self.cpu.map(|u| u as c_int).unwrap_or(-1 as c_int),
-                                            -1,
-                                            flags as c_ulong)?,
+            file: unsafe {
+                File::from_raw_fd(fd)
+            }
         })
     }
 }
@@ -118,13 +121,13 @@ impl Builder {
 impl Event {
     pub fn enable(&mut self) -> io::Result<()> {
         unsafe {
-            syscalls::ioctls::ENABLE(&self.file, 0).map(|_| ())
+            sys::ioctls::ENABLE(self.file.as_raw_fd(), 0).map(|_| ())
         }
     }
 
     pub fn disable(&mut self) -> io::Result<()> {
         unsafe {
-            syscalls::ioctls::DISABLE(&self.file, 0).map(|_| ())
+            sys::ioctls::DISABLE(self.file.as_raw_fd(), 0).map(|_| ())
         }
     }
 
