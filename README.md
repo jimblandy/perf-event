@@ -1,4 +1,4 @@
-# perf-event: a Rust interface to Linux performance monitoring
+## perf-event: a Rust interface to Linux performance monitoring
 
 *This is a nascent project. Tests and docs are lacking. The design may change.*
 
