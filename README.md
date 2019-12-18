@@ -31,3 +31,5 @@ description from the `perf_event_open(2)` man page:
 
 > Retired instructions. Be careful, these can be affected by various issues,
 > most notably hardware interrupt counts.
+
+The `examples` directory includes programs that count other sorts of events.
