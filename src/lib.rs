@@ -94,6 +94,9 @@ impl Builder {
     pub fn build(self) -> std::io::Result<Event> {
         let mut attrs = sys::bindings::perf_event_attr::default();
 
+        let cpu = self.cpu;
+        let (pid, flags) = self.who.as_args();
+
         attrs.type_ = self.kind.as_type();
         attrs.size = std::mem::size_of::<sys::bindings::perf_event_attr>() as u32;
         attrs.config = self.kind.as_config();
@@ -101,14 +104,13 @@ impl Builder {
         attrs.set_exclude_kernel(1);
         attrs.set_exclude_hv(1);
 
-        let (pid, flags) = self.who.as_args();
-        let fd = unsafe {
+        let fd = check_syscall(|| unsafe {
             sys::perf_event_open(&mut attrs,
                                  pid,
-                                 self.cpu.map(|u| u as c_int).unwrap_or(-1 as c_int),
+                                 cpu.map(|u| u as c_int).unwrap_or(-1 as c_int),
                                  -1,
-                                 flags as c_ulong)?
-        };
+                                 flags as c_ulong)
+        })?;
 
         Ok(Event {
             file: unsafe {
@@ -120,21 +122,33 @@ impl Builder {
 
 impl Event {
     pub fn enable(&mut self) -> io::Result<()> {
-        unsafe {
-            sys::ioctls::ENABLE(self.file.as_raw_fd(), 0).map(|_| ())
-        }
+        check_syscall(|| unsafe {
+            sys::ioctls::ENABLE(self.file.as_raw_fd(), 0)
+        }).map(|_| ())
     }
 
     pub fn disable(&mut self) -> io::Result<()> {
-        unsafe {
-            sys::ioctls::DISABLE(self.file.as_raw_fd(), 0).map(|_| ())
-        }
+        check_syscall(|| unsafe {
+            sys::ioctls::DISABLE(self.file.as_raw_fd(), 0)
+        }).map(|_| ())
     }
 
     pub fn read(&mut self) -> io::Result<u64> {
         let mut buf = [0_u8; 8];
         self.file.read_exact(&mut buf)?;
         Ok(u64::from_ne_bytes(buf))
+    }
+}
+
+fn check_syscall<F, R>(f: F) -> io::Result<R>
+where F: FnOnce() -> R,
+      R: PartialOrd + Default
+{
+    let result = f();
+    if result < R::default() {
+        Err(io::Error::last_os_error())
+    } else {
+        Ok(result)
     }
 }
 

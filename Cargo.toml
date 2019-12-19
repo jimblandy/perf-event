@@ -9,5 +9,5 @@ readme = "README.md"
 description = "A Rust interface to Linux performance monitoring"
 
 [dependencies]
-perf-event-open-sys = "0.1"
+perf-event-open-sys = "0.2"
 libc = "0.2"
