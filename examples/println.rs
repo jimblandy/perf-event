@@ -1,18 +1,15 @@
 use perf_event::Builder;
-use perf_event::event_kind::Hardware;
 
 fn main() -> std::io::Result<()> {
-    let mut branch_counter = Builder::new()
-        .kind(Hardware::BRANCH_INSTRUCTIONS)
-        .build()?;
+    let mut counter = Builder::new().build()?;
 
     let vec = (0..=51).collect::<Vec<_>>();
 
-    branch_counter.enable()?;
+    counter.enable()?;
     println!("{:?}", vec);
-    branch_counter.disable()?;
+    counter.disable()?;
 
-    println!("{} branches", branch_counter.read()?);
+    println!("{} instructions retired", counter.read()?);
 
     Ok(())
 }
