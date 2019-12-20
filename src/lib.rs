@@ -10,18 +10,19 @@ use std::os::unix::io::{AsRawFd, FromRawFd};
 
 pub mod event_kind;
 
-pub struct Event {
+pub struct Counter {
     file: File,
 }
 
-pub struct Builder {
-    who: EventPid,
+pub struct Builder<'a> {
+    who: EventPid<'a>,
     cpu: Option<usize>,
     kind: EventKind,
+    group: Option<&'a Counter>,
 }
 
 #[derive(Debug)]
-pub enum EventPid {
+pub enum EventPid<'a> {
     /// Monitor the calling process.
     ThisProcess,
 
@@ -29,10 +30,10 @@ pub enum EventPid {
     Other(pid_t),
 
     /// Monitor members of the given cgroup.
-    CGroup(File),
+    CGroup(&'a File),
 }
 
-impl EventPid {
+impl<'a> EventPid<'a> {
     // Return the `pid` arg and the `flags` bits representing `self`.
     fn as_args(&self) -> (pid_t, u32) {
         match self {
@@ -44,58 +45,65 @@ impl EventPid {
     }
 }
 
-impl Default for Builder {
-    fn default() -> Builder {
+impl<'a> Default for Builder<'a> {
+    fn default() -> Builder<'a> {
         Builder {
             who: EventPid::ThisProcess,
             cpu: None,
             kind: EventKind::Hardware(event_kind::Hardware::INSTRUCTIONS),
+            group: None,
         }
     }
 }
 
-impl Builder {
-    pub fn new() -> Builder {
+impl<'a> Builder<'a> {
+    pub fn new() -> Builder<'a> {
         Builder::default()
     }
 
-    pub fn observe_self(mut self) -> Builder {
+    pub fn observe_self(mut self) -> Builder<'a> {
         self.who = EventPid::ThisProcess;
         self
     }
 
-    pub fn observe_pid(mut self, pid: pid_t) -> Builder {
+    pub fn observe_pid(mut self, pid: pid_t) -> Builder<'a> {
         self.who = EventPid::Other(pid);
         self
     }
 
     // Ugly that this takes `cgroup` by value...
-    pub fn observe_cgroup(mut self, cgroup: File) -> Builder {
+    pub fn observe_cgroup(mut self, cgroup: &'a File) -> Builder<'a> {
         self.who = EventPid::CGroup(cgroup);
         self
     }
 
-    pub fn one_cpu(mut self, cpu: usize) -> Builder {
+    pub fn one_cpu(mut self, cpu: usize) -> Builder<'a> {
         self.cpu = Some(cpu);
         self
     }
 
 
-    pub fn any_cpu(mut self) -> Builder {
+    pub fn any_cpu(mut self) -> Builder<'a> {
         self.cpu = None;
         self
     }
 
-    pub fn kind<K: Into<EventKind>>(mut self, kind: K) -> Builder {
+    pub fn kind<K: Into<EventKind>>(mut self, kind: K) -> Builder<'a> {
         self.kind = kind.into();
         self
     }
 
-    pub fn build(self) -> std::io::Result<Event> {
+    pub fn event_group(mut self, event: &'a Counter) -> Builder<'a> {
+        self.group = Some(event);
+        self
+    }
+
+    pub fn build(self) -> std::io::Result<Counter> {
         let mut attrs = sys::bindings::perf_event_attr::default();
 
         let cpu = self.cpu;
         let (pid, flags) = self.who.as_args();
+        let group_fd = self.group.map(|e| e.file.as_raw_fd() as c_int).unwrap_or(-1);
 
         attrs.type_ = self.kind.as_type();
         attrs.size = std::mem::size_of::<sys::bindings::perf_event_attr>() as u32;
@@ -108,11 +116,11 @@ impl Builder {
             sys::perf_event_open(&mut attrs,
                                  pid,
                                  cpu.map(|u| u as c_int).unwrap_or(-1 as c_int),
-                                 -1,
+                                 group_fd,
                                  flags as c_ulong)
         })?;
 
-        Ok(Event {
+        Ok(Counter {
             file: unsafe {
                 File::from_raw_fd(fd)
             }
@@ -120,7 +128,7 @@ impl Builder {
     }
 }
 
-impl Event {
+impl Counter {
     pub fn enable(&mut self) -> io::Result<()> {
         check_syscall(|| unsafe {
             sys::ioctls::ENABLE(self.file.as_raw_fd(), 0)
@@ -154,5 +162,5 @@ where F: FnOnce() -> R,
 
 #[test]
 fn simple_build() {
-    Builder::new().build().expect("Couldn't build default Event");
+    Builder::new().build().expect("Couldn't build default Counter");
 }
