@@ -1,6 +1,6 @@
 //! A Rust API for Linux performance monitoring
 
-use event_kind::EventKind;
+use events::Event;
 use libc::pid_t;
 use perf_event_open_sys as sys;
 use std::fs::File;
@@ -8,7 +8,7 @@ use std::io::{self, Read};
 use std::os::raw::{c_int, c_ulong};
 use std::os::unix::io::{AsRawFd, FromRawFd};
 
-pub mod event_kind;
+pub mod events;
 
 pub struct Counter {
     file: File,
@@ -17,7 +17,7 @@ pub struct Counter {
 pub struct Builder<'a> {
     who: EventPid<'a>,
     cpu: Option<usize>,
-    kind: EventKind,
+    kind: Event,
     group: Option<&'a Counter>,
 }
 
@@ -50,7 +50,7 @@ impl<'a> Default for Builder<'a> {
         Builder {
             who: EventPid::ThisProcess,
             cpu: None,
-            kind: EventKind::Hardware(event_kind::Hardware::INSTRUCTIONS),
+            kind: Event::Hardware(events::Hardware::INSTRUCTIONS),
             group: None,
         }
     }
@@ -88,7 +88,7 @@ impl<'a> Builder<'a> {
         self
     }
 
-    pub fn kind<K: Into<EventKind>>(mut self, kind: K) -> Builder<'a> {
+    pub fn kind<K: Into<Event>>(mut self, kind: K) -> Builder<'a> {
         self.kind = kind.into();
         self
     }

@@ -4,26 +4,26 @@
 use perf_event_open_sys::bindings as bindings;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum EventKind {
+pub enum Event {
     Hardware(Hardware),
     Software(Software),
     Cache(Cache),
 }
 
-impl EventKind {
+impl Event {
     pub(crate) fn as_type(&self) -> bindings::perf_type_id {
         match self {
-            EventKind::Hardware(_) => bindings::perf_type_id_PERF_TYPE_HARDWARE,
-            EventKind::Software(_) => bindings::perf_type_id_PERF_TYPE_SOFTWARE,
-            EventKind::Cache(_) => bindings::perf_type_id_PERF_TYPE_HW_CACHE,
+            Event::Hardware(_) => bindings::perf_type_id_PERF_TYPE_HARDWARE,
+            Event::Software(_) => bindings::perf_type_id_PERF_TYPE_SOFTWARE,
+            Event::Cache(_) => bindings::perf_type_id_PERF_TYPE_HW_CACHE,
         }
     }
 
     pub(crate) fn as_config(self) -> u64 {
         match self {
-            EventKind::Hardware(hw) => hw as _,
-            EventKind::Software(sw) => sw as _,
-            EventKind::Cache(cache) => cache.as_config(),
+            Event::Hardware(hw) => hw as _,
+            Event::Software(sw) => sw as _,
+            Event::Cache(cache) => cache.as_config(),
         }
     }
 }
@@ -67,9 +67,9 @@ pub enum Hardware {
     REF_CPU_CYCLES = bindings::perf_hw_id_PERF_COUNT_HW_REF_CPU_CYCLES,
 }
 
-impl From<Hardware> for EventKind {
-    fn from(hw: Hardware) -> EventKind {
-        EventKind::Hardware(hw)
+impl From<Hardware> for Event {
+    fn from(hw: Hardware) -> Event {
+        Event::Hardware(hw)
     }
 }
 
@@ -121,9 +121,9 @@ pub enum Software {
     DUMMY = bindings::perf_sw_ids_PERF_COUNT_SW_DUMMY,
 }
 
-impl From<Software> for EventKind {
-    fn from(hw: Software) -> EventKind {
-        EventKind::Software(hw)
+impl From<Software> for Event {
+    fn from(hw: Software) -> Event {
+        Event::Software(hw)
     }
 }
 
@@ -144,9 +144,9 @@ pub struct Cache {
     pub result: CacheResult,
 }
 
-impl From<Cache> for EventKind {
-    fn from(hw: Cache) -> EventKind {
-        EventKind::Cache(hw)
+impl From<Cache> for Event {
+    fn from(hw: Cache) -> Event {
+        Event::Cache(hw)
     }
 }
 
