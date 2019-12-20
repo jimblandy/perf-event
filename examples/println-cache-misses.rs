@@ -2,7 +2,7 @@ use perf_event::Builder;
 use perf_event::event_kind::{Cache, CacheOp, CacheResult, WhichCache};
 
 fn main() -> std::io::Result<()> {
-    let mut branch_counter = Builder::new()
+    let mut counter = Builder::new()
         .kind(Cache {
             which: WhichCache::L1D,
             operation: CacheOp::READ,
@@ -12,11 +12,11 @@ fn main() -> std::io::Result<()> {
 
     let vec = (0..=51).collect::<Vec<_>>();
 
-    branch_counter.enable()?;
+    counter.enable()?;
     println!("{:?}", vec);
-    branch_counter.disable()?;
+    counter.disable()?;
 
-    println!("{} L1D cache misses", branch_counter.read()?);
+    println!("{} L1D cache misses", counter.read()?);
 
     Ok(())
 }
