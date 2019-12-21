@@ -10,6 +10,8 @@ count.
 For example, this counts the number of cycles used by the call to `println!`.
 Try adjusting the length of the vector to see the cycle count change.
 
+    use perf_event::Builder;
+
     fn main() -> std::io::Result<()> {
         let mut counter = Builder::new().build()?;
 
