@@ -1,5 +1,5 @@
 use perf_event::Builder;
-use perf_event::event_kind::{Cache, CacheOp, CacheResult, WhichCache};
+use perf_event::events::{Cache, CacheOp, CacheResult, WhichCache};
 
 fn main() -> std::io::Result<()> {
     let mut counter = Builder::new()

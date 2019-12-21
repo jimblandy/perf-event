@@ -1,6 +1,6 @@
 [package]
 name = "perf-event"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["Jim Blandy <jimb@red-bean.com>"]
 repository = "https://github.com/jimblandy/perf-event.git"
 license = "MIT OR Apache-2.0"
@@ -9,5 +9,5 @@ readme = "README.md"
 description = "A Rust interface to Linux performance monitoring"
 
 [dependencies]
-perf-event-open-sys = "0.2"
+perf-event-open-sys = "0.3"
 libc = "0.2"
