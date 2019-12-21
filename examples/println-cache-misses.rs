@@ -1,22 +1,22 @@
-use perf_event::Builder;
-use perf_event::events::{Cache, CacheOp, CacheResult, WhichCache};
+use perf_event::{Builder, Group};
+use perf_event::events::Hardware;
 
 fn main() -> std::io::Result<()> {
-    let mut counter = Builder::new()
-        .kind(Cache {
-            which: WhichCache::L1D,
-            operation: CacheOp::READ,
-            result: CacheResult::MISS,
-        })
-        .build()?;
+    let mut group = Group::new()?;
+    let references = Builder::new().group(&group).kind(Hardware::CACHE_REFERENCES).build()?;
+    let misses = Builder::new().group(&group).kind(Hardware::CACHE_MISSES).build()?;
 
     let vec = (0..=51).collect::<Vec<_>>();
 
-    counter.enable()?;
+    group.enable()?;
     println!("{:?}", vec);
-    counter.disable()?;
+    group.disable()?;
 
-    println!("{} L1D cache misses", counter.read()?);
+    let counts = group.read()?;
+    println!("cache misses/references: {} / {} ({:.0}%)",
+             counts[&misses],
+             counts[&references],
+             (counts[&misses] as f64 / counts[&references] as f64) * 100.0);
 
     Ok(())
 }

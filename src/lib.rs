@@ -1,4 +1,51 @@
-//! A Rust API for Linux performance monitoring
+//! A Rust API for Linux performance monitoring.
+//!
+//! This crate lets you access counters provided by the processor and kernel for
+//! things like instruction completions, cache references and misses, branch
+//! predictions and misses, and so on. The kernel also maintains counters for
+//! its own internal events like context switches, page faults, etc.
+//!
+//! For example, the following code calls `println!`, and then prints hit ratio
+//! of the level 1 cache:
+//!
+//!     use perf_event::{Builder, Group};
+//!     use perf_event::events::{Cache, CacheOp, CacheResult, WhichCache};
+//!
+//!     fn main() -> std::io::Result<()> {
+//!         const ACCESS: Cache = Cache {
+//!             which: WhichCache::L1D,
+//!             operation: CacheOp::READ,
+//!             result: CacheResult::ACCESS,
+//!         };
+//!         const MISS: Cache = Cache { result: CacheResult::MISS, ..ACCESS };
+//!
+//!         let mut group = Group::new()?;
+//!         let access_counter = Builder::new().group(&group).kind(ACCESS).build()?;
+//!         let miss_counter = Builder::new().group(&group).kind(MISS).build()?;
+//!
+//!         let vec = (0..=51).collect::<Vec<_>>();
+//!
+//!         group.enable()?;
+//!         println!("{:?}", vec);
+//!         group.disable()?;
+//!
+//!         let counts = group.read()?;
+//!         println!("L1D cache misses/references: {} / {} ({:.0}%)",
+//!                  counts[&miss_counter],
+//!                  counts[&access_counter],
+//!                  (counts[&miss_counter] as f64 / counts[&access_counter] as f64) * 100.0);
+//!
+//!         println!("{:?}", counts);
+//!
+//!         Ok(())
+//!     }
+
+
+
+//! to help programmers assess the performance of their code.
+
+//! To help programmers understand the behavior of their code, modern processors
+//! have various counters built into the chip for events like 
 
 use events::Event;
 use libc::pid_t;
