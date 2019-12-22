@@ -1,12 +1,50 @@
-//! Types that identify kinds of performance events we can monitor or count.
-#![allow(non_camel_case_types)]
+//! Events we can monitor or count.
+//!
+//! There are three general categories of event:
+//!
+//! -   [`Hardware`] events are counted by the processor itself. This
+//!     includes things like clock cycles, instructions retired, and cache and
+//!     branch prediction statistics.
+//!
+//! -   [`Software`] events are counted by the kernel. This includes things
+//!     like context switches, page faults, and so on.
+//!
+//! -   [`Cache`] events offer a more detailed view of the processor's cache
+//!     counters. You can select which level of the cache hierarchy to observe,
+//!     discriminate between data and instruction caches, and so on.
+//!
+//! The `Event` type is just an enum with a variant for each of the above types,
+//! which all implement `Into<Event>`.
+//!
+//! Linux supports many more kinds of events than this module covers, including
+//! events specific to particular make and model of processor, and events that
+//! are dynamically registered by drivers and kernel modules. If something you
+//! want is missing, think about the best API to expose it, and submit a pull
+//! request!
+//!
+//! [`Hardware`]: enum.Hardware.html
+//! [`Software`]: enum.Software.html
+//! [`Cache`]: struct.Cache.html
 
+#![allow(non_camel_case_types)]
 use perf_event_open_sys::bindings as bindings;
 
+/// Any sort of event. This is a sum of the [`Hardware`],
+/// [`Software`], and [`Cache`] types, which all implement
+/// `Into<Event>`.
+///
+/// [`Hardware`]: enum.Hardware.html
+/// [`Software`]: enum.Software.html
+/// [`Cache`]: struct.Cache.html
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Event {
+    #[allow(missing_docs)]
     Hardware(Hardware),
+
+    #[allow(missing_docs)]
     Software(Software),
+
+    #[allow(missing_docs)]
     Cache(Cache),
 }
 
@@ -28,11 +66,24 @@ impl Event {
     }
 }
 
-/// `PERF_COUNT_HW_`... values. See 'man perf_event_open(2)' for authoritative
-/// documentation.
+/// Hardware counters.
+///
+/// These are counters implemented by the processor itself. Such counters vary
+/// from one architecture to the next, and even different models within a
+/// particular architecture will often change the way they expose this data.
+/// This is a selection of portable names for values that can be obtained on a
+/// wide variety of systems.
+///
+/// Each variant of this enum corresponds to a particular `PERF_COUNT_HW_`...
+/// value supported by the [`perf_event_open`][man] system call.
+///
+/// [man]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
 #[repr(u32)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Hardware {
+    /// Total cycles.  Be wary of what happens during CPU frequency scaling.
+    CPU_CYCLES = bindings::perf_hw_id_PERF_COUNT_HW_CPU_CYCLES,
+
     /// Retired instructions. Be careful, these can be affected by various
     /// issues, most notably hardware interrupt counts.
     INSTRUCTIONS = bindings::perf_hw_id_PERF_COUNT_HW_INSTRUCTIONS,
@@ -73,8 +124,12 @@ impl From<Hardware> for Event {
     }
 }
 
-/// `PERF_COUNT_SW_`... values. See 'man perf_event_open(2)' for authoritative
-/// documentation.
+/// Software counters, implemented by the kernel.
+///
+/// Each variant of this enum corresponds to a particular `PERF_COUNT_SW_`...
+/// value supported by the [`perf_event_open`][man] system call.
+///
+/// [man]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
 #[repr(u32)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Software {
@@ -129,9 +184,40 @@ impl From<Software> for Event {
 
 /// A cache event.
 ///
-/// A cache event is characterized by 1) which cache to observe, 2) what sort of
-/// operation we're performing on it, and 3) whether we want to count all
-/// accesses, or just misses.
+/// A cache event has three identifying characteristics:
+///
+/// - which cache to observe ([`which`])
+///
+/// - what sort of request it's handling ([`operation`])
+///
+/// - whether we want to count all cache accesses, or just misses
+///   ([`result`]).
+///
+/// For example, to measure the L1 data cache's miss rate:
+///
+///     # use perf_event::{Builder, Group};
+///     # use perf_event::events::{Cache, CacheOp, CacheResult, Hardware, WhichCache};
+///     # fn main() -> std::io::Result<()> {
+///     // A `Cache` value representing L1 data cache read accesses.
+///     const ACCESS: Cache = Cache {
+///         which: WhichCache::L1D,
+///         operation: CacheOp::READ,
+///         result: CacheResult::ACCESS,
+///     };
+///
+///     // A `Cache` value representing L1 data cache read misses.
+///     const MISS: Cache = Cache { result: CacheResult::MISS, ..ACCESS };
+///
+///     // Construct a `Group` containing the two new counters, from which we
+///     // can get counts over matching periods of time.
+///     let mut group = Group::new()?;
+///     let access_counter = Builder::new().group(&group).kind(ACCESS).build()?;
+///     let miss_counter = Builder::new().group(&group).kind(MISS).build()?;
+///     # Ok(()) }
+///
+/// [`which`]: enum.WhichCache.html
+/// [`operation`]: enum.CacheOp.html
+/// [`result`]: enum.CacheResult.html
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Cache {
     /// Which cache is being monitored? (data, instruction, ...)
@@ -158,8 +244,14 @@ impl Cache {
     }
 }
 
-/// A cache whose events we would like to count. Used in the `Cache` type as part
-/// of the identification of a cache event.
+/// A cache whose events we would like to count.
+///
+/// This is used in the `Cache` type as part of the identification of a cache
+/// event. Each variant here corresponds to a particular
+/// `PERF_COUNT_HW_CACHE_...` constant supported by the [`perf_event_open`][man]
+/// system call.
+///
+/// [man]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
 #[repr(u32)]
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum WhichCache {
@@ -185,24 +277,40 @@ pub enum WhichCache {
     NODE = bindings::perf_hw_cache_id_PERF_COUNT_HW_CACHE_NODE,
 }
 
-/// A cache operation we would like to observe. Used in the `Cache` type as part
-/// of the identification of a cache event.
+/// What sort of cache operation we would like to observe.
+///
+/// This is used in the `Cache` type as part of the identification of a cache
+/// event. Each variant here corresponds to a particular
+/// `PERF_COUNT_HW_CACHE_OP_...` constant supported by the
+/// [`perf_event_open`][man] system call.
+///
+/// [man]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
 #[repr(u32)]
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum CacheOp {
-    /// for read accesses
+    /// Read accesses.
     READ = bindings::perf_hw_cache_op_id_PERF_COUNT_HW_CACHE_OP_READ,
 
-    /// for write accesses
+    /// Write accesses.
     WRITE = bindings::perf_hw_cache_op_id_PERF_COUNT_HW_CACHE_OP_WRITE,
 
-    /// for prefetch accesses
+    /// Prefetch accesses.
     PREFETCH = bindings::perf_hw_cache_op_id_PERF_COUNT_HW_CACHE_OP_PREFETCH,
 }
 
 #[repr(u32)]
-/// The sort of cache result we're interested in observing. Used in the `Cache`
-/// type as part of the identification of a cache event.
+/// What sort of cache result we're interested in observing.
+///
+/// `ACCESS` counts the total number of operations performed on the cache,
+/// whereas `MISS` counts only those requests that the cache could not satisfy.
+/// Treating `MISS` as a fraction of `ACCESS` gives you the cache's miss rate.
+///
+/// This is used used in the `Cache` type as part of the identification of a
+/// cache event. Each variant here corresponds to a particular
+/// `PERF_COUNT_HW_CACHE_RESULT_...` constant supported by the
+/// [`perf_event_open`][man] system call.
+///
+/// [man]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum CacheResult {
     /// to measure accesses

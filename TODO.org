@@ -1,5 +1,2 @@
-- group API
-- raw API
-  - expose syscalls, bindgen-generated bindings
-- systematic naming rules for PERF_COUNT_* analogues
-- documentation
+- write Counter::new; use in examples
+- raw Event: just provide type, config, config1, config2 values, as read from sysfs
