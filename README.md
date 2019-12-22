@@ -2,7 +2,7 @@
 
 *This is a nascent project. Tests are lacking. The design may change.*
 
-This uses the Linux ]`perf_event_open`][man] API to access performance monitoring
+This uses the Linux [`perf_event_open`][man] API to access performance monitoring
 hardware and software. Use `Builder` to create a perf event counter, then use
 `enable` and `disable` to start and stop counting. Call `read` to get your
 count.
