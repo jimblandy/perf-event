@@ -49,10 +49,10 @@
 //! Linux's `perf_event_open` API can report all sorts of things this crate
 //! doesn't yet understand: stack traces, logs of executable and shared library
 //! activity, tracepoints, kprobes, uprobes, and so on. And beyond the counters
-//! in the kernel header files, there are others that can only found at runtime
-//! by consulting `sysfs`, specific to particular processors and devices. For
-//! example, modern Intel processors have counters that measure power
-//! consumption in Joules.
+//! in the kernel header files, there are others that can only be found at
+//! runtime by consulting `sysfs`, specific to particular processors and
+//! devices. For example, modern Intel processors have counters that measure
+//! power consumption in Joules.
 //!
 //! If you find yourself in need of something this crate doesn't support, please
 //! consider submitting a pull request. (We intend to steadily raise our
