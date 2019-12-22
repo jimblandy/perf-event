@@ -32,7 +32,10 @@ fn main() -> std::io::Result<()> {
              counts[&branches],
              (counts[&missed_branches] as f64 / counts[&branches] as f64) * 100.0);
 
-    println!("{:?}", counts);
+    // You can iterate over a `Counts` value:
+    for (id, value) in &counts {
+        println!("Counter id {} has value {}", id, value);
+    }
 
     Ok(())
 }
