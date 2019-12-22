@@ -1,8 +1,8 @@
 ## perf-event: a Rust interface to Linux performance monitoring
 
-*This is a nascent project. Tests and docs are lacking. The design may change.*
+*This is a nascent project. Tests are lacking. The design may change.*
 
-This uses the Linux `perf_event_open` API to access performance monitoring
+This uses the Linux ]`perf_event_open`][man] API to access performance monitoring
 hardware and software. Use `Builder` to create a perf event counter, then use
 `enable` and `disable` to start and stop counting. Call `read` to get your
 count.
@@ -26,10 +26,12 @@ Try adjusting the length of the vector to see the cycle count change.
         Ok(())
     }
 
-At present, `Builder` measures the `PERF_COUNT_HW_INSTRUCTIONS` counter. Its
-description from the `perf_event_open(2)` man page:
+Since we don't specify what sort of event we want to count, `Builder` defaults
+to `PERF_COUNT_HW_INSTRUCTIONS` events, whose documentation says:
 
 > Retired instructions. Be careful, these can be affected by various issues,
 > most notably hardware interrupt counts.
 
 The `examples` directory includes programs that count other sorts of events.
+
+[man]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
