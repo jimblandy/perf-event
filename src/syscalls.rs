@@ -4,28 +4,29 @@ use std::io;
 use std::os::raw::{c_int, c_ulong};
 use std::os::unix::io::{FromRawFd, RawFd};
 
-pub fn perf_event_open(attrs: &bindings::perf_event_attr,
-                       pid: bindings::__kernel_pid_t,
-                       cpu: c_int,
-                       group_fd: c_int,
-                       flags: c_ulong) -> io::Result<File>
-{
+pub fn perf_event_open(
+    attrs: &bindings::perf_event_attr,
+    pid: bindings::__kernel_pid_t,
+    cpu: c_int,
+    group_fd: c_int,
+    flags: c_ulong,
+) -> io::Result<File> {
     let result = unsafe {
-        libc::syscall(bindings::__NR_perf_event_open as libc::c_long,
-                      attrs as *const bindings::perf_event_attr,
-                      pid,
-                      cpu,
-                      group_fd,
-                      flags)
+        libc::syscall(
+            bindings::__NR_perf_event_open as libc::c_long,
+            attrs as *const bindings::perf_event_attr,
+            pid,
+            cpu,
+            group_fd,
+            flags,
+        )
     };
 
     if result < 0 {
         return Err(io::Error::last_os_error());
     }
 
-    let file = unsafe {
-        File::from_raw_fd(result as RawFd)
-    };
+    let file = unsafe { File::from_raw_fd(result as RawFd) };
 
     Ok(file)
 }
@@ -51,7 +52,7 @@ pub mod ioctls {
             pub unsafe fn $name(file: &File, arg: $arg_type) -> io::Result<c_int> {
                 untyped_ioctl(file, bindings::$ioctl, arg)
             }
-        }
+        };
     }
 
     define_ioctls! {
@@ -69,10 +70,12 @@ pub mod ioctls {
         { MODIFY_ATTRIBUTES, perf_event_ioctls_MODIFY_ATTRIBUTES, *mut perf_event_attr }
     }
 
-    unsafe fn untyped_ioctl<A>(file: &File, ioctl: bindings::perf_event_ioctls, arg: A) -> io::Result<c_int> {
-        let result = libc::ioctl(file.as_raw_fd() as c_int,
-                                 ioctl as c_ulong,
-                                 arg);
+    unsafe fn untyped_ioctl<A>(
+        file: &File,
+        ioctl: bindings::perf_event_ioctls,
+        arg: A,
+    ) -> io::Result<c_int> {
+        let result = libc::ioctl(file.as_raw_fd() as c_int, ioctl as c_ulong, arg);
 
         if result < 0 {
             return Err(io::Error::last_os_error());

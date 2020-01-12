@@ -318,7 +318,7 @@ pub struct Group {
 /// [`Counter::id`]: struct.Counter.html#method.id
 pub struct Counts {
     // Raw results from the `read`.
-    data: Vec<u64>
+    data: Vec<u64>,
 }
 
 impl<'a> EventPid<'a> {
@@ -327,8 +327,7 @@ impl<'a> EventPid<'a> {
         match self {
             EventPid::ThisProcess => (0, 0),
             EventPid::Other(pid) => (*pid, 0),
-            EventPid::CGroup(file) =>
-                (file.as_raw_fd(), sys::bindings::PERF_FLAG_PID_CGROUP),
+            EventPid::CGroup(file) => (file.as_raw_fd(), sys::bindings::PERF_FLAG_PID_CGROUP),
         }
     }
 }
@@ -476,11 +475,9 @@ impl<'a> Builder<'a> {
         // assigned us, so we can find our results in a Counts structure. Even
         // if we're not part of a group, we'll use it in `Debug` output.
         let mut id = 0_64;
-        check_syscall(|| unsafe {
-            sys::ioctls::ID(file.as_raw_fd(), &mut id)
-        })?;
+        check_syscall(|| unsafe { sys::ioctls::ID(file.as_raw_fd(), &mut id) })?;
 
-        Ok(Counter { file, id, })
+        Ok(Counter { file, id })
     }
 }
 
@@ -506,9 +503,7 @@ impl Counter {
     /// [`reset`]: #method.reset
     /// [`enable`]: struct.Group.html#method.enable
     pub fn enable(&mut self) -> io::Result<()> {
-        check_syscall(|| unsafe {
-            sys::ioctls::ENABLE(self.file.as_raw_fd(), 0)
-        }).map(|_| ())
+        check_syscall(|| unsafe { sys::ioctls::ENABLE(self.file.as_raw_fd(), 0) }).map(|_| ())
     }
 
     /// Make this `Counter` stop counting its designated event. Its count is
@@ -519,9 +514,7 @@ impl Counter {
     ///
     /// [`disable`]: struct.Group.html#method.disable
     pub fn disable(&mut self) -> io::Result<()> {
-        check_syscall(|| unsafe {
-            sys::ioctls::DISABLE(self.file.as_raw_fd(), 0)
-        }).map(|_| ())
+        check_syscall(|| unsafe { sys::ioctls::DISABLE(self.file.as_raw_fd(), 0) }).map(|_| ())
     }
 
     /// Reset the value of this `Counter` to zero.
@@ -531,9 +524,7 @@ impl Counter {
     ///
     /// [`reset`]: struct.Group.html#method.reset
     pub fn reset(&mut self) -> io::Result<()> {
-        check_syscall(|| unsafe {
-            sys::ioctls::RESET(self.file.as_raw_fd(), 0)
-        }).map(|_| ())
+        check_syscall(|| unsafe { sys::ioctls::RESET(self.file.as_raw_fd(), 0) }).map(|_| ())
     }
 
     /// Return this `Counter`'s current value as a `u64`.
@@ -551,8 +542,12 @@ impl Counter {
 
 impl std::fmt::Debug for Counter {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(fmt, "Counter {{ fd: {}, id: {} }}",
-               self.file.as_raw_fd(), self.id)
+        write!(
+            fmt,
+            "Counter {{ fd: {}, id: {} }}",
+            self.file.as_raw_fd(),
+            self.id
+        )
     }
 }
 
@@ -570,8 +565,9 @@ impl Group {
         attrs.set_exclude_hv(1);
 
         // Arrange to be able to identify the counters we read back.
-        attrs.read_format = (sys::bindings::perf_event_read_format_PERF_FORMAT_ID |
-                             sys::bindings::perf_event_read_format_PERF_FORMAT_GROUP) as u64;
+        attrs.read_format = (sys::bindings::perf_event_read_format_PERF_FORMAT_ID
+            | sys::bindings::perf_event_read_format_PERF_FORMAT_GROUP)
+            as u64;
 
         let file = unsafe {
             File::from_raw_fd(check_syscall(|| {
@@ -581,13 +577,15 @@ impl Group {
 
         // Retrieve the ID the kernel assigned us.
         let mut id = 0_64;
-        check_syscall(|| unsafe {
-            sys::ioctls::ID(file.as_raw_fd(), &mut id)
-        })?;
+        check_syscall(|| unsafe { sys::ioctls::ID(file.as_raw_fd(), &mut id) })?;
 
         let max_members = AtomicUsize::new(0);
 
-        Ok(Group { file, id, max_members })
+        Ok(Group {
+            file,
+            id,
+            max_members,
+        })
     }
 
     /// Allow all `Counter`s in this `Group` to begin counting their designated
@@ -615,9 +613,12 @@ impl Group {
 
     fn generic_ioctl(&mut self, f: unsafe fn(c_int, c_uint) -> c_int) -> io::Result<()> {
         check_syscall(|| unsafe {
-            f(self.file.as_raw_fd(),
-              sys::bindings::perf_event_ioc_flags_PERF_IOC_FLAG_GROUP)
-        }).map(|_| ())
+            f(
+                self.file.as_raw_fd(),
+                sys::bindings::perf_event_ioc_flags_PERF_IOC_FLAG_GROUP,
+            )
+        })
+        .map(|_| ())
     }
 
     /// Return the values of all the `Counter`s in this `Group` as a [`Counts`]
@@ -664,8 +665,12 @@ impl Group {
 
 impl std::fmt::Debug for Group {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(fmt, "Group {{ fd: {}, id: {} }}",
-               self.file.as_raw_fd(), self.id)
+        write!(
+            fmt,
+            "Group {{ fd: {}, id: {} }}",
+            self.file.as_raw_fd(),
+            self.id
+        )
     }
 }
 
@@ -677,8 +682,7 @@ impl Counts {
     fn nth_ref(&self, n: usize) -> (u64, &u64) {
         assert!(n < self.len());
         // (id, &value)
-        (self.data[1 + 2 * n + 1],
-         &self.data[1 + 2 * n])
+        (self.data[1 + 2 * n + 1], &self.data[1 + 2 * n])
     }
 }
 
@@ -694,7 +698,7 @@ impl Counts {
 /// [`Group::read`]: struct.Group.html#method.read
 pub struct CountsIter<'c> {
     counts: &'c Counts,
-    next: usize
+    next: usize,
 }
 
 impl<'c> Iterator for CountsIter<'c> {
@@ -773,17 +777,20 @@ impl std::fmt::Debug for Counts {
 unsafe trait SliceAsBytesMut: Sized {
     fn slice_as_bytes_mut(slice: &mut [Self]) -> &mut [u8] {
         unsafe {
-            std::slice::from_raw_parts_mut(slice.as_mut_ptr() as *mut u8,
-                                           std::mem::size_of_val(slice))
+            std::slice::from_raw_parts_mut(
+                slice.as_mut_ptr() as *mut u8,
+                std::mem::size_of_val(slice),
+            )
         }
     }
 }
 
-unsafe impl SliceAsBytesMut for u64 { }
+unsafe impl SliceAsBytesMut for u64 {}
 
 fn check_syscall<F, R>(f: F) -> io::Result<R>
-where F: FnOnce() -> R,
-      R: PartialOrd + Default
+where
+    F: FnOnce() -> R,
+    R: PartialOrd + Default,
 {
     let result = f();
     if result < R::default() {
@@ -795,5 +802,7 @@ where F: FnOnce() -> R,
 
 #[test]
 fn simple_build() {
-    Builder::new().build().expect("Couldn't build default Counter");
+    Builder::new()
+        .build()
+        .expect("Couldn't build default Counter");
 }

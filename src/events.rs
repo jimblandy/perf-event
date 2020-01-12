@@ -27,7 +27,7 @@
 //! [`Cache`]: struct.Cache.html
 
 #![allow(non_camel_case_types)]
-use perf_event_open_sys::bindings as bindings;
+use perf_event_open_sys::bindings;
 
 /// Any sort of event. This is a sum of the [`Hardware`],
 /// [`Software`], and [`Cache`] types, which all implement
@@ -238,9 +238,7 @@ impl From<Cache> for Event {
 
 impl Cache {
     fn as_config(&self) -> u64 {
-        self.which as u64 |
-        ((self.operation as u64) << 8) |
-        ((self.result as u64) << 16)
+        self.which as u64 | ((self.operation as u64) << 8) | ((self.result as u64) << 16)
     }
 }
 
