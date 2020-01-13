@@ -13,8 +13,8 @@
 //!     fn main() -> std::io::Result<()> {
 //!         // A `Group` lets us enable and disable several counters atomically.
 //!         let mut group = Group::new()?;
-//!         let cycles = Builder::new().group(&group).kind(Hardware::CPU_CYCLES).build()?;
-//!         let insns = Builder::new().group(&group).kind(Hardware::INSTRUCTIONS).build()?;
+//!         let cycles = Builder::new().group(&group).kind(Hardware::CPU_CYCLES).counter()?;
+//!         let insns = Builder::new().group(&group).kind(Hardware::INSTRUCTIONS).counter()?;
 //!
 //!         let vec = (0..=51).collect::<Vec<_>>();
 //!
@@ -93,7 +93,7 @@ pub mod events;
 ///     use perf_event::Builder;
 ///
 ///     fn main() -> std::io::Result<()> {
-///         let mut counter = Builder::new().build()?;
+///         let mut counter = Builder::new().counter()?;
 ///
 ///         let vec = (0..=51).collect::<Vec<_>>();
 ///
@@ -142,7 +142,7 @@ pub struct Counter {
 ///
 ///     # use perf_event::Builder;
 ///     # fn main() -> std::io::Result<()> {
-///     let mut insns = Builder::new().build()?;
+///     let mut insns = Builder::new().counter()?;
 ///     # Ok(()) }
 ///
 /// The [`kind`] method lets you specify what sort of event you want to
@@ -153,7 +153,7 @@ pub struct Counter {
 ///     # fn main() -> std::io::Result<()> {
 ///     let mut insns = Builder::new()
 ///         .kind(Hardware::BRANCH_INSTRUCTIONS)
-///         .build()?;
+///         .counter()?;
 ///     # Ok(()) }
 ///
 /// The [`group`] method lets you gather individual counters into `Group`
@@ -163,8 +163,8 @@ pub struct Counter {
 ///     # use perf_event::events::Hardware;
 ///     # fn main() -> std::io::Result<()> {
 ///     let mut group = Group::new()?;
-///     let cycles = Builder::new().group(&group).kind(Hardware::CPU_CYCLES).build()?;
-///     let insns = Builder::new().group(&group).kind(Hardware::INSTRUCTIONS).build()?;
+///     let cycles = Builder::new().group(&group).kind(Hardware::CPU_CYCLES).counter()?;
+///     let insns = Builder::new().group(&group).kind(Hardware::INSTRUCTIONS).counter()?;
 ///     # Ok(()) }
 ///
 /// Other methods let you select:
@@ -220,8 +220,8 @@ enum EventPid<'a> {
 ///     use perf_event::events::Hardware;
 ///
 ///     let mut group = Group::new()?;
-///     let cycles = Builder::new().group(&group).kind(Hardware::CPU_CYCLES).build()?;
-///     let insns = Builder::new().group(&group).kind(Hardware::INSTRUCTIONS).build()?;
+///     let cycles = Builder::new().group(&group).kind(Hardware::CPU_CYCLES).counter()?;
+///     let insns = Builder::new().group(&group).kind(Hardware::INSTRUCTIONS).counter()?;
 ///
 ///     let vec = (0..=51).collect::<Vec<_>>();
 ///
@@ -290,8 +290,8 @@ pub struct Group {
 ///     # fn main() -> std::io::Result<()> {
 ///     # use perf_event::{Builder, Group};
 ///     # let mut group = Group::new()?;
-///     # let cycles = Builder::new().group(&group).build()?;
-///     # let insns = Builder::new().group(&group).build()?;
+///     # let cycles = Builder::new().group(&group).counter()?;
+///     # let insns = Builder::new().group(&group).counter()?;
 ///     let counts = group.read()?;
 ///     println!("cycles / instructions: {} / {} ({:.2} cpi)",
 ///              counts[&cycles],
@@ -408,8 +408,8 @@ impl<'a> Builder<'a> {
     ///     const MISS: Cache = Cache { result: CacheResult::MISS, ..ACCESS };
     ///
     ///     let mut group = Group::new()?;
-    ///     let access_counter = Builder::new().group(&group).kind(ACCESS).build()?;
-    ///     let miss_counter = Builder::new().group(&group).kind(MISS).build()?;
+    ///     let access_counter = Builder::new().group(&group).kind(ACCESS).counter()?;
+    ///     let miss_counter = Builder::new().group(&group).kind(MISS).counter()?;
     ///     # Ok(()) }
     ///
     /// [`Event`]: events/enum.Event.html
@@ -443,7 +443,7 @@ impl<'a> Builder<'a> {
     ///
     /// [`Counter`]: struct.Counter.html
     /// [`enable`]: struct.Counter.html#method.enable
-    pub fn build(self) -> std::io::Result<Counter> {
+    pub fn counter(self) -> std::io::Result<Counter> {
         let cpu = match self.cpu {
             Some(cpu) => cpu as c_int,
             None => -1,
@@ -629,8 +629,8 @@ impl Group {
     ///
     /// ```ignore
     /// let mut group = Group::new()?;
-    /// let counter1 = Builder::new().group(&group).kind(...).build()?;
-    /// let counter2 = Builder::new().group(&group).kind(...).build()?;
+    /// let counter1 = Builder::new().group(&group).kind(...).counter()?;
+    /// let counter2 = Builder::new().group(&group).kind(...).counter()?;
     /// ...
     /// let counts = group.read()?;
     /// println!("Rhombus inclinations per taxi medallion: {} / {} ({:.0}%)",
@@ -733,7 +733,7 @@ impl Counts {
     ///     # fn main() -> std::io::Result<()> {
     ///     # use perf_event::{Builder, Group};
     ///     # let mut group = Group::new()?;
-    ///     # let cycle_counter = Builder::new().group(&group).build()?;
+    ///     # let cycle_counter = Builder::new().group(&group).counter()?;
     ///     # let counts = group.read()?;
     ///     let cycles = counts[&cycle_counter];
     ///     # Ok(()) }
@@ -803,6 +803,6 @@ where
 #[test]
 fn simple_build() {
     Builder::new()
-        .build()
+        .counter()
         .expect("Couldn't build default Counter");
 }

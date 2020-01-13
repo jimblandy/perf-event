@@ -13,16 +13,16 @@ fn main() -> std::io::Result<()> {
     };
 
     let mut group = Group::new()?;
-    let access_counter = Builder::new().group(&group).kind(ACCESS).build()?;
-    let miss_counter = Builder::new().group(&group).kind(MISS).build()?;
+    let access_counter = Builder::new().group(&group).kind(ACCESS).counter()?;
+    let miss_counter = Builder::new().group(&group).kind(MISS).counter()?;
     let branches = Builder::new()
         .group(&group)
         .kind(Hardware::BRANCH_INSTRUCTIONS)
-        .build()?;
+        .counter()?;
     let missed_branches = Builder::new()
         .group(&group)
         .kind(Hardware::BRANCH_MISSES)
-        .build()?;
+        .counter()?;
 
     let vec = (0..=51).collect::<Vec<_>>();
 

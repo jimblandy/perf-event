@@ -6,11 +6,11 @@ fn main() -> std::io::Result<()> {
     let cycles = Builder::new()
         .group(&group)
         .kind(Hardware::CPU_CYCLES)
-        .build()?;
+        .counter()?;
     let insns = Builder::new()
         .group(&group)
         .kind(Hardware::INSTRUCTIONS)
-        .build()?;
+        .counter()?;
 
     let vec = (0..=51).collect::<Vec<_>>();
 

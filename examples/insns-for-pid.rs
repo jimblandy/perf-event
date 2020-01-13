@@ -14,7 +14,7 @@ fn main() -> std::io::Result<()> {
     let mut insns = Builder::new()
         .observe_pid(pid)
         .kind(Hardware::BRANCH_INSTRUCTIONS)
-        .build()?;
+        .counter()?;
 
     // Count instructions in PID for five seconds.
     insns.enable()?;
