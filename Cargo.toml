@@ -11,3 +11,4 @@ description = "A Rust interface to Linux performance monitoring"
 [dependencies]
 perf-event-open-sys = "0.3"
 libc = "0.2"
+byte = "0.2.4"
