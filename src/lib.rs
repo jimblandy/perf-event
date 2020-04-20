@@ -1129,7 +1129,7 @@ impl Drop for SampleStream {
 
 #[test]
 fn sample_stream() -> std::io::Result<()> {
-    use std::sync::atomic::AtomicBool;
+    use std::sync::{atomic::AtomicBool, Arc};
 
     let sample_stream = Builder::new()
         .kind(events::Hardware::CPU_CYCLES)
@@ -1145,13 +1145,14 @@ fn sample_stream() -> std::io::Result<()> {
 
     sample_stream.enable()?;
 
-    static DONE: AtomicBool = AtomicBool::new(false);
+    let done = Arc::new(AtomicBool::new(false));
 
     let current_pid = unsafe { libc::getpid() };
 
     // Sample on a different thread and create samples on the main thread until we get at least
     // ten.
-    std::thread::spawn(move || {
+    let other_done = done.clone();
+    let handle = std::thread::spawn(move || {
         for _ in 0..10 {
             if let Some(PerfRecord::Sample(sample)) = sample_stream.read(None).unwrap() {
                 // We should only get samples for the pid we asked for.
@@ -1160,13 +1161,15 @@ fn sample_stream() -> std::io::Result<()> {
                 panic!();
             }
         }
-        DONE.store(true, Ordering::Relaxed);
+        other_done.store(true, Ordering::Relaxed);
     });
 
     // This busy-wait loop creates activity for the sampling thread to observe.
-    while !DONE.load(Ordering::Relaxed) {
+    while !done.load(Ordering::Relaxed) {
         std::thread::sleep(std::time::Duration::from_millis(1));
     }
+
+    handle.join().unwrap();
 
     Ok(())
 }
