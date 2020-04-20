@@ -443,53 +443,9 @@ impl<'a> Builder<'a> {
         self
     }
 
-    /// When sampling, include the current instruction pointer.
-    pub fn sample_ip(mut self) -> Builder<'a> {
-        self.sample_type_set.add(PerfSampleType::IP);
-        self
-    }
-
-    /// When sampling, include the current process id / thread id.
-    pub fn sample_tid(mut self) -> Builder<'a> {
-        self.sample_type_set.add(PerfSampleType::TID);
-        self
-    }
-
-    /// When sampling, include a timestamp in the sample.
-    pub fn sample_time(mut self) -> Builder<'a> {
-        self.sample_type_set.add(PerfSampleType::TIME);
-        self
-    }
-
-    /// When sampling, include the address of the relevant tracepoint, breakpoint or software
-    /// event.
-    pub fn sample_address(mut self) -> Builder<'a> {
-        self.sample_type_set.add(PerfSampleType::ADDR);
-        self
-    }
-
-    /// When sampling, include the current callchain.
-    pub fn sample_callchain(mut self) -> Builder<'a> {
-        self.sample_type_set.add(PerfSampleType::CALLCHAIN);
-        self
-    }
-
-    /// When sampling, include a unique id. If part of a group, this will instead be the group
-    /// leader ID.
-    pub fn sample_id(mut self) -> Builder<'a> {
-        self.sample_type_set.add(PerfSampleType::ID);
-        self
-    }
-
-    /// When sampling, include a value representing the current CPU.
-    pub fn sample_cpu(mut self) -> Builder<'a> {
-        self.sample_type_set.add(PerfSampleType::CPU);
-        self
-    }
-
-    /// When sampling, include in the sample the current sampling period.
-    pub fn sample_period(mut self) -> Builder<'a> {
-        self.sample_type_set.add(PerfSampleType::PERIOD);
+    /// When sampling, include the given type.
+    pub fn sample(mut self, type_: PerfSampleType) -> Builder<'a> {
+        self.sample_type_set.add(type_);
         self
     }
 
@@ -1141,12 +1097,12 @@ fn sample_stream() -> std::io::Result<()> {
         .kind(events::Hardware::CPU_CYCLES)
         // This frequency isn't guaranteed to work.
         .sample_frequency(4000)
-        .sample_ip()
-        .sample_tid()
-        .sample_time()
-        .sample_cpu()
-        .sample_period()
-        .sample_callchain()
+        .sample(PerfSampleType::IP)
+        .sample(PerfSampleType::TID)
+        .sample(PerfSampleType::TIME)
+        .sample(PerfSampleType::CPU)
+        .sample(PerfSampleType::PERIOD)
+        .sample(PerfSampleType::CALLCHAIN)
         .sample_stream()?;
 
     sample_stream.enable()?;

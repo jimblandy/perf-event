@@ -1,4 +1,4 @@
-use perf_event::{events, Builder};
+use perf_event::{events, sample::PerfSampleType, Builder};
 use std::time::{Duration, Instant};
 
 fn main() -> std::io::Result<()> {
@@ -12,13 +12,13 @@ fn main() -> std::io::Result<()> {
                 .kind(events::Hardware::CPU_CYCLES)
                 .one_cpu(cpu)
                 .observe_all()
-                .sample_callchain()
+                .sample(PerfSampleType::CALLCHAIN)
                 .sample_frequency(4000)
-                .sample_ip()
-                .sample_tid()
-                .sample_time()
-                .sample_cpu()
-                .sample_period()
+                .sample(PerfSampleType::IP)
+                .sample(PerfSampleType::TID)
+                .sample(PerfSampleType::TIME)
+                .sample(PerfSampleType::CPU)
+                .sample(PerfSampleType::PERIOD)
                 .sample_stream()?;
 
             sample_stream.enable()?;
