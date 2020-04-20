@@ -936,7 +936,12 @@ fn simple_build() {
 }
 
 // Use a pretty big buffer because we don't want to drop any entries
-const SAMPLE_BUFFER_SIZE: usize = 528384;
+const SAMPLE_BUFFER_PAGES: usize = 128 + 1;
+
+/// Size of a page of memory in bytes.
+fn page_size() -> usize {
+    (unsafe { libc::sysconf(libc::_SC_PAGESIZE) }) as usize
+}
 
 fn wait_for_readable_or_timeout(file: &File, timeout: Option<std::time::Duration>) -> bool {
     let mut pollfd = pollfd {
@@ -1018,7 +1023,7 @@ impl SampleStream {
         let mapped_memory = check_syscall(|| unsafe {
             mmap(
                 std::ptr::null_mut(),
-                SAMPLE_BUFFER_SIZE,
+                SAMPLE_BUFFER_PAGES * page_size(),
                 PROT_READ | PROT_WRITE,
                 MAP_SHARED,
                 file.as_raw_fd(),
@@ -1059,7 +1064,7 @@ impl SampleStream {
 
         // The kernel gives us records in a ring buffer. As the kernel adds records to the head, we
         // are consuming from the tail. If the buffer is full, the kernel drops records.
-        let header: *mut PerfEventMmapPage = unsafe { std::mem::transmute(self.mapped_memory) };
+        let header = self.mapped_memory as *mut PerfEventMmapPage;
         let header = unsafe { &mut *header };
 
         let tail = header.data_tail.load(Ordering::Relaxed);
@@ -1123,7 +1128,8 @@ impl Drop for SampleStream {
     fn drop(&mut self) {
         // Only error we reasonably expect is EINVAL
         self.disable().unwrap();
-        check_syscall(|| unsafe { munmap(self.mapped_memory, SAMPLE_BUFFER_SIZE) }).unwrap();
+        check_syscall(|| unsafe { munmap(self.mapped_memory, SAMPLE_BUFFER_PAGES * page_size()) })
+            .unwrap();
     }
 }
 
