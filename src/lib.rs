@@ -598,7 +598,7 @@ impl<'a> Builder<'a> {
 
     /// Construct a [`SampleStream`].
     ///
-    /// A freshly built `SampleStream` is disabled. To being reading records from the read, you
+    /// A freshly built `SampleStream` is disabled. To begin reading records from the stream, you
     /// must call [`enable`] on the `SampleStream` or the `Group` to which it belongs.
     ///
     /// [`SampleStream`]: struct.SampleStream.html
@@ -1002,8 +1002,8 @@ struct PerfEventMmapPage {
 /// states or events concerning the process(es) being profiled.
 ///
 /// Internally the samples are queued up in a ring-buffer. The kernel writes samples into the
-/// buffer, and [`SampleStream.read`] deques them. If the buffer it full, the kernel will overwrite
-/// old samples effectively dropping them.
+/// buffer, and [`SampleStream.read`] dequeues them. If the buffer is full, the kernel will
+/// overwrite old samples effectively dropping them.
 pub struct SampleStream {
     file: File,
     mapped_memory: *mut c_void,
@@ -1156,9 +1156,6 @@ fn sample_stream() -> std::io::Result<()> {
             if let Some(PerfRecord::Sample(sample)) = sample_stream.read(None).unwrap() {
                 // We should only get samples for the pid we asked for.
                 assert_eq!(sample.pid.unwrap(), current_pid);
-
-            // XXX its hard to verify other stuff about the sample since we can't predict what
-            // the value are.
             } else {
                 panic!();
             }
@@ -1166,6 +1163,7 @@ fn sample_stream() -> std::io::Result<()> {
         DONE.store(true, Ordering::Relaxed);
     });
 
+    // This busy-wait loop creates activity for the sampling thread to observe.
     while !DONE.load(Ordering::Relaxed) {
         std::thread::sleep(std::time::Duration::from_millis(1));
     }

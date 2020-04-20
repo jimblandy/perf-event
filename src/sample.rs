@@ -17,7 +17,7 @@ use std::os::raw::c_void;
 ///
 /// [man]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
 ///
-/// Not all possible values of this enum are currently included
+/// Not all possible values of this enum are currently included.
 #[derive(Copy, Clone)]
 #[repr(u64)]
 pub enum PerfSampleType {
