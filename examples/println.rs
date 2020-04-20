@@ -1,7 +1,7 @@
 use perf_event::Builder;
 
 fn main() -> std::io::Result<()> {
-    let mut counter = Builder::new().build()?;
+    let mut counter = Builder::new().counter()?;
 
     let vec = (0..=51).collect::<Vec<_>>();
 

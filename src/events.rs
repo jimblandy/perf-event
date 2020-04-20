@@ -27,7 +27,7 @@
 //! [`Cache`]: struct.Cache.html
 
 #![allow(non_camel_case_types)]
-use perf_event_open_sys::bindings as bindings;
+use perf_event_open_sys::bindings;
 
 /// Any sort of event. This is a sum of the [`Hardware`],
 /// [`Software`], and [`Cache`] types, which all implement
@@ -211,8 +211,8 @@ impl From<Software> for Event {
 ///     // Construct a `Group` containing the two new counters, from which we
 ///     // can get counts over matching periods of time.
 ///     let mut group = Group::new()?;
-///     let access_counter = Builder::new().group(&group).kind(ACCESS).build()?;
-///     let miss_counter = Builder::new().group(&group).kind(MISS).build()?;
+///     let access_counter = Builder::new().group(&group).kind(ACCESS).counter()?;
+///     let miss_counter = Builder::new().group(&group).kind(MISS).counter()?;
 ///     # Ok(()) }
 ///
 /// [`which`]: enum.WhichCache.html
@@ -238,9 +238,7 @@ impl From<Cache> for Event {
 
 impl Cache {
     fn as_config(&self) -> u64 {
-        self.which as u64 |
-        ((self.operation as u64) << 8) |
-        ((self.result as u64) << 16)
+        self.which as u64 | ((self.operation as u64) << 8) | ((self.result as u64) << 16)
     }
 }
 

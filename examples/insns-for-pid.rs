@@ -1,6 +1,6 @@
 use libc::pid_t;
-use perf_event::Builder;
 use perf_event::events::Hardware;
+use perf_event::Builder;
 use std::thread::sleep;
 use std::time::Duration;
 
@@ -14,7 +14,7 @@ fn main() -> std::io::Result<()> {
     let mut insns = Builder::new()
         .observe_pid(pid)
         .kind(Hardware::BRANCH_INSTRUCTIONS)
-        .build()?;
+        .counter()?;
 
     // Count instructions in PID for five seconds.
     insns.enable()?;

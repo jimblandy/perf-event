@@ -13,8 +13,8 @@
 //!     fn main() -> std::io::Result<()> {
 //!         // A `Group` lets us enable and disable several counters atomically.
 //!         let mut group = Group::new()?;
-//!         let cycles = Builder::new().group(&group).kind(Hardware::CPU_CYCLES).build()?;
-//!         let insns = Builder::new().group(&group).kind(Hardware::INSTRUCTIONS).build()?;
+//!         let cycles = Builder::new().group(&group).kind(Hardware::CPU_CYCLES).counter()?;
+//!         let insns = Builder::new().group(&group).kind(Hardware::INSTRUCTIONS).counter()?;
 //!
 //!         let vec = (0..=51).collect::<Vec<_>>();
 //!
@@ -35,7 +35,7 @@
 //! call; that documentation has the authoritative explanations of exactly what
 //! all the counters mean.
 //!
-//! There are two main types for measurement:
+//! There are three main types for measurement:
 //!
 //! -   A [`Counter`] is an individual counter. Use [`Builder`] to
 //!     construct one.
@@ -43,6 +43,9 @@
 //! -   A [`Group`] is a collection of counters that can be enabled and
 //!     disabled atomically, so that they cover exactly the same period of
 //!     execution, allowing meaningful comparisons of the individual values.
+//!
+//! -   A [`SampleStream`] is a stream of information from the kernel containing instantaneous
+//!     information and events about that being profiled.
 //!
 //! ### Call for PRs
 //!
@@ -61,6 +64,7 @@
 //! inclusion, so be forewarned.)
 //!
 //! [`Counter`]: struct.Counter.html
+//! [`SampleStream`]: struct.SampleStream.html
 //! [`Builder`]: struct.Builder.html
 //! [`Group`]: struct.Group.html
 //! [man]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
@@ -68,15 +72,18 @@
 #![deny(missing_docs)]
 
 use events::Event;
-use libc::pid_t;
+use libc::{mmap, munmap, pid_t, poll, pollfd, MAP_SHARED, POLLIN, PROT_READ, PROT_WRITE};
 use perf_event_open_sys as sys;
+use sample::{PerfRecord, PerfSampleType, PerfSampleTypeSet};
+use std::convert::TryInto;
 use std::fs::File;
 use std::io::{self, Read};
-use std::os::raw::{c_int, c_uint, c_ulong};
+use std::os::raw::{c_int, c_uint, c_ulong, c_void};
 use std::os::unix::io::{AsRawFd, FromRawFd};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 
 pub mod events;
+pub mod sample;
 
 /// A counter for one kind of kernel or hardware event.
 ///
@@ -93,7 +100,7 @@ pub mod events;
 ///     use perf_event::Builder;
 ///
 ///     fn main() -> std::io::Result<()> {
-///         let mut counter = Builder::new().build()?;
+///         let mut counter = Builder::new().counter()?;
 ///
 ///         let vec = (0..=51).collect::<Vec<_>>();
 ///
@@ -142,7 +149,7 @@ pub struct Counter {
 ///
 ///     # use perf_event::Builder;
 ///     # fn main() -> std::io::Result<()> {
-///     let mut insns = Builder::new().build()?;
+///     let mut insns = Builder::new().counter()?;
 ///     # Ok(()) }
 ///
 /// The [`kind`] method lets you specify what sort of event you want to
@@ -153,7 +160,7 @@ pub struct Counter {
 ///     # fn main() -> std::io::Result<()> {
 ///     let mut insns = Builder::new()
 ///         .kind(Hardware::BRANCH_INSTRUCTIONS)
-///         .build()?;
+///         .counter()?;
 ///     # Ok(()) }
 ///
 /// The [`group`] method lets you gather individual counters into `Group`
@@ -163,8 +170,8 @@ pub struct Counter {
 ///     # use perf_event::events::Hardware;
 ///     # fn main() -> std::io::Result<()> {
 ///     let mut group = Group::new()?;
-///     let cycles = Builder::new().group(&group).kind(Hardware::CPU_CYCLES).build()?;
-///     let insns = Builder::new().group(&group).kind(Hardware::INSTRUCTIONS).build()?;
+///     let cycles = Builder::new().group(&group).kind(Hardware::CPU_CYCLES).counter()?;
+///     let insns = Builder::new().group(&group).kind(Hardware::INSTRUCTIONS).counter()?;
 ///     # Ok(()) }
 ///
 /// Other methods let you select:
@@ -185,6 +192,8 @@ pub struct Builder<'a> {
     cpu: Option<usize>,
     kind: Event,
     group: Option<&'a Group>,
+    sample_type_set: PerfSampleTypeSet,
+    sample_frequency: u64,
 }
 
 #[derive(Debug)]
@@ -197,6 +206,9 @@ enum EventPid<'a> {
 
     /// Monitor members of the given cgroup.
     CGroup(&'a File),
+
+    /// Monitor all other processes.
+    All,
 }
 
 /// A group of counters that can be managed as a unit.
@@ -220,8 +232,8 @@ enum EventPid<'a> {
 ///     use perf_event::events::Hardware;
 ///
 ///     let mut group = Group::new()?;
-///     let cycles = Builder::new().group(&group).kind(Hardware::CPU_CYCLES).build()?;
-///     let insns = Builder::new().group(&group).kind(Hardware::INSTRUCTIONS).build()?;
+///     let cycles = Builder::new().group(&group).kind(Hardware::CPU_CYCLES).counter()?;
+///     let insns = Builder::new().group(&group).kind(Hardware::INSTRUCTIONS).counter()?;
 ///
 ///     let vec = (0..=51).collect::<Vec<_>>();
 ///
@@ -290,8 +302,8 @@ pub struct Group {
 ///     # fn main() -> std::io::Result<()> {
 ///     # use perf_event::{Builder, Group};
 ///     # let mut group = Group::new()?;
-///     # let cycles = Builder::new().group(&group).build()?;
-///     # let insns = Builder::new().group(&group).build()?;
+///     # let cycles = Builder::new().group(&group).counter()?;
+///     # let insns = Builder::new().group(&group).counter()?;
 ///     let counts = group.read()?;
 ///     println!("cycles / instructions: {} / {} ({:.2} cpi)",
 ///              counts[&cycles],
@@ -318,7 +330,7 @@ pub struct Group {
 /// [`Counter::id`]: struct.Counter.html#method.id
 pub struct Counts {
     // Raw results from the `read`.
-    data: Vec<u64>
+    data: Vec<u64>,
 }
 
 impl<'a> EventPid<'a> {
@@ -327,8 +339,8 @@ impl<'a> EventPid<'a> {
         match self {
             EventPid::ThisProcess => (0, 0),
             EventPid::Other(pid) => (*pid, 0),
-            EventPid::CGroup(file) =>
-                (file.as_raw_fd(), sys::bindings::PERF_FLAG_PID_CGROUP),
+            EventPid::CGroup(file) => (file.as_raw_fd(), sys::bindings::PERF_FLAG_PID_CGROUP),
+            EventPid::All => (-1, 0),
         }
     }
 }
@@ -340,6 +352,8 @@ impl<'a> Default for Builder<'a> {
             cpu: None,
             kind: Event::Hardware(events::Hardware::INSTRUCTIONS),
             group: None,
+            sample_type_set: Default::default(),
+            sample_frequency: 0,
         }
     }
 }
@@ -362,6 +376,13 @@ impl<'a> Builder<'a> {
     /// [man-capabilities]: http://man7.org/linux/man-pages/man7/capabilities.7.html
     pub fn observe_pid(mut self, pid: pid_t) -> Builder<'a> {
         self.who = EventPid::Other(pid);
+        self
+    }
+
+    /// Observe all processes on the machine. When observing all processes, it is not allowed to
+    /// also observe any cpu.
+    pub fn observe_all(mut self) -> Builder<'a> {
+        self.who = EventPid::All;
         self
     }
 
@@ -409,8 +430,8 @@ impl<'a> Builder<'a> {
     ///     const MISS: Cache = Cache { result: CacheResult::MISS, ..ACCESS };
     ///
     ///     let mut group = Group::new()?;
-    ///     let access_counter = Builder::new().group(&group).kind(ACCESS).build()?;
-    ///     let miss_counter = Builder::new().group(&group).kind(MISS).build()?;
+    ///     let access_counter = Builder::new().group(&group).kind(ACCESS).counter()?;
+    ///     let miss_counter = Builder::new().group(&group).kind(MISS).counter()?;
     ///     # Ok(()) }
     ///
     /// [`Event`]: events/enum.Event.html
@@ -419,6 +440,39 @@ impl<'a> Builder<'a> {
     /// [`Cache`]: events/struct.Cache.html
     pub fn kind<K: Into<Event>>(mut self, kind: K) -> Builder<'a> {
         self.kind = kind.into();
+        self
+    }
+
+    /// When sampling, include the given type.
+    pub fn sample(mut self, type_: PerfSampleType) -> Builder<'a> {
+        self.sample_type_set.add(type_);
+        self
+    }
+
+    /// When sampling, include a unique ID. This is different from `sample_id` in that it is never
+    /// the group leader ID.
+    pub fn sample_stream_id(mut self) -> Builder<'a> {
+        self.sample_type_set.add(PerfSampleType::STREAM_ID);
+        self
+    }
+
+    /// When sampling, include the raw sample.
+    pub fn sample_raw(mut self) -> Builder<'a> {
+        self.sample_type_set.add(PerfSampleType::RAW);
+        self
+    }
+
+    /// When sampling, include a weight value that indicates how costly the event was. This allows
+    /// expensive events to stand out more clearly in profiles.
+    pub fn sample_weight(mut self) -> Builder<'a> {
+        self.sample_type_set.add(PerfSampleType::WEIGHT);
+        self
+    }
+
+    /// Set the frequency to sample at in Herts. If this frequency is too high, the kernel may
+    /// reject it.
+    pub fn sample_frequency(mut self, sample_frequency: u64) -> Builder<'a> {
+        self.sample_frequency = sample_frequency;
         self
     }
 
@@ -432,19 +486,7 @@ impl<'a> Builder<'a> {
         self
     }
 
-    /// Construct a [`Counter`] according to the specifications made on this
-    /// `Builder`.
-    ///
-    /// A freshly built `Counter` is disabled. To begin counting events, you
-    /// must call [`enable`] on the `Counter` or the `Group` to which it belongs.
-    ///
-    /// Unfortunately, problems in counter configuration are detected at this
-    /// point, by the kernel, not earlier when the offending request is made on
-    /// the `Builder`. The kernel's returned errors are not always helpful.
-    ///
-    /// [`Counter`]: struct.Counter.html
-    /// [`enable`]: struct.Counter.html#method.enable
-    pub fn build(self) -> std::io::Result<Counter> {
+    fn build(self, sample: bool) -> std::io::Result<(sys::bindings::perf_event_attr, File)> {
         let cpu = match self.cpu {
             Some(cpu) => cpu as c_int,
             None => -1,
@@ -466,21 +508,60 @@ impl<'a> Builder<'a> {
         attrs.set_exclude_kernel(1);
         attrs.set_exclude_hv(1);
 
+        if sample {
+            attrs.set_freq(1);
+            attrs.set_precise_ip(3);
+
+            attrs.set_watermark(1);
+            attrs.__bindgen_anon_2.wakeup_watermark = 1;
+
+            attrs.__bindgen_anon_1.sample_freq = self.sample_frequency;
+            attrs.sample_type = self.sample_type_set.0;
+        }
+
         let file = unsafe {
             File::from_raw_fd(check_syscall(|| {
                 sys::perf_event_open(&mut attrs, pid, cpu, group_fd, flags as c_ulong)
             })?)
         };
 
+        Ok((attrs, file))
+    }
+
+    /// Construct a [`Counter`] according to the specifications made on this
+    /// `Builder`.
+    ///
+    /// A freshly built `Counter` is disabled. To begin counting events, you
+    /// must call [`enable`] on the `Counter` or the `Group` to which it belongs.
+    ///
+    /// Unfortunately, problems in counter configuration are detected at this
+    /// point, by the kernel, not earlier when the offending request is made on
+    /// the `Builder`. The kernel's returned errors are not always helpful.
+    ///
+    /// [`Counter`]: struct.Counter.html
+    /// [`enable`]: struct.Counter.html#method.enable
+    pub fn counter(self) -> std::io::Result<Counter> {
+        let (_, file) = self.build(false)?;
+
         // If we're going to be part of a Group, retrieve the ID the kernel
         // assigned us, so we can find our results in a Counts structure. Even
         // if we're not part of a group, we'll use it in `Debug` output.
         let mut id = 0_64;
-        check_syscall(|| unsafe {
-            sys::ioctls::ID(file.as_raw_fd(), &mut id)
-        })?;
+        check_syscall(|| unsafe { sys::ioctls::ID(file.as_raw_fd(), &mut id) })?;
 
-        Ok(Counter { file, id, })
+        Ok(Counter { file, id })
+    }
+
+    /// Construct a [`SampleStream`].
+    ///
+    /// A freshly built `SampleStream` is disabled. To begin reading records from the stream, you
+    /// must call [`enable`] on the `SampleStream` or the `Group` to which it belongs.
+    ///
+    /// [`SampleStream`]: struct.SampleStream.html
+    /// [`enable`]: struct.SampleStream.html#method.enable
+    pub fn sample_stream(self) -> std::io::Result<SampleStream> {
+        let (attrs, file) = self.build(true)?;
+        SampleStream::new(attrs, file)
     }
 }
 
@@ -506,9 +587,7 @@ impl Counter {
     /// [`reset`]: #method.reset
     /// [`enable`]: struct.Group.html#method.enable
     pub fn enable(&mut self) -> io::Result<()> {
-        check_syscall(|| unsafe {
-            sys::ioctls::ENABLE(self.file.as_raw_fd(), 0)
-        }).map(|_| ())
+        check_syscall(|| unsafe { sys::ioctls::ENABLE(self.file.as_raw_fd(), 0) }).map(|_| ())
     }
 
     /// Make this `Counter` stop counting its designated event. Its count is
@@ -519,9 +598,7 @@ impl Counter {
     ///
     /// [`disable`]: struct.Group.html#method.disable
     pub fn disable(&mut self) -> io::Result<()> {
-        check_syscall(|| unsafe {
-            sys::ioctls::DISABLE(self.file.as_raw_fd(), 0)
-        }).map(|_| ())
+        check_syscall(|| unsafe { sys::ioctls::DISABLE(self.file.as_raw_fd(), 0) }).map(|_| ())
     }
 
     /// Reset the value of this `Counter` to zero.
@@ -531,9 +608,7 @@ impl Counter {
     ///
     /// [`reset`]: struct.Group.html#method.reset
     pub fn reset(&mut self) -> io::Result<()> {
-        check_syscall(|| unsafe {
-            sys::ioctls::RESET(self.file.as_raw_fd(), 0)
-        }).map(|_| ())
+        check_syscall(|| unsafe { sys::ioctls::RESET(self.file.as_raw_fd(), 0) }).map(|_| ())
     }
 
     /// Return this `Counter`'s current value as a `u64`.
@@ -551,8 +626,12 @@ impl Counter {
 
 impl std::fmt::Debug for Counter {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(fmt, "Counter {{ fd: {}, id: {} }}",
-               self.file.as_raw_fd(), self.id)
+        write!(
+            fmt,
+            "Counter {{ fd: {}, id: {} }}",
+            self.file.as_raw_fd(),
+            self.id
+        )
     }
 }
 
@@ -570,8 +649,9 @@ impl Group {
         attrs.set_exclude_hv(1);
 
         // Arrange to be able to identify the counters we read back.
-        attrs.read_format = (sys::bindings::perf_event_read_format_PERF_FORMAT_ID |
-                             sys::bindings::perf_event_read_format_PERF_FORMAT_GROUP) as u64;
+        attrs.read_format = (sys::bindings::perf_event_read_format_PERF_FORMAT_ID
+            | sys::bindings::perf_event_read_format_PERF_FORMAT_GROUP)
+            as u64;
 
         let file = unsafe {
             File::from_raw_fd(check_syscall(|| {
@@ -581,13 +661,15 @@ impl Group {
 
         // Retrieve the ID the kernel assigned us.
         let mut id = 0_64;
-        check_syscall(|| unsafe {
-            sys::ioctls::ID(file.as_raw_fd(), &mut id)
-        })?;
+        check_syscall(|| unsafe { sys::ioctls::ID(file.as_raw_fd(), &mut id) })?;
 
         let max_members = AtomicUsize::new(0);
 
-        Ok(Group { file, id, max_members })
+        Ok(Group {
+            file,
+            id,
+            max_members,
+        })
     }
 
     /// Allow all `Counter`s in this `Group` to begin counting their designated
@@ -615,9 +697,12 @@ impl Group {
 
     fn generic_ioctl(&mut self, f: unsafe fn(c_int, c_uint) -> c_int) -> io::Result<()> {
         check_syscall(|| unsafe {
-            f(self.file.as_raw_fd(),
-              sys::bindings::perf_event_ioc_flags_PERF_IOC_FLAG_GROUP)
-        }).map(|_| ())
+            f(
+                self.file.as_raw_fd(),
+                sys::bindings::perf_event_ioc_flags_PERF_IOC_FLAG_GROUP,
+            )
+        })
+        .map(|_| ())
     }
 
     /// Return the values of all the `Counter`s in this `Group` as a [`Counts`]
@@ -628,8 +713,8 @@ impl Group {
     ///
     /// ```ignore
     /// let mut group = Group::new()?;
-    /// let counter1 = Builder::new().group(&group).kind(...).build()?;
-    /// let counter2 = Builder::new().group(&group).kind(...).build()?;
+    /// let counter1 = Builder::new().group(&group).kind(...).counter()?;
+    /// let counter2 = Builder::new().group(&group).kind(...).counter()?;
     /// ...
     /// let counts = group.read()?;
     /// println!("Rhombus inclinations per taxi medallion: {} / {} ({:.0}%)",
@@ -664,8 +749,12 @@ impl Group {
 
 impl std::fmt::Debug for Group {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(fmt, "Group {{ fd: {}, id: {} }}",
-               self.file.as_raw_fd(), self.id)
+        write!(
+            fmt,
+            "Group {{ fd: {}, id: {} }}",
+            self.file.as_raw_fd(),
+            self.id
+        )
     }
 }
 
@@ -677,8 +766,7 @@ impl Counts {
     fn nth_ref(&self, n: usize) -> (u64, &u64) {
         assert!(n < self.len());
         // (id, &value)
-        (self.data[1 + 2 * n + 1],
-         &self.data[1 + 2 * n])
+        (self.data[1 + 2 * n + 1], &self.data[1 + 2 * n])
     }
 }
 
@@ -694,7 +782,7 @@ impl Counts {
 /// [`Group::read`]: struct.Group.html#method.read
 pub struct CountsIter<'c> {
     counts: &'c Counts,
-    next: usize
+    next: usize,
 }
 
 impl<'c> Iterator for CountsIter<'c> {
@@ -729,7 +817,7 @@ impl Counts {
     ///     # fn main() -> std::io::Result<()> {
     ///     # use perf_event::{Builder, Group};
     ///     # let mut group = Group::new()?;
-    ///     # let cycle_counter = Builder::new().group(&group).build()?;
+    ///     # let cycle_counter = Builder::new().group(&group).counter()?;
     ///     # let counts = group.read()?;
     ///     let cycles = counts[&cycle_counter];
     ///     # Ok(()) }
@@ -773,17 +861,20 @@ impl std::fmt::Debug for Counts {
 unsafe trait SliceAsBytesMut: Sized {
     fn slice_as_bytes_mut(slice: &mut [Self]) -> &mut [u8] {
         unsafe {
-            std::slice::from_raw_parts_mut(slice.as_mut_ptr() as *mut u8,
-                                           std::mem::size_of_val(slice))
+            std::slice::from_raw_parts_mut(
+                slice.as_mut_ptr() as *mut u8,
+                std::mem::size_of_val(slice),
+            )
         }
     }
 }
 
-unsafe impl SliceAsBytesMut for u64 { }
+unsafe impl SliceAsBytesMut for u64 {}
 
 fn check_syscall<F, R>(f: F) -> io::Result<R>
-where F: FnOnce() -> R,
-      R: PartialOrd + Default
+where
+    F: FnOnce() -> R,
+    R: PartialOrd + Default,
 {
     let result = f();
     if result < R::default() {
@@ -795,5 +886,252 @@ where F: FnOnce() -> R,
 
 #[test]
 fn simple_build() {
-    Builder::new().build().expect("Couldn't build default Counter");
+    Builder::new()
+        .counter()
+        .expect("Couldn't build default Counter");
+}
+
+// Use a pretty big buffer because we don't want to drop any entries
+const SAMPLE_BUFFER_PAGES: usize = 128 + 1;
+
+/// Size of a page of memory in bytes.
+fn page_size() -> usize {
+    (unsafe { libc::sysconf(libc::_SC_PAGESIZE) }) as usize
+}
+
+fn wait_for_readable_or_timeout(file: &File, timeout: Option<std::time::Duration>) -> bool {
+    let mut pollfd = pollfd {
+        fd: file.as_raw_fd(),
+        events: POLLIN,
+        revents: 0,
+    };
+    let timeout = timeout.map(|d| d.as_millis() as c_int).unwrap_or(-1);
+    let events = unsafe { poll(&mut pollfd, 1, timeout) };
+    events == 0
+}
+
+// We create our own version of this rather than use bindgen's so we can have the atomics.
+#[repr(C)]
+struct PerfEventMmapPage {
+    /// version number of this structure
+    version: u32,
+
+    /// lowest version this is compat with
+    compat_version: u32,
+
+    /// seqlock for synchronization
+    lock: u32,
+
+    /// hardware counter identifier
+    index: u32,
+
+    /// add to hardware counter value
+    offset: i64,
+
+    /// time event active
+    time_enabled: u64,
+
+    /// time event on CPU
+    time_running: u64,
+
+    capabilites: u64,
+    pmc_width: u16,
+    time_shift: u16,
+    time_mult: u32,
+    time_offset: u64,
+    __reserved: [u64; 120], /* Pad to 1 k */
+
+    /// head in the data section
+    data_head: AtomicU64,
+
+    /// user-space written tail
+    data_tail: AtomicU64,
+
+    /// where the buffer starts
+    data_offset: u64,
+
+    /// data buffer size
+    data_size: u64,
+
+    aux_head: u64,
+    aux_tail: u64,
+    aux_offset: u64,
+    aux_size: u64,
+}
+
+/// A stream of samples being sent to us from the kernel. These samples represent instantaneous
+/// states or events concerning the process(es) being profiled.
+///
+/// Internally the samples are queued up in a ring-buffer. The kernel writes samples into the
+/// buffer, and [`SampleStream.read`] dequeues them. If the buffer is full, the kernel will
+/// overwrite old samples effectively dropping them.
+pub struct SampleStream {
+    file: File,
+    mapped_memory: *mut c_void,
+    attrs: sys::bindings::perf_event_attr,
+}
+
+unsafe impl Send for SampleStream {}
+unsafe impl Sync for SampleStream {}
+
+impl SampleStream {
+    fn new(attrs: sys::bindings::perf_event_attr, file: File) -> std::io::Result<Self> {
+        let mapped_memory = check_syscall(|| unsafe {
+            mmap(
+                std::ptr::null_mut(),
+                SAMPLE_BUFFER_PAGES * page_size(),
+                PROT_READ | PROT_WRITE,
+                MAP_SHARED,
+                file.as_raw_fd(),
+                0,
+            ) as isize
+        })? as *mut c_void;
+        Ok(Self {
+            file,
+            mapped_memory,
+            attrs,
+        })
+    }
+
+    /// Begin sampling. If read is called before the stream is enabled, it will block until it is.
+    pub fn enable(&self) -> io::Result<()> {
+        check_syscall(|| unsafe { sys::ioctls::ENABLE(self.file.as_raw_fd(), 0) }).map(|_| ())
+    }
+
+    // If a thread is asleep in read, calling this function does not wake it up. As such the only
+    // utility to this function is to tell the kernel to stop sending us events when we destroy the
+    // stream.
+    fn disable(&self) -> io::Result<()> {
+        check_syscall(|| unsafe { sys::ioctls::DISABLE(self.file.as_raw_fd(), 0) }).map(|_| ())
+    }
+
+    /// Pop a sample from the buffer. If the buffer is empty, blocking waiting for there to be one
+    /// to return. If a timeout is given, it only blocks for up to the given timeout. When the
+    /// timeout it reached, None is returned.
+    pub fn read(&self, timeout: Option<std::time::Duration>) -> io::Result<Option<PerfRecord>> {
+        // XXX There is definitely a way to implement this function that has less copies and no
+        // heap allocations. If we made some circular reader type we could decode records directly
+        // from that. It just makes things a bit trickier.
+
+        // wait for there to be data in the buffer, or the timeout.
+        if wait_for_readable_or_timeout(&self.file, timeout) {
+            return Ok(None);
+        }
+
+        // The kernel gives us records in a ring buffer. As the kernel adds records to the head, we
+        // are consuming from the tail. If the buffer is full, the kernel drops records.
+        let header = self.mapped_memory as *mut PerfEventMmapPage;
+        let header = unsafe { &mut *header };
+
+        let tail = header.data_tail.load(Ordering::Relaxed);
+        let head = header.data_head.load(Ordering::Relaxed);
+
+        // If we waited for the file to become readable and didn't time out, there should be
+        // something.
+        assert!(head != tail, "Unexpectedly no data in buffer");
+
+        // The actual data part of the collection comes some amount after the header. The header
+        // says exactly where.
+        let data_slice = unsafe {
+            std::slice::from_raw_parts(
+                self.mapped_memory.offset(header.data_offset as isize) as *mut u8,
+                header.data_size as usize,
+            )
+        };
+
+        // The tail of the ring-buffer is always increasing. To get the actual offset we need to
+        // look tail modulo the size of the buffer.
+        let header_index = (tail as usize) % data_slice.len();
+
+        // Since this is a ring-buffer, whatever we are reading can possibly go off the end of the
+        // buffer and loop back around to the front. We are forced to piece it together.
+        fn read_circular(data: &[u8], index: usize, length: usize) -> Vec<u8> {
+            let first_part = std::cmp::min(length, data.len() - index);
+            let mut record = data[index..(index + first_part)].to_vec();
+            let second_part = length - first_part;
+            record.extend_from_slice(&data[..second_part]);
+            record
+        }
+
+        // Each record has a header telling us the size and type.
+        const HEADER_SIZE: usize = std::mem::size_of::<sys::bindings::perf_event_header>();
+        let record_header_data: Box<[u8; HEADER_SIZE]> =
+            read_circular(data_slice, header_index, HEADER_SIZE)
+                .into_boxed_slice()
+                .try_into()
+                .unwrap();
+        let record_header: Box<sys::bindings::perf_event_header> =
+            unsafe { std::mem::transmute(record_header_data) };
+
+        // Decode the record
+        let record_index = (header_index + HEADER_SIZE) % data_slice.len();
+        let record_body = read_circular(data_slice, record_index, record_header.size as usize);
+        let record =
+            PerfRecord::decode(&self.attrs, record_header.type_, &*record_body).map_err(|_| {
+                std::io::Error::new(std::io::ErrorKind::Other, "failed to decode event")
+            })?;
+
+        // Update the tail of the buffer to let the kernel know we have consumed this record.
+        header
+            .data_tail
+            .store(tail + record_header.size as u64, Ordering::Relaxed);
+
+        Ok(Some(record))
+    }
+}
+
+impl Drop for SampleStream {
+    fn drop(&mut self) {
+        // Only error we reasonably expect is EINVAL
+        self.disable().unwrap();
+        check_syscall(|| unsafe { munmap(self.mapped_memory, SAMPLE_BUFFER_PAGES * page_size()) })
+            .unwrap();
+    }
+}
+
+#[test]
+fn sample_stream() -> std::io::Result<()> {
+    use std::sync::{atomic::AtomicBool, Arc};
+
+    let sample_stream = Builder::new()
+        .kind(events::Hardware::CPU_CYCLES)
+        // This frequency isn't guaranteed to work.
+        .sample_frequency(4000)
+        .sample(PerfSampleType::IP)
+        .sample(PerfSampleType::TID)
+        .sample(PerfSampleType::TIME)
+        .sample(PerfSampleType::CPU)
+        .sample(PerfSampleType::PERIOD)
+        .sample(PerfSampleType::CALLCHAIN)
+        .sample_stream()?;
+
+    sample_stream.enable()?;
+
+    let done = Arc::new(AtomicBool::new(false));
+
+    let current_pid = unsafe { libc::getpid() };
+
+    // Sample on a different thread and create samples on the main thread until we get at least
+    // ten.
+    let other_done = done.clone();
+    let handle = std::thread::spawn(move || {
+        for _ in 0..10 {
+            if let Some(PerfRecord::Sample(sample)) = sample_stream.read(None).unwrap() {
+                // We should only get samples for the pid we asked for.
+                assert_eq!(sample.pid.unwrap(), current_pid);
+            } else {
+                panic!();
+            }
+        }
+        other_done.store(true, Ordering::Relaxed);
+    });
+
+    // This busy-wait loop creates activity for the sampling thread to observe.
+    while !done.load(Ordering::Relaxed) {
+        std::thread::sleep(std::time::Duration::from_millis(1));
+    }
+
+    handle.join().unwrap();
+
+    Ok(())
 }
