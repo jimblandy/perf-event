@@ -467,7 +467,7 @@ impl<'a> Builder<'a> {
         attrs.set_exclude_hv(1);
 
         let file = unsafe {
-            File::from_raw_fd(check_syscall(|| {
+            File::from_raw_fd(check_raw_syscall(|| {
                 sys::perf_event_open(&mut attrs, pid, cpu, group_fd, flags as c_ulong)
             })?)
         };
@@ -476,7 +476,7 @@ impl<'a> Builder<'a> {
         // assigned us, so we can find our results in a Counts structure. Even
         // if we're not part of a group, we'll use it in `Debug` output.
         let mut id = 0_64;
-        check_syscall(|| unsafe {
+        check_errno_syscall(|| unsafe {
             sys::ioctls::ID(file.as_raw_fd(), &mut id)
         })?;
 
@@ -506,7 +506,7 @@ impl Counter {
     /// [`reset`]: #method.reset
     /// [`enable`]: struct.Group.html#method.enable
     pub fn enable(&mut self) -> io::Result<()> {
-        check_syscall(|| unsafe {
+        check_errno_syscall(|| unsafe {
             sys::ioctls::ENABLE(self.file.as_raw_fd(), 0)
         }).map(|_| ())
     }
@@ -519,7 +519,7 @@ impl Counter {
     ///
     /// [`disable`]: struct.Group.html#method.disable
     pub fn disable(&mut self) -> io::Result<()> {
-        check_syscall(|| unsafe {
+        check_errno_syscall(|| unsafe {
             sys::ioctls::DISABLE(self.file.as_raw_fd(), 0)
         }).map(|_| ())
     }
@@ -531,7 +531,7 @@ impl Counter {
     ///
     /// [`reset`]: struct.Group.html#method.reset
     pub fn reset(&mut self) -> io::Result<()> {
-        check_syscall(|| unsafe {
+        check_errno_syscall(|| unsafe {
             sys::ioctls::RESET(self.file.as_raw_fd(), 0)
         }).map(|_| ())
     }
@@ -574,14 +574,14 @@ impl Group {
                              sys::bindings::perf_event_read_format_PERF_FORMAT_GROUP) as u64;
 
         let file = unsafe {
-            File::from_raw_fd(check_syscall(|| {
+            File::from_raw_fd(check_raw_syscall(|| {
                 sys::perf_event_open(&mut attrs, 0, -1, -1, 0)
             })?)
         };
 
         // Retrieve the ID the kernel assigned us.
         let mut id = 0_64;
-        check_syscall(|| unsafe {
+        check_errno_syscall(|| unsafe {
             sys::ioctls::ID(file.as_raw_fd(), &mut id)
         })?;
 
@@ -613,8 +613,11 @@ impl Group {
         self.generic_ioctl(sys::ioctls::RESET)
     }
 
+    /// Perform some group ioctl.
+    ///
+    /// `f` must be a syscall that sets `errno` and returns `-1` on failure.
     fn generic_ioctl(&mut self, f: unsafe fn(c_int, c_uint) -> c_int) -> io::Result<()> {
-        check_syscall(|| unsafe {
+        check_errno_syscall(|| unsafe {
             f(self.file.as_raw_fd(),
               sys::bindings::perf_event_ioc_flags_PERF_IOC_FLAG_GROUP)
         }).map(|_| ())
@@ -781,7 +784,26 @@ unsafe trait SliceAsBytesMut: Sized {
 
 unsafe impl SliceAsBytesMut for u64 { }
 
-fn check_syscall<F, R>(f: F) -> io::Result<R>
+/// Produce an `io::Result` from a raw system call.
+///
+/// A 'raw' system call is one that reports failure by returning negated raw OS
+/// error value.
+fn check_raw_syscall<F>(f: F) -> io::Result<c_int>
+where F: FnOnce() -> c_int
+{
+    let result = f();
+    if result < 0 {
+        Err(io::Error::from_raw_os_error(-result))
+    } else {
+        Ok(result)
+    }
+}
+
+/// Produce an `io::Result` from an errno-style system call.
+///
+/// An 'errno-style' system call is one that reports failure by returning -1 and
+/// setting the C `errno` value when an error occurs.
+fn check_errno_syscall<F, R>(f: F) -> io::Result<R>
 where F: FnOnce() -> R,
       R: PartialOrd + Default
 {
