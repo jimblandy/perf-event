@@ -489,6 +489,13 @@ impl<'a> Builder<'a> {
         attrs.type_ = self.kind.as_type();
         attrs.size = std::mem::size_of::<sys::bindings::perf_event_attr>() as u32;
         attrs.config = self.kind.as_config();
+        attrs.set_disabled(if group_fd != -1 {
+            // man page: "Members of a group are usually initialized with
+            // disabled set to zero."
+            0
+        } else {
+            1
+        });
         attrs.set_disabled(1);
         attrs.set_exclude_kernel(1);
         attrs.set_exclude_hv(1);
