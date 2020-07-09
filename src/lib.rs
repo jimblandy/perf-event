@@ -306,6 +306,8 @@ pub struct Group {
     /// can't necessarily update their `Group`'s count from a `Drop` impl. So we
     /// just increment, giving us an overestimate, and then correct the count
     /// when we actually do a read.
+    ///
+    /// This includes the dummy counter for the group itself.
     max_members: AtomicUsize,
 }
 
@@ -619,7 +621,7 @@ impl Group {
             sys::ioctls::ID(file.as_raw_fd(), &mut id)
         })?;
 
-        let max_members = AtomicUsize::new(0);
+        let max_members = AtomicUsize::new(1);
 
         Ok(Group { file, id, max_members })
     }
@@ -689,13 +691,21 @@ impl Group {
         //             u64 id;        /* if PERF_FORMAT_ID */
         //         } values[nr];
         //     };
-        let mut data = vec![0_u64; 3 + 2 * self.max_members.load(Ordering::SeqCst)];
+        //
+        // We do not request the enabled and running times, so all we have are
+        // the number of events and the value/id pairs.
+        let mut data = vec![0_u64; 1 + 2 * self.max_members.load(Ordering::SeqCst)];
         self.file.read(u64::slice_as_bytes_mut(&mut data))?;
 
-        // CountsIter assumes that the group's dummy count appears first.
-        assert_eq!(data[2], self.id);
+        let counts = Counts { data };
 
-        Ok(Counts { data })
+        // CountsIter assumes that the group's dummy count appears first.
+        assert_eq!(counts.nth_ref(0).0, self.id);
+
+        // Update `max_members` for the next read.
+        self.max_members.store(counts.len(), Ordering::SeqCst);
+
+        Ok(counts)
     }
 }
 
