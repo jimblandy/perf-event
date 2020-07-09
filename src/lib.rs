@@ -247,14 +247,41 @@ enum EventPid<'a> {
 /// `Group` was disabled, unless the `Counter` is re-enabled individually.
 ///
 /// A `Group` and its members must all observe the same tasks and cpus; mixing
-/// these makes building the `Counter` xreturn an error. Unfortunately, there is
+/// these makes building the `Counter` return an error. Unfortunately, there is
 /// no way at present to specify a `Group`s task and cpu, so you can only use
 /// `Group` on the calling task.
+///
+/// ## Limits on group size
+///
+/// Hardware counters are implemented using special-purpose registers on the
+/// processor, of which there are only a fixed number. Without using groups, if
+/// you request more hardware counters than the processor can actually support,
+/// a complete count isn't possible, but the kernel will rotate the processor's
+/// real registers amongst the measurements you've requested to at least produce
+/// a sample.
+///
+/// But since the point of a counter group is that its members must cover
+/// exactly the same period of time, this tactic can't be applied to support
+/// large groups. If the kernel cannot schedule a group, its counters remain
+/// zero. I think you can detect this situation by comparing the group's
+/// 'enabled' and 'running' times, but this crate doesn't support those yet; see
+/// [#5].
+///
+/// According to the `perf_list(1)` man page, you may be able to free up a
+/// hardware counter by disabling the kernel's NMI watchdog, which reserves one
+/// for detecting kernel hangs:
+///
+///     $ echo 0 > /proc/sys/kernel/nmi_watchdog
+///
+/// You can reenable the watchdog when you're done like this:
+///
+///     $ echo 1 > /proc/sys/kernel/nmi_watchdog
 ///
 /// [`Counter`s]: struct.Counter.html
 /// [`group`]: struct.Builder.html#method.group
 /// [`read`]: #method.read
 /// [`Counts`]: struct.Counts.html
+/// [`#5`]: https://github.com/jimblandy/perf-event/issues/5
 pub struct Group {
     /// The file descriptor for this counter, returned by `perf_event_open`.
     /// This counter itself is for the dummy software event, so it's not
