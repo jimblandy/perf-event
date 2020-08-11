@@ -271,11 +271,15 @@ enum EventPid<'a> {
 /// hardware counter by disabling the kernel's NMI watchdog, which reserves one
 /// for detecting kernel hangs:
 ///
-///     $ echo 0 > /proc/sys/kernel/nmi_watchdog
+/// ```ignore
+/// $ echo 0 > /proc/sys/kernel/nmi_watchdog
+/// ```
 ///
 /// You can reenable the watchdog when you're done like this:
 ///
-///     $ echo 1 > /proc/sys/kernel/nmi_watchdog
+/// ```ignore
+/// $ echo 1 > /proc/sys/kernel/nmi_watchdog
+/// ```
 ///
 /// [`Counter`s]: struct.Counter.html
 /// [`group`]: struct.Builder.html#method.group
