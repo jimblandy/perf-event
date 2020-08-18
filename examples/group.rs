@@ -10,10 +10,10 @@ fn main() -> std::io::Result<()> {
     const MISS: Cache = Cache { result: CacheResult::MISS, ..ACCESS };
 
     let mut group = Group::new()?;
-    let access_counter = Builder::new().group(&group).kind(ACCESS).build()?;
-    let miss_counter = Builder::new().group(&group).kind(MISS).build()?;
-    let branches = Builder::new().group(&group).kind(Hardware::BRANCH_INSTRUCTIONS).build()?;
-    let missed_branches = Builder::new().group(&group).kind(Hardware::BRANCH_MISSES).build()?;
+    let access_counter = Builder::new().group(&mut group).kind(ACCESS).build()?;
+    let miss_counter = Builder::new().group(&mut group).kind(MISS).build()?;
+    let branches = Builder::new().group(&mut group).kind(Hardware::BRANCH_INSTRUCTIONS).build()?;
+    let missed_branches = Builder::new().group(&mut group).kind(Hardware::BRANCH_MISSES).build()?;
 
     let vec = (0..=51).collect::<Vec<_>>();
 

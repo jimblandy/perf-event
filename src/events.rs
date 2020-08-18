@@ -211,8 +211,8 @@ impl From<Software> for Event {
 ///     // Construct a `Group` containing the two new counters, from which we
 ///     // can get counts over matching periods of time.
 ///     let mut group = Group::new()?;
-///     let access_counter = Builder::new().group(&group).kind(ACCESS).build()?;
-///     let miss_counter = Builder::new().group(&group).kind(MISS).build()?;
+///     let access_counter = Builder::new().group(&mut group).kind(ACCESS).build()?;
+///     let miss_counter = Builder::new().group(&mut group).kind(MISS).build()?;
 ///     # Ok(()) }
 ///
 /// [`which`]: enum.WhichCache.html

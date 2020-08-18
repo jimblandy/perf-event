@@ -13,8 +13,8 @@
 //!     fn main() -> std::io::Result<()> {
 //!         // A `Group` lets us enable and disable several counters atomically.
 //!         let mut group = Group::new()?;
-//!         let cycles = Builder::new().group(&group).kind(Hardware::CPU_CYCLES).build()?;
-//!         let insns = Builder::new().group(&group).kind(Hardware::INSTRUCTIONS).build()?;
+//!         let cycles = Builder::new().group(&mut group).kind(Hardware::CPU_CYCLES).build()?;
+//!         let insns = Builder::new().group(&mut group).kind(Hardware::INSTRUCTIONS).build()?;
 //!
 //!         let vec = (0..=51).collect::<Vec<_>>();
 //!
@@ -74,7 +74,6 @@ use std::fs::File;
 use std::io::{self, Read};
 use std::os::raw::{c_int, c_uint, c_ulong};
 use std::os::unix::io::{AsRawFd, FromRawFd};
-use std::sync::atomic::{AtomicUsize, Ordering};
 
 pub mod events;
 
@@ -163,8 +162,8 @@ pub struct Counter {
 ///     # use perf_event::events::Hardware;
 ///     # fn main() -> std::io::Result<()> {
 ///     let mut group = Group::new()?;
-///     let cycles = Builder::new().group(&group).kind(Hardware::CPU_CYCLES).build()?;
-///     let insns = Builder::new().group(&group).kind(Hardware::INSTRUCTIONS).build()?;
+///     let cycles = Builder::new().group(&mut group).kind(Hardware::CPU_CYCLES).build()?;
+///     let insns = Builder::new().group(&mut group).kind(Hardware::INSTRUCTIONS).build()?;
 ///     # Ok(()) }
 ///
 /// Other methods let you select:
@@ -184,7 +183,7 @@ pub struct Builder<'a> {
     who: EventPid<'a>,
     cpu: Option<usize>,
     kind: Event,
-    group: Option<&'a Group>,
+    group: Option<&'a mut Group>,
 }
 
 #[derive(Debug)]
@@ -220,8 +219,8 @@ enum EventPid<'a> {
 ///     use perf_event::events::Hardware;
 ///
 ///     let mut group = Group::new()?;
-///     let cycles = Builder::new().group(&group).kind(Hardware::CPU_CYCLES).build()?;
-///     let insns = Builder::new().group(&group).kind(Hardware::INSTRUCTIONS).build()?;
+///     let cycles = Builder::new().group(&mut group).kind(Hardware::CPU_CYCLES).build()?;
+///     let insns = Builder::new().group(&mut group).kind(Hardware::INSTRUCTIONS).build()?;
 ///
 ///     let vec = (0..=51).collect::<Vec<_>>();
 ///
@@ -312,7 +311,7 @@ pub struct Group {
     /// when we actually do a read.
     ///
     /// This includes the dummy counter for the group itself.
-    max_members: AtomicUsize,
+    max_members: usize
 }
 
 /// A collection of counts from a [`Group`] of counters.
@@ -323,8 +322,8 @@ pub struct Group {
 ///     # fn main() -> std::io::Result<()> {
 ///     # use perf_event::{Builder, Group};
 ///     # let mut group = Group::new()?;
-///     # let cycles = Builder::new().group(&group).build()?;
-///     # let insns = Builder::new().group(&group).build()?;
+///     # let cycles = Builder::new().group(&mut group).build()?;
+///     # let insns = Builder::new().group(&mut group).build()?;
 ///     let counts = group.read()?;
 ///     println!("cycles / instructions: {} / {} ({:.2} cpi)",
 ///              counts[&cycles],
@@ -442,8 +441,8 @@ impl<'a> Builder<'a> {
     ///     const MISS: Cache = Cache { result: CacheResult::MISS, ..ACCESS };
     ///
     ///     let mut group = Group::new()?;
-    ///     let access_counter = Builder::new().group(&group).kind(ACCESS).build()?;
-    ///     let miss_counter = Builder::new().group(&group).kind(MISS).build()?;
+    ///     let access_counter = Builder::new().group(&mut group).kind(ACCESS).build()?;
+    ///     let miss_counter = Builder::new().group(&mut group).kind(MISS).build()?;
     ///     # Ok(()) }
     ///
     /// [`Event`]: events/enum.Event.html
@@ -460,7 +459,7 @@ impl<'a> Builder<'a> {
     /// the counts can be usefully compared.
     ///
     /// [`Group`]: struct.Group.html
-    pub fn group(mut self, group: &'a Group) -> Builder<'a> {
+    pub fn group(mut self, group: &'a mut Group) -> Builder<'a> {
         self.group = Some(group);
         self
     }
@@ -485,7 +484,7 @@ impl<'a> Builder<'a> {
         let (pid, flags) = self.who.as_args();
         let group_fd = match self.group {
             Some(g) => {
-                g.max_members.fetch_add(1, Ordering::SeqCst);
+                g.max_members += 1;
                 g.file.as_raw_fd() as c_int
             }
             None => -1,
@@ -675,9 +674,7 @@ impl Group {
             sys::ioctls::ID(file.as_raw_fd(), &mut id)
         })?;
 
-        let max_members = AtomicUsize::new(1);
-
-        Ok(Group { file, id, max_members })
+        Ok(Group { file, id, max_members: 1 })
     }
 
     /// Allow all `Counter`s in this `Group` to begin counting their designated
@@ -721,8 +718,8 @@ impl Group {
     ///
     /// ```ignore
     /// let mut group = Group::new()?;
-    /// let counter1 = Builder::new().group(&group).kind(...).build()?;
-    /// let counter2 = Builder::new().group(&group).kind(...).build()?;
+    /// let counter1 = Builder::new().group(&mut group).kind(...).build()?;
+    /// let counter2 = Builder::new().group(&mut group).kind(...).build()?;
     /// ...
     /// let counts = group.read()?;
     /// println!("Rhombus inclinations per taxi medallion: {} / {} ({:.0}%)",
@@ -748,7 +745,7 @@ impl Group {
         //
         // We do not request the enabled and running times, so all we have are
         // the number of events and the value/id pairs.
-        let mut data = vec![0_u64; 1 + 2 * self.max_members.load(Ordering::SeqCst)];
+        let mut data = vec![0_u64; 1 + 2 * self.max_members];
         self.file.read(u64::slice_as_bytes_mut(&mut data))?;
 
         let counts = Counts { data };
@@ -757,7 +754,7 @@ impl Group {
         assert_eq!(counts.nth_ref(0).0, self.id);
 
         // Update `max_members` for the next read.
-        self.max_members.store(counts.len(), Ordering::SeqCst);
+        self.max_members = counts.len();
 
         Ok(counts)
     }
@@ -830,7 +827,7 @@ impl Counts {
     ///     # fn main() -> std::io::Result<()> {
     ///     # use perf_event::{Builder, Group};
     ///     # let mut group = Group::new()?;
-    ///     # let cycle_counter = Builder::new().group(&group).build()?;
+    ///     # let cycle_counter = Builder::new().group(&mut group).build()?;
     ///     # let counts = group.read()?;
     ///     let cycles = counts[&cycle_counter];
     ///     # Ok(()) }
