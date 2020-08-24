@@ -259,12 +259,13 @@ enum EventPid<'a> {
 /// real registers amongst the measurements you've requested to at least produce
 /// a sample.
 ///
-/// But since the point of a counter group is that its members must cover
-/// exactly the same period of time, this tactic can't be applied to support
-/// large groups. If the kernel cannot schedule a group, its counters remain
-/// zero. I think you can detect this situation by comparing the group's
-/// 'enabled' and 'running' times, but this crate doesn't support those yet; see
-/// [#5].
+/// But since the point of a counter group is that its members all cover exactly
+/// the same period of time, this tactic can't be applied to support large
+/// groups. If the kernel cannot schedule a group, its counters remain zero. I
+/// think you can detect this situation by comparing the group's 'enabled' and
+/// 'running' times, but this crate doesn't support those yet; see [#5]. It
+/// might also be useful to set the `pinned` bit, which puts the counter in an
+/// error state if it's not able to be put on the CPU; see [#10].
 ///
 /// According to the `perf_list(1)` man page, you may be able to free up a
 /// hardware counter by disabling the kernel's NMI watchdog, which reserves one
@@ -285,6 +286,7 @@ enum EventPid<'a> {
 /// [`read`]: #method.read
 /// [`Counts`]: struct.Counts.html
 /// [`#5`]: https://github.com/jimblandy/perf-event/issues/5
+/// [`#10`]: https://github.com/jimblandy/perf-event/issues/10
 pub struct Group {
     /// The file descriptor for this counter, returned by `perf_event_open`.
     /// This counter itself is for the dummy software event, so it's not

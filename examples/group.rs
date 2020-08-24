@@ -15,6 +15,10 @@ fn main() -> std::io::Result<()> {
     let branches = Builder::new().group(&mut group).kind(Hardware::BRANCH_INSTRUCTIONS).build()?;
     let missed_branches = Builder::new().group(&mut group).kind(Hardware::BRANCH_MISSES).build()?;
 
+    // Note that if you add more counters than you actually have hardware for,
+    // the kernel will time-slice them, which means you may get no coverage for
+    // short measurements. See the documentation.
+
     let vec = (0..=51).collect::<Vec<_>>();
 
     group.enable()?;
