@@ -44,6 +44,17 @@
 //!     disabled atomically, so that they cover exactly the same period of
 //!     execution, allowing meaningful comparisons of the individual values.
 //!
+//! If you're familiar with the kernel API already:
+//!
+//! -   A `Builder` holds the arguments to a `perf_event_open` call:
+//!     a `struct perf_event_attr` and a few other fields.
+//!
+//! -   `Counter` and `Group` objects are just event file descriptors, together
+//!     with their kernel id numbers, and some other details you need to
+//!     actually use them. They're different types because they yield different
+//!     types of results, and because you can't retrieve a `Group`'s counts
+//!     without knowing how many members it has.
+//!
 //! ### Call for PRs
 //!
 //! Linux's `perf_event_open` API can report all sorts of things this crate
@@ -70,6 +81,7 @@
 use events::Event;
 use libc::pid_t;
 use perf_event_open_sys as sys;
+use perf_event_open_sys::bindings::perf_event_attr;
 use std::fs::File;
 use std::io::{self, Read};
 use std::os::raw::{c_int, c_uint, c_ulong};
@@ -113,6 +125,8 @@ pub mod events;
 /// simultaneously.
 ///
 /// When a counter is dropped, its kernel resources are freed along with it.
+///
+/// Internally, a `Counter` is just a wrapper around an event file descriptor.
 ///
 /// [`Group`]: struct.Group.html
 /// [`read`]: #method.read
@@ -175,14 +189,17 @@ pub struct Counter {
 /// but hopefully it will acquire methods to support more of them as time goes
 /// on.
 ///
+/// Internally, a `Builder` is just a wrapper around the kernel's `struct
+/// perf_event_attr` type.
+///
 /// [`Counter`]: struct.Counter.html
 /// [`enable`]: struct.Counter.html#method.enable
 /// [`kind`]: #method.kind
 /// [`group`]: #method.group
 pub struct Builder<'a> {
+    attrs: perf_event_attr,
     who: EventPid<'a>,
     cpu: Option<usize>,
-    kind: Event,
     group: Option<&'a mut Group>,
 }
 
@@ -249,6 +266,8 @@ enum EventPid<'a> {
 /// these makes building the `Counter` return an error. Unfortunately, there is
 /// no way at present to specify a `Group`s task and cpu, so you can only use
 /// `Group` on the calling task.
+///
+/// Internally, a `Group` is just a wrapper around an event file descriptor.
 ///
 /// ## Limits on group size
 ///
@@ -369,10 +388,26 @@ impl<'a> EventPid<'a> {
 
 impl<'a> Default for Builder<'a> {
     fn default() -> Builder<'a> {
+
+        let mut attrs = perf_event_attr::default();
+
+        // Setting `size` accurately will not prevent the code from working
+        // on older kernels. The module comments for `perf_event_open_sys`
+        // explain why in far too much detail.
+        attrs.size = std::mem::size_of::<perf_event_attr>() as u32;
+
+        attrs.set_disabled(1);
+        attrs.set_exclude_kernel(1);
+        attrs.set_exclude_hv(1);
+
+        let kind = Event::Hardware(events::Hardware::INSTRUCTIONS);
+        attrs.type_ = kind.as_type();
+        attrs.config = kind.as_config();
+
         Builder {
+            attrs,
             who: EventPid::ThisProcess,
             cpu: None,
-            kind: Event::Hardware(events::Hardware::INSTRUCTIONS),
             group: None,
         }
     }
@@ -452,7 +487,9 @@ impl<'a> Builder<'a> {
     /// [`Software`]: events/enum.Software.html
     /// [`Cache`]: events/struct.Cache.html
     pub fn kind<K: Into<Event>>(mut self, kind: K) -> Builder<'a> {
-        self.kind = kind.into();
+        let kind = kind.into();
+        self.attrs.type_ = kind.as_type();
+        self.attrs.config = kind.as_config();
         self
     }
 
@@ -463,6 +500,11 @@ impl<'a> Builder<'a> {
     /// [`Group`]: struct.Group.html
     pub fn group(mut self, group: &'a mut Group) -> Builder<'a> {
         self.group = Some(group);
+
+        // man page: "Members of a group are usually initialized with disabled
+        // set to zero."
+        self.attrs.set_disabled(0);
+
         self
     }
 
@@ -472,48 +514,33 @@ impl<'a> Builder<'a> {
     /// A freshly built `Counter` is disabled. To begin counting events, you
     /// must call [`enable`] on the `Counter` or the `Group` to which it belongs.
     ///
+    /// If the `Builder` requests features that the running kernel does not
+    /// support, it returns `Err(e)` where `e.kind() == ErrorKind::Other` and
+    /// `e.raw_os_error() == Some(libc::E2BIG)`.
+    ///
     /// Unfortunately, problems in counter configuration are detected at this
     /// point, by the kernel, not earlier when the offending request is made on
     /// the `Builder`. The kernel's returned errors are not always helpful.
     ///
     /// [`Counter`]: struct.Counter.html
     /// [`enable`]: struct.Counter.html#method.enable
-    pub fn build(self) -> std::io::Result<Counter> {
+    pub fn build(mut self) -> std::io::Result<Counter> {
         let cpu = match self.cpu {
             Some(cpu) => cpu as c_int,
             None => -1,
         };
         let (pid, flags) = self.who.as_args();
         let group_fd = match self.group {
-            Some(g) => {
+            Some(ref mut g) => {
                 g.max_members += 1;
                 g.file.as_raw_fd() as c_int
             }
             None => -1,
         };
 
-        let mut attrs = sys::bindings::perf_event_attr::default();
-
-        // Setting `size` accurately will not prevent the code from working on
-        // older kernels. The module comments for `perf_event_open_sys` explain
-        // why in detail.
-        attrs.size = std::mem::size_of::<sys::bindings::perf_event_attr>() as u32;
-
-        attrs.type_ = self.kind.as_type();
-        attrs.config = self.kind.as_config();
-        attrs.set_disabled(if group_fd != -1 {
-            // man page: "Members of a group are usually initialized with
-            // disabled set to zero."
-            0
-        } else {
-            1
-        });
-        attrs.set_exclude_kernel(1);
-        attrs.set_exclude_hv(1);
-
         let file = unsafe {
             File::from_raw_fd(check_raw_syscall(|| {
-                sys::perf_event_open(&mut attrs, pid, cpu, group_fd, flags as c_ulong)
+                sys::perf_event_open(&mut self.attrs, pid, cpu, group_fd, flags as c_ulong)
             })?)
         };
 
@@ -606,9 +633,9 @@ impl Group {
     #[allow(unused_parens)]
     pub fn new() -> io::Result<Group> {
         // Open a placeholder perf counter that we can add other events to.
-        let mut attrs = sys::bindings::perf_event_attr::default();
+        let mut attrs = perf_event_attr::default();
+        attrs.size = std::mem::size_of::<perf_event_attr>() as u32;
         attrs.type_ = sys::bindings::perf_type_id_PERF_TYPE_SOFTWARE;
-        attrs.size = std::mem::size_of::<sys::bindings::perf_event_attr>() as u32;
         attrs.config = sys::bindings::perf_sw_ids_PERF_COUNT_SW_DUMMY as u64;
         attrs.set_disabled(1);
         attrs.set_exclude_kernel(1);
