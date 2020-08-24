@@ -506,7 +506,6 @@ impl<'a> Builder<'a> {
         } else {
             1
         });
-        attrs.set_disabled(1);
         attrs.set_exclude_kernel(1);
         attrs.set_exclude_hv(1);
 
