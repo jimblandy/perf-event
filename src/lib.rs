@@ -264,7 +264,7 @@ enum EventPid<'a> {
 ///
 /// A `Group` and its members must all observe the same tasks and cpus; mixing
 /// these makes building the `Counter` return an error. Unfortunately, there is
-/// no way at present to specify a `Group`s task and cpu, so you can only use
+/// no way at present to specify a `Group`'s task and cpu, so you can only use
 /// `Group` on the calling task.
 ///
 /// Internally, a `Group` is just a wrapper around an event file descriptor.
