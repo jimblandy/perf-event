@@ -66,10 +66,7 @@
 //! power consumption in Joules.
 //!
 //! If you find yourself in need of something this crate doesn't support, please
-//! consider submitting a pull request. (We intend to steadily raise our
-//! standards for testing and documentation, to ensure that technical
-//! contributions can have enough impact on users to justify the cost of
-//! inclusion, so be forewarned.)
+//! consider submitting a pull request.
 //!
 //! [`Counter`]: struct.Counter.html
 //! [`Builder`]: struct.Builder.html
