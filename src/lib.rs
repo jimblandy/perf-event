@@ -262,26 +262,27 @@ enum EventPid<'a> {
 /// A `Group` and its members must all observe the same tasks and cpus; mixing
 /// these makes building the `Counter` return an error. Unfortunately, there is
 /// no way at present to specify a `Group`'s task and cpu, so you can only use
-/// `Group` on the calling task.
+/// `Group` on the calling task. If this is a problem, please file an issue.
 ///
 /// Internally, a `Group` is just a wrapper around an event file descriptor.
 ///
 /// ## Limits on group size
 ///
 /// Hardware counters are implemented using special-purpose registers on the
-/// processor, of which there are only a fixed number. Without using groups, if
-/// you request more hardware counters than the processor can actually support,
-/// a complete count isn't possible, but the kernel will rotate the processor's
-/// real registers amongst the measurements you've requested to at least produce
-/// a sample.
+/// processor, of which there are only a fixed number. (For example, an Intel
+/// high-end laptop processor from 2015 has four registers per virtual
+/// processor.) Without using groups, if you request more hardware counters than
+/// the processor can actually support, a complete count isn't possible, but the
+/// kernel will rotate the processor's real registers amongst the measurements
+/// you've requested to at least produce a sample.
 ///
 /// But since the point of a counter group is that its members all cover exactly
 /// the same period of time, this tactic can't be applied to support large
 /// groups. If the kernel cannot schedule a group, its counters remain zero. I
-/// think you can detect this situation by comparing the group's 'enabled' and
-/// 'running' times, but this crate doesn't support those yet; see [#5]. It
-/// might also be useful to set the `pinned` bit, which puts the counter in an
-/// error state if it's not able to be put on the CPU; see [#10].
+/// think you can detect this situation by comparing the group's [`time_enabled`]
+/// and [`time_running`] values. It might also be useful to set the `pinned` bit,
+/// which puts the counter in an error state if it's not able to be put on the
+/// CPU; see [#10].
 ///
 /// According to the `perf_list(1)` man page, you may be able to free up a
 /// hardware counter by disabling the kernel's NMI watchdog, which reserves one
@@ -303,6 +304,8 @@ enum EventPid<'a> {
 /// [`Counts`]: struct.Counts.html
 /// [`#5`]: https://github.com/jimblandy/perf-event/issues/5
 /// [`#10`]: https://github.com/jimblandy/perf-event/issues/10
+/// [`time_enabled`]: Counts::time_enabled
+/// [`time_running`]: Counts::time_running
 pub struct Group {
     /// The file descriptor for this counter, returned by `perf_event_open`.
     /// This counter itself is for the dummy software event, so it's not
@@ -366,9 +369,58 @@ pub struct Group {
 /// [`Group`]: struct.Group.html
 /// [`read`]: struct.Group.html#method.read
 /// [`Counter::id`]: struct.Counter.html#method.id
+/// For some kinds of events, the kernel may use timesharing to give all
+/// counters access to scarce hardware registers. You can see how long a group
+/// was actually running versus the entire time it was enabled using the
+/// `time_enabled` and `time_running` methods:
+///
+///     # fn main() -> std::io::Result<()> {
+///     # use perf_event::{Builder, Group};
+///     # let mut group = Group::new()?;
+///     # let insns = Builder::new().group(&mut group).build()?;
+///     # let counts = group.read()?;
+///     let running_proportion = counts.time_running() as f64 /
+///                              counts.time_enabled() as f64;
+///     print!("{} instructions",
+///            f64::floor(counts[&insns] as f64 / running_proportion));
+///     if running_proportion < 1.0 {
+///         print!(" (estimated)");
+///     }
+///     println!();
+///
+///     # Ok(()) }
 pub struct Counts {
     // Raw results from the `read`.
     data: Vec<u64>
+}
+
+/// The value of a counter, along with timesharing data.
+///
+/// Some counters are implemented in hardware, and the processor can run
+/// only a fixed number of them at a time. If more counters are requested
+/// than the hardware can support, the kernel timeshares them on the
+/// hardware.
+///
+/// This struct holds the value of a counter, together with the time it was
+/// enabled, and the proportion of that for which it was actually running.
+#[repr(C)]
+pub struct CountAndTime {
+    /// The counter value.
+    ///
+    /// The meaning of this field depends on how the counter was configured when
+    /// it was built; see ['Builder'].
+    count: u64,
+
+    /// How long this counter was enabled by the program, in nanoseconds.
+    time_enabled: u64,
+
+    /// How long the kernel actually ran this counter, in nanoseconds.
+    ///
+    /// If `time_enabled == time_running`, then the counter ran for the entire
+    /// period it was enabled, without interruption. Otherwise, the counter
+    /// shared the underlying hardware with others, and you should prorate its
+    /// value accordingly.
+    time_running: u64,
 }
 
 impl<'a> EventPid<'a> {
@@ -394,8 +446,12 @@ impl<'a> Default for Builder<'a> {
         attrs.size = std::mem::size_of::<perf_event_attr>() as u32;
 
         attrs.set_disabled(1);
-        attrs.set_exclude_kernel(1);
-        attrs.set_exclude_hv(1);
+        attrs.set_exclude_kernel(1);    // don't count time in kernel
+        attrs.set_exclude_hv(1);        // don't count time in hypervisor
+
+        // Request data for `time_enabled` and `time_running`.
+	attrs.read_format |= sys::bindings::perf_event_read_format_PERF_FORMAT_TOTAL_TIME_ENABLED as u64 |
+                             sys::bindings::perf_event_read_format_PERF_FORMAT_TOTAL_TIME_RUNNING as u64;
 
         let kind = Event::Hardware(events::Hardware::INSTRUCTIONS);
         attrs.type_ = kind.as_type();
@@ -607,14 +663,48 @@ impl Counter {
 
     /// Return this `Counter`'s current value as a `u64`.
     ///
+    /// Consider using the [`count_and_time`] method instead of this one. Some
+    /// counters are implemented in hardware, and the processor can support only
+    /// a certain number running at a time. If more counters are requested than
+    /// the hardware can support, the kernel timeshares them on the hardware.
+    /// This method gives you no indication whether this has happened;
+    /// `count_and_time` does.
+    ///
     /// Note that `Group` also has a [`read`] method, which reads all
     /// its member `Counter`s' values at once.
     ///
     /// [`read`]: struct.Group.html#method.read
+    /// [`count_and_time`]: Counter::count_and_time
     pub fn read(&mut self) -> io::Result<u64> {
-        let mut buf = [0_u8; 8];
-        self.file.read_exact(&mut buf)?;
-        Ok(u64::from_ne_bytes(buf))
+        Ok(self.count_and_time()?.count)
+    }
+
+    /// Return this `Counter`'s current value and timesharing data.
+    ///
+    /// Some counters are implemented in hardware, and the processor can run
+    /// only a fixed number of them at a time. If more counters are requested
+    /// than the hardware can support, the kernel timeshares them on the
+    /// hardware.
+    ///
+    /// This method returns a [`CountAndTime`] struct, whose `count` field holds
+    /// the counter's value, and whose `time_enabled` and `time_running` fields
+    /// indicate how long you had enabled the counter, and how long the counter
+    /// was actually scheduled on the processor. This lets you detect whether
+    /// the counter was timeshared, and adjust your use accordingly if so. These
+    /// times are given in nanoseconds.
+    ///
+    /// Note that `Group` also has a [`read`] method, which reads all
+    /// its member `Counter`s' values at once.
+    ///
+    /// [`read`]: Group::read
+    pub fn count_and_time(&mut self) -> io::Result<CountAndTime> {
+        let mut buf = [0_u64; 3];
+        self.file.read_exact(u64::slice_as_bytes_mut(&mut buf))?;
+        Ok(CountAndTime {
+            count: buf[0],
+            time_enabled: buf[1],
+            time_running: buf[2],
+        })
     }
 }
 
@@ -639,7 +729,9 @@ impl Group {
         attrs.set_exclude_hv(1);
 
         // Arrange to be able to identify the counters we read back.
-        attrs.read_format = (sys::bindings::perf_event_read_format_PERF_FORMAT_ID |
+        attrs.read_format = (sys::bindings::perf_event_read_format_PERF_FORMAT_TOTAL_TIME_ENABLED |
+                             sys::bindings::perf_event_read_format_PERF_FORMAT_TOTAL_TIME_RUNNING |
+                             sys::bindings::perf_event_read_format_PERF_FORMAT_ID |
                              sys::bindings::perf_event_read_format_PERF_FORMAT_GROUP) as u64;
 
         let file = unsafe {
@@ -710,8 +802,8 @@ impl Group {
     ///
     /// [`Counts`]: struct.Counts.html
     pub fn read(&mut self) -> io::Result<Counts> {
-        // Since we passed PERF_FORMAT_ID | PERF_FORMAT_GROUP, the data we'll
-        // read has the form:
+        // Since we passed `PERF_FORMAT_{ID,GROUP,TOTAL_TIME_{ENABLED,RUNNING}}`,
+        // the data we'll read has the form:
         //
         //     struct read_format {
         //         u64 nr;            /* The number of events */
@@ -722,10 +814,7 @@ impl Group {
         //             u64 id;        /* if PERF_FORMAT_ID */
         //         } values[nr];
         //     };
-        //
-        // We do not request the enabled and running times, so all we have are
-        // the number of events and the value/id pairs.
-        let mut data = vec![0_u64; 1 + 2 * self.max_members];
+        let mut data = vec![0_u64; 3 + 2 * self.max_members];
         self.file.read(u64::slice_as_bytes_mut(&mut data))?;
 
         let counts = Counts { data };
@@ -748,15 +837,30 @@ impl std::fmt::Debug for Group {
 }
 
 impl Counts {
-    fn len(&self) -> usize {
+    /// Return the number of counters this `Counts` holds results for.
+    pub fn len(&self) -> usize {
         self.data[0] as usize
     }
 
+    /// Return the number of nanoseconds the `Group` was enabled that
+    /// contributed to this `Counts`' contents.
+    pub fn time_enabled(&self) -> u64 {
+        self.data[1]
+    }
+
+    /// Return the number of nanoseconds the `Group` was actually collecting
+    /// counts that contributed to this `Counts`' contents.
+    pub fn time_running(&self) -> u64 {
+        self.data[2]
+    }
+
+    /// Return the id and count of the `n`'th counter. This returns a reference
+    /// to the count, for use by the `Index` implementation.
     fn nth_ref(&self, n: usize) -> (u64, &u64) {
         assert!(n < self.len());
         // (id, &value)
-        (self.data[1 + 2 * n + 1],
-         &self.data[1 + 2 * n])
+        (self.data[3 + 2 * n + 1],
+         &self.data[3 + 2 * n])
     }
 }
 
