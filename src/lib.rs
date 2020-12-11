@@ -68,9 +68,6 @@
 //! If you find yourself in need of something this crate doesn't support, please
 //! consider submitting a pull request.
 //!
-//! [`Counter`]: struct.Counter.html
-//! [`Builder`]: struct.Builder.html
-//! [`Group`]: struct.Group.html
 //! [man]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
 
 #![deny(missing_docs)]
@@ -125,8 +122,7 @@ pub mod events;
 ///
 /// Internally, a `Counter` is just a wrapper around an event file descriptor.
 ///
-/// [`Group`]: struct.Group.html
-/// [`read`]: #method.read
+/// [`read`]: Counter::read
 pub struct Counter {
     /// The file descriptor for this counter, returned by `perf_event_open`.
     ///
@@ -189,10 +185,9 @@ pub struct Counter {
 /// Internally, a `Builder` is just a wrapper around the kernel's `struct
 /// perf_event_attr` type.
 ///
-/// [`Counter`]: struct.Counter.html
-/// [`enable`]: struct.Counter.html#method.enable
-/// [`kind`]: #method.kind
-/// [`group`]: #method.group
+/// [`enable`]: Counter::enable
+/// [`kind`]: Builder::kind
+/// [`group`]: Builder::group
 pub struct Builder<'a> {
     attrs: perf_event_attr,
     who: EventPid<'a>,
@@ -214,7 +209,7 @@ enum EventPid<'a> {
 
 /// A group of counters that can be managed as a unit.
 ///
-/// A `Group` represents a group of [`Counter`s] that can be enabled,
+/// A `Group` represents a group of [`Counter`]s that can be enabled,
 /// disabled, reset, or read as a single atomic operation. This is necessary if
 /// you want to compare counter values, produce ratios, and so on, since those
 /// operations are only meaningful on counters that cover exactly the same
@@ -298,10 +293,8 @@ enum EventPid<'a> {
 /// $ echo 1 > /proc/sys/kernel/nmi_watchdog
 /// ```
 ///
-/// [`Counter`s]: struct.Counter.html
-/// [`group`]: struct.Builder.html#method.group
-/// [`read`]: #method.read
-/// [`Counts`]: struct.Counts.html
+/// [`group`]: Builder::group
+/// [`read`]: Group::read
 /// [`#5`]: https://github.com/jimblandy/perf-event/issues/5
 /// [`#10`]: https://github.com/jimblandy/perf-event/issues/10
 /// [`time_enabled`]: Counts::time_enabled
@@ -366,9 +359,6 @@ pub struct Group {
 /// by the kernel. You can use the [`Counter::id`] method to find a
 /// specific counter's id.
 ///
-/// [`Group`]: struct.Group.html
-/// [`read`]: struct.Group.html#method.read
-/// [`Counter::id`]: struct.Counter.html#method.id
 /// For some kinds of events, the kernel may use timesharing to give all
 /// counters access to scarce hardware registers. You can see how long a group
 /// was actually running versus the entire time it was enabled using the
@@ -389,6 +379,8 @@ pub struct Group {
 ///     println!();
 ///
 ///     # Ok(()) }
+///
+/// [`read`]: Group::read
 pub struct Counts {
     // Raw results from the `read`.
     data: Vec<u64>
@@ -535,10 +527,9 @@ impl<'a> Builder<'a> {
     ///     let miss_counter = Builder::new().group(&mut group).kind(MISS).build()?;
     ///     # Ok(()) }
     ///
-    /// [`Event`]: events/enum.Event.html
-    /// [`Hardware`]: events/enum.Hardware.html
-    /// [`Software`]: events/enum.Software.html
-    /// [`Cache`]: events/struct.Cache.html
+    /// [`Hardware`]: events::Hardware
+    /// [`Software`]: events::Software
+    /// [`Cache`]: events::Cache
     pub fn kind<K: Into<Event>>(mut self, kind: K) -> Builder<'a> {
         let kind = kind.into();
         self.attrs.type_ = kind.as_type();
@@ -673,7 +664,7 @@ impl Counter {
     /// Note that `Group` also has a [`read`] method, which reads all
     /// its member `Counter`s' values at once.
     ///
-    /// [`read`]: struct.Group.html#method.read
+    /// [`read`]: Group::read
     /// [`count_and_time`]: Counter::count_and_time
     pub fn read(&mut self) -> io::Result<u64> {
         Ok(self.count_and_time()?.count)
