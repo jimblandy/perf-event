@@ -265,7 +265,7 @@ enum EventPid<'a> {
 ///
 /// Hardware counters are implemented using special-purpose registers on the
 /// processor, of which there are only a fixed number. (For example, an Intel
-/// high-end laptop processor from 2015 has four registers per virtual
+/// high-end laptop processor from 2015 has four such registers per virtual
 /// processor.) Without using groups, if you request more hardware counters than
 /// the processor can actually support, a complete count isn't possible, but the
 /// kernel will rotate the processor's real registers amongst the measurements
