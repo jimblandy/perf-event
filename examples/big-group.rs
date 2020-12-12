@@ -14,20 +14,21 @@ fn main() -> std::io::Result<()> {
     let miss_counter = Builder::new().group(&mut group).kind(MISS).build()?;
     let branches = Builder::new().group(&mut group).kind(Hardware::BRANCH_INSTRUCTIONS).build()?;
     let missed_branches = Builder::new().group(&mut group).kind(Hardware::BRANCH_MISSES).build()?;
-    let mut insns = Builder::new().group(&mut group).kind(Hardware::INSTRUCTIONS).build()?;
+    let insns = Builder::new().group(&mut group).kind(Hardware::INSTRUCTIONS).build()?;
     let cycles = Builder::new().group(&mut group).kind(Hardware::CPU_CYCLES).build()?;
 
     // Note that if you add more counters than you actually have hardware for,
     // the kernel will time-slice them, which means you may get no coverage for
     // short measurements. See the documentation.
     //
-    // On my machine, this won't run unless I disable the NMI watchdog, as
-    // described in the documentation for `Group`.
+    // On my machine, this program won't collect any data unless I disable the
+    // NMI watchdog, as described in the documentation for `Group`. My machine
+    // has four counters, and this program tries to use all of them, but the NMI
+    // watchdog uses one up.
 
     let mut vec = (0..=100000).collect::<Vec<_>>();
 
     group.enable()?;
-    insns.disable()?;
     vec.sort();
     println!("{:?}", &vec[0..10]);
     group.disable()?;
@@ -60,7 +61,7 @@ fn main() -> std::io::Result<()> {
     println!("{} instructions, {} cycles ({:.2} cpi)",
              counts[&insns],
              counts[&cycles],
-             counts[&insns] as f64 / counts[&cycles] as f64);
+             counts[&cycles] as f64 / counts[&insns] as f64);
 
     // You can iterate over a `Counts` value:
     for (id, value) in &counts {
