@@ -369,14 +369,16 @@ pub struct Group {
 ///     # let mut group = Group::new()?;
 ///     # let insns = Builder::new().group(&mut group).build()?;
 ///     # let counts = group.read()?;
-///     let running_proportion = counts.time_running() as f64 /
-///                              counts.time_enabled() as f64;
-///     print!("{} instructions",
-///            f64::floor(counts[&insns] as f64 / running_proportion));
-///     if running_proportion < 1.0 {
-///         print!(" (estimated)");
+///     let scale = counts.time_enabled() as f64 /
+///                 counts.time_running() as f64;
+///     for (id, value) in &counts {
+///         print!("Counter id {} has value {}",
+///                id, (*value as f64 * scale) as u64);
+///         if scale > 1.0 {
+///             print!(" (estimated)");
+///         }
+///         println!();
 ///     }
-///     println!();
 ///
 ///     # Ok(()) }
 ///
@@ -654,20 +656,20 @@ impl Counter {
 
     /// Return this `Counter`'s current value as a `u64`.
     ///
-    /// Consider using the [`count_and_time`] method instead of this one. Some
+    /// Consider using the [`read_count_and_time`] method instead of this one. Some
     /// counters are implemented in hardware, and the processor can support only
     /// a certain number running at a time. If more counters are requested than
     /// the hardware can support, the kernel timeshares them on the hardware.
     /// This method gives you no indication whether this has happened;
-    /// `count_and_time` does.
+    /// `read_count_and_time` does.
     ///
     /// Note that `Group` also has a [`read`] method, which reads all
     /// its member `Counter`s' values at once.
     ///
     /// [`read`]: Group::read
-    /// [`count_and_time`]: Counter::count_and_time
+    /// [`read_count_and_time`]: Counter::read_count_and_time
     pub fn read(&mut self) -> io::Result<u64> {
-        Ok(self.count_and_time()?.count)
+        Ok(self.read_count_and_time()?.count)
     }
 
     /// Return this `Counter`'s current value and timesharing data.
@@ -681,17 +683,23 @@ impl Counter {
     /// the counter's value, and whose `time_enabled` and `time_running` fields
     /// indicate how long you had enabled the counter, and how long the counter
     /// was actually scheduled on the processor. This lets you detect whether
-    /// the counter was timeshared, and adjust your use accordingly if so. These
-    /// times are given in nanoseconds.
+    /// the counter was timeshared, and adjust your use accordingly. Times
+    /// are reported in nanoseconds.
     ///
     ///     # use perf_event::Builder;
     ///     # fn main() -> std::io::Result<()> {
     ///     # let mut counter = Builder::new().build()?;
-    ///     let cat = counter.count_and_time()?;
-    ///     if let Some(scaled_count) = cat.scaled() {
-    ///         println!("{} instructions", scaled_count);
+    ///     let cat = counter.read_count_and_time()?;
+    ///     if cat.time_running == 0 {
+    ///         println!("No data collected.");
+    ///     } else if cat.time_running < cat.time_enabled {
+    ///         // Note: this way of scaling is accurate, but `u128` division
+    ///         // is usually implemented in software, which may be slow.
+    ///         println!("{} instructions (estimated)",
+    ///                  (cat.count as u128 *
+    ///                   cat.time_enabled as u128 / cat.time_running as u128) as u64);
     ///     } else {
-    ///         println!("no data collected");
+    ///         println!("{} instructions", cat.count);
     ///     }
     ///     # Ok(()) }
     ///
@@ -699,7 +707,7 @@ impl Counter {
     /// its member `Counter`s' values at once.
     ///
     /// [`read`]: Group::read
-    pub fn count_and_time(&mut self) -> io::Result<CountAndTime> {
+    pub fn read_count_and_time(&mut self) -> io::Result<CountAndTime> {
         let mut buf = [0_u64; 3];
         self.file.read_exact(u64::slice_as_bytes_mut(&mut buf))?;
 
@@ -720,31 +728,6 @@ impl std::fmt::Debug for Counter {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(fmt, "Counter {{ fd: {}, id: {} }}",
                self.file.as_raw_fd(), self.id)
-    }
-}
-
-impl CountAndTime {
-    /// Return this count, scaled to the time enabled, or `None` if no data was
-    /// collected.
-    ///
-    /// Specifically, a return value of `None` means that the counter's event
-    /// requires hardware support, but the counter was never granted time on the
-    /// hardware. See [`Counter::count_and_time`].
-    pub fn scaled(&self) -> Option<u64> {
-        if self.time_running == 0 {
-            return None;
-        }
-
-        if self.time_running == self.time_enabled {
-            Some(self.count)
-        } else {
-            // We could do this exactly in u128, but dividing u128 values is
-            // implemented as a library function, which is slow. I don't think
-            // we're going to be getting counts that are both so large that f64
-            // will drop bits and also so precise that those dropped bits will
-            // matter.
-            Some((self.count as f64 * self.time_enabled as f64 / self.time_running as f64) as u64)
-        }
     }
 }
 
@@ -887,33 +870,6 @@ impl Counts {
         self.data[2]
     }
 
-    /// Scale all counts according to the time the `Group` was actually running.
-    ///
-    /// For example if `counts.time_running()` is one half of
-    /// `counts.time_enabled()`, then `counts.scaled()` consumes `counts` and
-    /// returns a new `Counts` object whose counts have been doubled, scaling up
-    /// their values to an estimate of what they would have been if the group
-    /// had been counting events the entire time it was enabled.
-    ///
-    /// If `self.time_running()` is zero (i.e., the group never collected data),
-    /// then this returns `None`. In this case, all the counts will be zero
-    /// anyway, so the `Counts` value is consumed.
-    pub fn scaled(mut self) -> Option<Counts> {
-        if self.time_running() == 0 {
-            return None;
-        }
-
-        if self.time_running() < self.time_enabled() {
-            let scale = self.time_enabled() as f64 / self.time_running() as f64;
-            for i in 0..self.len() {
-                let count = self.nth_ref_mut(i).1;
-                *count = (*count as f64 * scale) as u64;
-            }
-        }
-
-        Some(self)
-    }
-
     /// Return a range of indexes covering the count and id of the `n`'th counter.
     fn nth_index(n: usize) -> std::ops::Range<usize> {
         let base = 3 + 2 * n;
@@ -927,15 +883,6 @@ impl Counts {
 
         // (id, &value)
         (id_val[1], &id_val[0])
-    }
-
-    /// Return the id and count of the `n`'th counter. This returns a reference
-    /// to the count, for use by the `Index` implementation.
-    fn nth_ref_mut(&mut self, n: usize) -> (u64, &mut u64) {
-        let id_val = &mut self.data[Counts::nth_index(n)];
-
-        // (id, &value)
-        (id_val[1], &mut id_val[0])
     }
 }
 
