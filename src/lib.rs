@@ -838,6 +838,9 @@ impl Group {
         // CountsIter assumes that the group's dummy count appears first.
         assert_eq!(counts.nth_ref(0).0, self.id);
 
+        // Does the kernel ever return nonsense?
+        assert!(counts.time_running() <= counts.time_enabled());
+
         // Update `max_members` for the next read.
         self.max_members = counts.len();
 
