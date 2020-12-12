@@ -691,11 +691,17 @@ impl Counter {
     pub fn count_and_time(&mut self) -> io::Result<CountAndTime> {
         let mut buf = [0_u64; 3];
         self.file.read_exact(u64::slice_as_bytes_mut(&mut buf))?;
-        Ok(CountAndTime {
+
+        let cat = CountAndTime {
             count: buf[0],
             time_enabled: buf[1],
             time_running: buf[2],
-        })
+        };
+
+        // Does the kernel ever return nonsense?
+        assert!(cat.time_running <= cat.time_enabled);
+
+        Ok(cat)
     }
 }
 
