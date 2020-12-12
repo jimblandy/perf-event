@@ -684,6 +684,17 @@ impl Counter {
     /// the counter was timeshared, and adjust your use accordingly if so. These
     /// times are given in nanoseconds.
     ///
+    ///     # use perf_event::Builder;
+    ///     # fn main() -> std::io::Result<()> {
+    ///     # let mut counter = Builder::new().build()?;
+    ///     let cat = counter.count_and_time()?;
+    ///     if let Some(scaled_count) = cat.scaled() {
+    ///         println!("{} instructions", scaled_count);
+    ///     } else {
+    ///         println!("no data collected");
+    ///     }
+    ///     # Ok(()) }
+    ///
     /// Note that `Group` also has a [`read`] method, which reads all
     /// its member `Counter`s' values at once.
     ///
@@ -709,6 +720,31 @@ impl std::fmt::Debug for Counter {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(fmt, "Counter {{ fd: {}, id: {} }}",
                self.file.as_raw_fd(), self.id)
+    }
+}
+
+impl CountAndTime {
+    /// Return this count, scaled to the time enabled, or `None` if no data was
+    /// collected.
+    ///
+    /// Specifically, a return value of `None` means that the counter's event
+    /// requires hardware support, but the counter was never granted time on the
+    /// hardware. See [`Counter::count_and_time`].
+    pub fn scaled(&self) -> Option<u64> {
+        if self.time_running == 0 {
+            return None;
+        }
+
+        if self.time_running == self.time_enabled {
+            Some(self.count)
+        } else {
+            // We could do this exactly in u128, but dividing u128 values is
+            // implemented as a library function, which is slow. I don't think
+            // we're going to be getting counts that are both so large that f64
+            // will drop bits and also so precise that those dropped bits will
+            // matter.
+            Some((self.count as f64 * self.time_enabled as f64 / self.time_running as f64) as u64)
+        }
     }
 }
 
