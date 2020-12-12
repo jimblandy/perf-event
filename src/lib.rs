@@ -887,13 +887,55 @@ impl Counts {
         self.data[2]
     }
 
+    /// Scale all counts according to the time the `Group` was actually running.
+    ///
+    /// For example if `counts.time_running()` is one half of
+    /// `counts.time_enabled()`, then `counts.scaled()` consumes `counts` and
+    /// returns a new `Counts` object whose counts have been doubled, scaling up
+    /// their values to an estimate of what they would have been if the group
+    /// had been counting events the entire time it was enabled.
+    ///
+    /// If `self.time_running()` is zero (i.e., the group never collected data),
+    /// then this returns `None`. In this case, all the counts will be zero
+    /// anyway, so the `Counts` value is consumed.
+    pub fn scaled(mut self) -> Option<Counts> {
+        if self.time_running() == 0 {
+            return None;
+        }
+
+        if self.time_running() < self.time_enabled() {
+            let scale = self.time_enabled() as f64 / self.time_running() as f64;
+            for i in 0..self.len() {
+                let count = self.nth_ref_mut(i).1;
+                *count = (*count as f64 * scale) as u64;
+            }
+        }
+
+        Some(self)
+    }
+
+    /// Return a range of indexes covering the count and id of the `n`'th counter.
+    fn nth_index(n: usize) -> std::ops::Range<usize> {
+        let base = 3 + 2 * n;
+        base .. base + 2
+    }
+
     /// Return the id and count of the `n`'th counter. This returns a reference
     /// to the count, for use by the `Index` implementation.
     fn nth_ref(&self, n: usize) -> (u64, &u64) {
-        assert!(n < self.len());
+        let id_val = &self.data[Counts::nth_index(n)];
+
         // (id, &value)
-        (self.data[3 + 2 * n + 1],
-         &self.data[3 + 2 * n])
+        (id_val[1], &id_val[0])
+    }
+
+    /// Return the id and count of the `n`'th counter. This returns a reference
+    /// to the count, for use by the `Index` implementation.
+    fn nth_ref_mut(&mut self, n: usize) -> (u64, &mut u64) {
+        let id_val = &mut self.data[Counts::nth_index(n)];
+
+        // (id, &value)
+        (id_val[1], &mut id_val[0])
     }
 }
 
