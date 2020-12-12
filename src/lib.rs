@@ -401,10 +401,10 @@ pub struct CountAndTime {
     ///
     /// The meaning of this field depends on how the counter was configured when
     /// it was built; see ['Builder'].
-    count: u64,
+    pub count: u64,
 
     /// How long this counter was enabled by the program, in nanoseconds.
-    time_enabled: u64,
+    pub time_enabled: u64,
 
     /// How long the kernel actually ran this counter, in nanoseconds.
     ///
@@ -412,7 +412,7 @@ pub struct CountAndTime {
     /// period it was enabled, without interruption. Otherwise, the counter
     /// shared the underlying hardware with others, and you should prorate its
     /// value accordingly.
-    time_running: u64,
+    pub time_running: u64,
 }
 
 impl<'a> EventPid<'a> {
