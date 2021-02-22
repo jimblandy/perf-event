@@ -35,3 +35,11 @@ to `PERF_COUNT_HW_INSTRUCTIONS` events, whose documentation says:
 The `examples` directory includes programs that count other sorts of events.
 
 [man]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
+
+## See also
+
+The [`perfcnt`] crate provides more extensive coverage of the Linux
+`perf_event_open` API than this crate. However, `perfcnt` does not build on
+stable Rust.
+
+[`perfcnt`]: https://crates.io/crates/perfcnt
