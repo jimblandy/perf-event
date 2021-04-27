@@ -503,6 +503,16 @@ impl<'a> Builder<'a> {
         self
     }
 
+    /// New threads will inherit the counter. (Default to false.)
+    ///
+    /// This can not be used if the counter belongs to a `Group`, doing so will
+    /// result in an error when the counter is built.
+    pub fn inherit(mut self, inherit: bool) -> Builder<'a> {
+        let flag = if inherit { 1 } else { 0 };
+        self.attrs.set_inherit(flag);
+        self
+    }
+
     /// Count events of the given kind. This accepts an [`Event`] value,
     /// or any type that can be converted to one, so you can pass [`Hardware`],
     /// [`Software`] and [`Cache`] values directly.
