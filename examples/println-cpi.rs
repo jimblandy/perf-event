@@ -4,11 +4,11 @@ fn main() -> std::io::Result<()> {
 
     let mut group = Group::new()?;
     let cycles = Builder::new()
-        .group(&group)
+        .group(&mut group)
         .kind(Hardware::CPU_CYCLES)
         .counter()?;
     let insns = Builder::new()
-        .group(&group)
+        .group(&mut group)
         .kind(Hardware::INSTRUCTIONS)
         .counter()?;
 
