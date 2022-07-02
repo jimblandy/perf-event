@@ -1,5 +1,5 @@
 # Tests to run on each push to master.
-name: push to master
+name: tests
 on: [push, pull_request]
 
 jobs:
