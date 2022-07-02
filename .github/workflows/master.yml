@@ -3,11 +3,12 @@ name: push to master
 on: [push, pull_request]
 
 jobs:
+
   test:
     name: Run 'cargo test'
     runs-on: ubuntu-latest
     steps:
-      - &toolchain uses: actions-rs/toolchain@v1
+      - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           profile: minimal
@@ -17,11 +18,17 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: test
+
   docs:
     name: Run 'cargo doc'
     runs-on: ubuntu-latest
     steps:
-      - *toolchain
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          components: rustfmt
+          override: true
       - uses: actions/checkout@v3
       - uses: actions-rs/cargo@v1
         with:
