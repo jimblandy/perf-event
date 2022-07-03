@@ -7,13 +7,17 @@ jobs:
     name: Run 'cargo check'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions-rs/toolchain@v1
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           profile: minimal
           override: true
-      - uses: actions/checkout@v3
-      - uses: actions-rs/cargo@v1
+      - uses: Swatinem/rust-cache@v1
+      - name: Check out sources
+        uses: actions/checkout@v3
+      - name: cargo check
+        uses: actions-rs/cargo@v1
         with:
           command: check
 
@@ -25,14 +29,18 @@ jobs:
     if: false
     runs-on: ubuntu-latest
     steps:
-      - uses: actions-rs/toolchain@v1
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           profile: minimal
           components: rustfmt
           override: true
-      - uses: actions/checkout@v3
-      - uses: actions-rs/cargo@v1
+      - uses: Swatinem/rust-cache@v1
+      - name: check out sources
+        uses: actions/checkout@v3
+      - name: cargo test
+        uses: actions-rs/cargo@v1
         with:
           command: test
 
@@ -40,14 +48,18 @@ jobs:
     name: Run 'cargo doc'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions-rs/toolchain@v1
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           profile: minimal
           components: rustfmt
           override: true
-      - uses: actions/checkout@v3
-      - uses: actions-rs/cargo@v1
+      - uses: Swatinem/rust-cache@v1
+      - name: check out sources
+        uses: actions/checkout@v3
+      - name: cargo doc
+        uses: actions-rs/cargo@v1
         with:
           command: doc
           args: --document-private-items
@@ -56,14 +68,18 @@ jobs:
     name: Run 'cargo fmt --check'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions-rs/toolchain@v1
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           profile: minimal
           components: rustfmt
           override: true
-      - uses: actions/checkout@v3
-      - uses: actions-rs/cargo@v1
+      - uses: Swatinem/rust-cache@v1
+      - name: check out sources
+        uses: actions/checkout@v3
+      - name: cargo fmt --check
+        uses: actions-rs/cargo@v1
         with:
           command: fmt
           args: --check
