@@ -325,7 +325,7 @@ pub struct Group {
     /// when we actually do a read.
     ///
     /// This includes the dummy counter for the group itself.
-    max_members: usize
+    max_members: usize,
 }
 
 /// A collection of counts from a [`Group`] of counters.
@@ -385,7 +385,7 @@ pub struct Group {
 /// [`read`]: Group::read
 pub struct Counts {
     // Raw results from the `read`.
-    data: Vec<u64>
+    data: Vec<u64>,
 }
 
 /// The value of a counter, along with timesharing data.
@@ -423,15 +423,13 @@ impl<'a> EventPid<'a> {
         match self {
             EventPid::ThisProcess => (0, 0),
             EventPid::Other(pid) => (*pid, 0),
-            EventPid::CGroup(file) =>
-                (file.as_raw_fd(), sys::bindings::PERF_FLAG_PID_CGROUP),
+            EventPid::CGroup(file) => (file.as_raw_fd(), sys::bindings::PERF_FLAG_PID_CGROUP),
         }
     }
 }
 
 impl<'a> Default for Builder<'a> {
     fn default() -> Builder<'a> {
-
         let mut attrs = perf_event_attr::default();
 
         // Setting `size` accurately will not prevent the code from working
@@ -440,12 +438,13 @@ impl<'a> Default for Builder<'a> {
         attrs.size = std::mem::size_of::<perf_event_attr>() as u32;
 
         attrs.set_disabled(1);
-        attrs.set_exclude_kernel(1);    // don't count time in kernel
-        attrs.set_exclude_hv(1);        // don't count time in hypervisor
+        attrs.set_exclude_kernel(1); // don't count time in kernel
+        attrs.set_exclude_hv(1); // don't count time in hypervisor
 
         // Request data for `time_enabled` and `time_running`.
-	attrs.read_format |= sys::bindings::perf_event_read_format_PERF_FORMAT_TOTAL_TIME_ENABLED as u64 |
-                             sys::bindings::perf_event_read_format_PERF_FORMAT_TOTAL_TIME_RUNNING as u64;
+        attrs.read_format |= sys::bindings::perf_event_read_format_PERF_FORMAT_TOTAL_TIME_ENABLED
+            as u64
+            | sys::bindings::perf_event_read_format_PERF_FORMAT_TOTAL_TIME_RUNNING as u64;
 
         let kind = Event::Hardware(events::Hardware::INSTRUCTIONS);
         attrs.type_ = kind.as_type();
@@ -604,11 +603,9 @@ impl<'a> Builder<'a> {
         // assigned us, so we can find our results in a Counts structure. Even
         // if we're not part of a group, we'll use it in `Debug` output.
         let mut id = 0_64;
-        check_errno_syscall(|| unsafe {
-            sys::ioctls::ID(file.as_raw_fd(), &mut id)
-        })?;
+        check_errno_syscall(|| unsafe { sys::ioctls::ID(file.as_raw_fd(), &mut id) })?;
 
-        Ok(Counter { file, id, })
+        Ok(Counter { file, id })
     }
 }
 
@@ -634,9 +631,7 @@ impl Counter {
     /// [`reset`]: #method.reset
     /// [`enable`]: struct.Group.html#method.enable
     pub fn enable(&mut self) -> io::Result<()> {
-        check_errno_syscall(|| unsafe {
-            sys::ioctls::ENABLE(self.file.as_raw_fd(), 0)
-        }).map(|_| ())
+        check_errno_syscall(|| unsafe { sys::ioctls::ENABLE(self.file.as_raw_fd(), 0) }).map(|_| ())
     }
 
     /// Make this `Counter` stop counting its designated event. Its count is
@@ -647,9 +642,8 @@ impl Counter {
     ///
     /// [`disable`]: struct.Group.html#method.disable
     pub fn disable(&mut self) -> io::Result<()> {
-        check_errno_syscall(|| unsafe {
-            sys::ioctls::DISABLE(self.file.as_raw_fd(), 0)
-        }).map(|_| ())
+        check_errno_syscall(|| unsafe { sys::ioctls::DISABLE(self.file.as_raw_fd(), 0) })
+            .map(|_| ())
     }
 
     /// Reset the value of this `Counter` to zero.
@@ -659,9 +653,7 @@ impl Counter {
     ///
     /// [`reset`]: struct.Group.html#method.reset
     pub fn reset(&mut self) -> io::Result<()> {
-        check_errno_syscall(|| unsafe {
-            sys::ioctls::RESET(self.file.as_raw_fd(), 0)
-        }).map(|_| ())
+        check_errno_syscall(|| unsafe { sys::ioctls::RESET(self.file.as_raw_fd(), 0) }).map(|_| ())
     }
 
     /// Return this `Counter`'s current value as a `u64`.
@@ -736,8 +728,12 @@ impl Counter {
 
 impl std::fmt::Debug for Counter {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(fmt, "Counter {{ fd: {}, id: {} }}",
-               self.file.as_raw_fd(), self.id)
+        write!(
+            fmt,
+            "Counter {{ fd: {}, id: {} }}",
+            self.file.as_raw_fd(),
+            self.id
+        )
     }
 }
 
@@ -755,10 +751,11 @@ impl Group {
         attrs.set_exclude_hv(1);
 
         // Arrange to be able to identify the counters we read back.
-        attrs.read_format = (sys::bindings::perf_event_read_format_PERF_FORMAT_TOTAL_TIME_ENABLED |
-                             sys::bindings::perf_event_read_format_PERF_FORMAT_TOTAL_TIME_RUNNING |
-                             sys::bindings::perf_event_read_format_PERF_FORMAT_ID |
-                             sys::bindings::perf_event_read_format_PERF_FORMAT_GROUP) as u64;
+        attrs.read_format = (sys::bindings::perf_event_read_format_PERF_FORMAT_TOTAL_TIME_ENABLED
+            | sys::bindings::perf_event_read_format_PERF_FORMAT_TOTAL_TIME_RUNNING
+            | sys::bindings::perf_event_read_format_PERF_FORMAT_ID
+            | sys::bindings::perf_event_read_format_PERF_FORMAT_GROUP)
+            as u64;
 
         let file = unsafe {
             File::from_raw_fd(check_raw_syscall(|| {
@@ -768,11 +765,13 @@ impl Group {
 
         // Retrieve the ID the kernel assigned us.
         let mut id = 0_64;
-        check_errno_syscall(|| unsafe {
-            sys::ioctls::ID(file.as_raw_fd(), &mut id)
-        })?;
+        check_errno_syscall(|| unsafe { sys::ioctls::ID(file.as_raw_fd(), &mut id) })?;
 
-        Ok(Group { file, id, max_members: 1 })
+        Ok(Group {
+            file,
+            id,
+            max_members: 1,
+        })
     }
 
     /// Allow all `Counter`s in this `Group` to begin counting their designated
@@ -803,9 +802,12 @@ impl Group {
     /// `f` must be a syscall that sets `errno` and returns `-1` on failure.
     fn generic_ioctl(&mut self, f: unsafe fn(c_int, c_uint) -> c_int) -> io::Result<()> {
         check_errno_syscall(|| unsafe {
-            f(self.file.as_raw_fd(),
-              sys::bindings::perf_event_ioc_flags_PERF_IOC_FLAG_GROUP)
-        }).map(|_| ())
+            f(
+                self.file.as_raw_fd(),
+                sys::bindings::perf_event_ioc_flags_PERF_IOC_FLAG_GROUP,
+            )
+        })
+        .map(|_| ())
     }
 
     /// Return the values of all the `Counter`s in this `Group` as a [`Counts`]
@@ -860,8 +862,12 @@ impl Group {
 
 impl std::fmt::Debug for Group {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(fmt, "Group {{ fd: {}, id: {} }}",
-               self.file.as_raw_fd(), self.id)
+        write!(
+            fmt,
+            "Group {{ fd: {}, id: {} }}",
+            self.file.as_raw_fd(),
+            self.id
+        )
     }
 }
 
@@ -886,7 +892,7 @@ impl Counts {
     /// Return a range of indexes covering the count and id of the `n`'th counter.
     fn nth_index(n: usize) -> std::ops::Range<usize> {
         let base = 3 + 2 * n;
-        base .. base + 2
+        base..base + 2
     }
 
     /// Return the id and count of the `n`'th counter. This returns a reference
@@ -911,7 +917,7 @@ impl Counts {
 /// [`Group::read`]: struct.Group.html#method.read
 pub struct CountsIter<'c> {
     counts: &'c Counts,
-    next: usize
+    next: usize,
 }
 
 impl<'c> Iterator for CountsIter<'c> {
@@ -990,20 +996,23 @@ impl std::fmt::Debug for Counts {
 unsafe trait SliceAsBytesMut: Sized {
     fn slice_as_bytes_mut(slice: &mut [Self]) -> &mut [u8] {
         unsafe {
-            std::slice::from_raw_parts_mut(slice.as_mut_ptr() as *mut u8,
-                                           std::mem::size_of_val(slice))
+            std::slice::from_raw_parts_mut(
+                slice.as_mut_ptr() as *mut u8,
+                std::mem::size_of_val(slice),
+            )
         }
     }
 }
 
-unsafe impl SliceAsBytesMut for u64 { }
+unsafe impl SliceAsBytesMut for u64 {}
 
 /// Produce an `io::Result` from a raw system call.
 ///
 /// A 'raw' system call is one that reports failure by returning negated raw OS
 /// error value.
 fn check_raw_syscall<F>(f: F) -> io::Result<c_int>
-where F: FnOnce() -> c_int
+where
+    F: FnOnce() -> c_int,
 {
     let result = f();
     if result < 0 {
@@ -1018,8 +1027,9 @@ where F: FnOnce() -> c_int
 /// An 'errno-style' system call is one that reports failure by returning -1 and
 /// setting the C `errno` value when an error occurs.
 fn check_errno_syscall<F, R>(f: F) -> io::Result<R>
-where F: FnOnce() -> R,
-      R: PartialOrd + Default
+where
+    F: FnOnce() -> R,
+    R: PartialOrd + Default,
 {
     let result = f();
     if result < R::default() {
@@ -1031,5 +1041,7 @@ where F: FnOnce() -> R,
 
 #[test]
 fn simple_build() {
-    Builder::new().build().expect("Couldn't build default Counter");
+    Builder::new()
+        .build()
+        .expect("Couldn't build default Counter");
 }
