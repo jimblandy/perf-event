@@ -1,9 +1,5 @@
 ## perf-event: a Rust interface to Linux performance monitoring
 
-![example workflow](https://github.com/jimblandy/perf-event/actions/workflows/master.yml/badge.svg)
-
-*This is a nascent project. Tests are lacking. The design may change.*
-
 This uses the Linux [`perf_event_open`][man] API to access performance monitoring
 hardware and software. Use `Builder` to create a perf event counter, then use
 `enable` and `disable` to start and stop counting. Call `read` to get your
