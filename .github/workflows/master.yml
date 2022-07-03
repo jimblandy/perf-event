@@ -6,6 +6,10 @@ jobs:
 
   test:
     name: Run 'cargo test'
+    # GitHub VMs don't permit access to perf_event_open, so this must be disabled
+    # until we have mock testing implemented.
+    # See: https://github.com/jimblandy/workflow-vm-exploration
+    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions-rs/toolchain@v1
