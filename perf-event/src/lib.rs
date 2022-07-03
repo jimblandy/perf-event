@@ -849,7 +849,7 @@ impl Group {
         let mut data = vec![0_u64; 3 + 2 * self.max_members];
         assert_eq!(
             self.file.read(u64::slice_as_bytes_mut(&mut data))?,
-            std::mem::size_of_val(&data)
+            std::mem::size_of_val(&data[..])
         );
 
         let counts = Counts { data };
