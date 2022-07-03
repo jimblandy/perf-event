@@ -8,6 +8,11 @@ edition = "2018"
 readme = "README.md"
 description = "A Rust interface to Linux performance monitoring"
 
+[features]
+# Enable syscall interception hooks for mock testing and logging.
+hooks = []
+default = ["hooks"]
+
 [dependencies]
 libc = "0.2"
 

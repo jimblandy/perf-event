@@ -74,7 +74,6 @@
 
 use events::Event;
 use libc::pid_t;
-use perf_event_open_sys as sys;
 use perf_event_open_sys::bindings::perf_event_attr;
 use std::fs::File;
 use std::io::{self, Read};
@@ -82,6 +81,19 @@ use std::os::raw::{c_int, c_uint, c_ulong};
 use std::os::unix::io::{AsRawFd, FromRawFd};
 
 pub mod events;
+
+#[cfg(feature = "hooks")]
+pub mod hooks;
+
+// When the `"hooks"` feature is not enabled, call directly into
+// `perf-event-open-sys`.
+#[cfg(not(feature = "hooks"))]
+use perf_event_open_sys as sys;
+
+// When the `"hooks"` feature is enabled, `sys` functions allow for
+// interposed functions that provide simulated results for testing.
+#[cfg(feature = "hooks")]
+use hooks::sys;
 
 /// A counter for one kind of kernel or hardware event.
 ///
