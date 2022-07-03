@@ -6,12 +6,13 @@
 //!     includes things like clock cycles, instructions retired, and cache and
 //!     branch prediction statistics.
 //!
+//! -   [`Cache`] events, also counted by the processor, offer a more
+//!     detailed view of the processor's cache counters. You can
+//!     select which level of the cache hierarchy to observe,
+//!     discriminate between data and instruction caches, and so on.
+//!
 //! -   [`Software`] events are counted by the kernel. This includes things
 //!     like context switches, page faults, and so on.
-//!
-//! -   [`Cache`] events offer a more detailed view of the processor's cache
-//!     counters. You can select which level of the cache hierarchy to observe,
-//!     discriminate between data and instruction caches, and so on.
 //!
 //! The `Event` type is just an enum with a variant for each of the above types,
 //! which all implement `Into<Event>`.
@@ -49,7 +50,7 @@ pub enum Event {
 }
 
 impl Event {
-    pub(crate) fn as_type(&self) -> bindings::perf_type_id {
+    pub(crate) fn r#type(&self) -> bindings::perf_type_id {
         match self {
             Event::Hardware(_) => bindings::perf_type_id_PERF_TYPE_HARDWARE,
             Event::Software(_) => bindings::perf_type_id_PERF_TYPE_SOFTWARE,
@@ -57,7 +58,7 @@ impl Event {
         }
     }
 
-    pub(crate) fn as_config(self) -> u64 {
+    pub(crate) fn config(self) -> u64 {
         match self {
             Event::Hardware(hw) => hw as _,
             Event::Software(sw) => sw as _,

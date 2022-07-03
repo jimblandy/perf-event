@@ -430,12 +430,13 @@ impl<'a> EventPid<'a> {
 
 impl<'a> Default for Builder<'a> {
     fn default() -> Builder<'a> {
-        let mut attrs = perf_event_attr::default();
-
-        // Setting `size` accurately will not prevent the code from working
-        // on older kernels. The module comments for `perf_event_open_sys`
-        // explain why in far too much detail.
-        attrs.size = std::mem::size_of::<perf_event_attr>() as u32;
+        let mut attrs = perf_event_attr {
+            // Setting `size` accurately will not prevent the code from working
+            // on older kernels. The module comments for `perf_event_open_sys`
+            // explain why in far too much detail.
+            size: std::mem::size_of::<perf_event_attr>() as u32,
+            ..perf_event_attr::default()
+        };
 
         attrs.set_disabled(1);
         attrs.set_exclude_kernel(1); // don't count time in kernel
@@ -447,8 +448,8 @@ impl<'a> Default for Builder<'a> {
             | sys::bindings::perf_event_read_format_PERF_FORMAT_TOTAL_TIME_RUNNING as u64;
 
         let kind = Event::Hardware(events::Hardware::INSTRUCTIONS);
-        attrs.type_ = kind.as_type();
-        attrs.config = kind.as_config();
+        attrs.type_ = kind.r#type();
+        attrs.config = kind.config();
 
         Builder {
             attrs,
@@ -543,8 +544,8 @@ impl<'a> Builder<'a> {
     /// [`Cache`]: events::Cache
     pub fn kind<K: Into<Event>>(mut self, kind: K) -> Builder<'a> {
         let kind = kind.into();
-        self.attrs.type_ = kind.as_type();
-        self.attrs.config = kind.as_config();
+        self.attrs.type_ = kind.r#type();
+        self.attrs.config = kind.config();
         self
     }
 
@@ -602,7 +603,7 @@ impl<'a> Builder<'a> {
         // If we're going to be part of a Group, retrieve the ID the kernel
         // assigned us, so we can find our results in a Counts structure. Even
         // if we're not part of a group, we'll use it in `Debug` output.
-        let mut id = 0_64;
+        let mut id = 0_u64;
         check_errno_syscall(|| unsafe { sys::ioctls::ID(file.as_raw_fd(), &mut id) })?;
 
         Ok(Counter { file, id })
@@ -742,10 +743,13 @@ impl Group {
     #[allow(unused_parens)]
     pub fn new() -> io::Result<Group> {
         // Open a placeholder perf counter that we can add other events to.
-        let mut attrs = perf_event_attr::default();
-        attrs.size = std::mem::size_of::<perf_event_attr>() as u32;
-        attrs.type_ = sys::bindings::perf_type_id_PERF_TYPE_SOFTWARE;
-        attrs.config = sys::bindings::perf_sw_ids_PERF_COUNT_SW_DUMMY as u64;
+        let mut attrs = perf_event_attr {
+            size: std::mem::size_of::<perf_event_attr>() as u32,
+            type_: sys::bindings::perf_type_id_PERF_TYPE_SOFTWARE,
+            config: sys::bindings::perf_sw_ids_PERF_COUNT_SW_DUMMY as u64,
+            ..perf_event_attr::default()
+        };
+
         attrs.set_disabled(1);
         attrs.set_exclude_kernel(1);
         attrs.set_exclude_hv(1);
@@ -764,7 +768,7 @@ impl Group {
         };
 
         // Retrieve the ID the kernel assigned us.
-        let mut id = 0_64;
+        let mut id = 0_u64;
         check_errno_syscall(|| unsafe { sys::ioctls::ID(file.as_raw_fd(), &mut id) })?;
 
         Ok(Group {
@@ -843,7 +847,10 @@ impl Group {
         //         } values[nr];
         //     };
         let mut data = vec![0_u64; 3 + 2 * self.max_members];
-        self.file.read(u64::slice_as_bytes_mut(&mut data))?;
+        assert_eq!(
+            self.file.read(u64::slice_as_bytes_mut(&mut data))?,
+            std::mem::size_of_val(&data)
+        );
 
         let counts = Counts { data };
 
@@ -873,6 +880,7 @@ impl std::fmt::Debug for Group {
 
 impl Counts {
     /// Return the number of counters this `Counts` holds results for.
+    #[allow(clippy::len_without_is_empty)] // Groups are never empty.
     pub fn len(&self) -> usize {
         self.data[0] as usize
     }
@@ -928,7 +936,7 @@ impl<'c> Iterator for CountsIter<'c> {
         }
         let result = self.counts.nth_ref(self.next);
         self.next += 1;
-        return Some(result);
+        Some(result)
     }
 }
 
@@ -993,6 +1001,14 @@ impl std::fmt::Debug for Counts {
     }
 }
 
+/// A type whose values can be safely accessed as a slice of bytes.
+///
+/// # Safety
+///
+/// `Self` must be a type such that storing a value in memory
+/// initializes all the bytes of that memory, so that
+/// `slice_as_bytes_mut` can never expose uninitialized bytes to the
+/// caller.
 unsafe trait SliceAsBytesMut: Sized {
     fn slice_as_bytes_mut(slice: &mut [Self]) -> &mut [u8] {
         unsafe {
