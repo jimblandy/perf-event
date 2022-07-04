@@ -455,9 +455,8 @@ impl<'a> Default for Builder<'a> {
         attrs.set_exclude_hv(1); // don't count time in hypervisor
 
         // Request data for `time_enabled` and `time_running`.
-        attrs.read_format |= sys::bindings::perf_event_read_format_PERF_FORMAT_TOTAL_TIME_ENABLED
-            as u64
-            | sys::bindings::perf_event_read_format_PERF_FORMAT_TOTAL_TIME_RUNNING as u64;
+        attrs.read_format |= sys::bindings::PERF_FORMAT_TOTAL_TIME_ENABLED as u64
+            | sys::bindings::PERF_FORMAT_TOTAL_TIME_RUNNING as u64;
 
         let kind = Event::Hardware(events::Hardware::INSTRUCTIONS);
         attrs.type_ = kind.r#type();
@@ -757,8 +756,8 @@ impl Group {
         // Open a placeholder perf counter that we can add other events to.
         let mut attrs = perf_event_attr {
             size: std::mem::size_of::<perf_event_attr>() as u32,
-            type_: sys::bindings::perf_type_id_PERF_TYPE_SOFTWARE,
-            config: sys::bindings::perf_sw_ids_PERF_COUNT_SW_DUMMY as u64,
+            type_: sys::bindings::PERF_TYPE_SOFTWARE,
+            config: sys::bindings::PERF_COUNT_SW_DUMMY as u64,
             ..perf_event_attr::default()
         };
 
@@ -767,11 +766,10 @@ impl Group {
         attrs.set_exclude_hv(1);
 
         // Arrange to be able to identify the counters we read back.
-        attrs.read_format = (sys::bindings::perf_event_read_format_PERF_FORMAT_TOTAL_TIME_ENABLED
-            | sys::bindings::perf_event_read_format_PERF_FORMAT_TOTAL_TIME_RUNNING
-            | sys::bindings::perf_event_read_format_PERF_FORMAT_ID
-            | sys::bindings::perf_event_read_format_PERF_FORMAT_GROUP)
-            as u64;
+        attrs.read_format = (sys::bindings::PERF_FORMAT_TOTAL_TIME_ENABLED
+            | sys::bindings::PERF_FORMAT_TOTAL_TIME_RUNNING
+            | sys::bindings::PERF_FORMAT_ID
+            | sys::bindings::PERF_FORMAT_GROUP) as u64;
 
         let file = unsafe {
             File::from_raw_fd(check_raw_syscall(|| {
@@ -818,10 +816,7 @@ impl Group {
     /// `f` must be a syscall that sets `errno` and returns `-1` on failure.
     fn generic_ioctl(&mut self, f: unsafe fn(c_int, c_uint) -> c_int) -> io::Result<()> {
         check_errno_syscall(|| unsafe {
-            f(
-                self.file.as_raw_fd(),
-                sys::bindings::perf_event_ioc_flags_PERF_IOC_FLAG_GROUP,
-            )
+            f(self.file.as_raw_fd(), sys::bindings::PERF_IOC_FLAG_GROUP)
         })
         .map(|_| ())
     }

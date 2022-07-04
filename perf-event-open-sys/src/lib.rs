@@ -70,7 +70,7 @@
 //! ## Kernel versions
 //!
 //! The bindings in this crate are generated from the Linux kernel headers
-//! packaged by Fedora as `kernel-headers-5.17.6-300.fc36.x86_64`, which
+//! packaged by Fedora as `kernel-headers-5.18.4-200.fc36`, which
 //! corresponds to `PERF_EVENT_ATTR_SIZE_VER7`.
 //!
 //! As explained above, bugs aside, it is not necessary to use the version of
@@ -239,18 +239,18 @@ pub mod ioctls {
     }
 
     define_ioctls! {
-        { ENABLE, perf_event_ioctls_ENABLE, c_uint }
-        { DISABLE, perf_event_ioctls_DISABLE, c_uint }
-        { REFRESH, perf_event_ioctls_REFRESH, c_int }
-        { RESET, perf_event_ioctls_RESET, c_uint }
-        { PERIOD, perf_event_ioctls_PERIOD, u64 }
-        { SET_OUTPUT, perf_event_ioctls_SET_OUTPUT, c_int }
-        { SET_FILTER, perf_event_ioctls_SET_FILTER, *mut c_char }
-        { ID, perf_event_ioctls_ID, *mut u64 }
-        { SET_BPF, perf_event_ioctls_SET_BPF, u32 }
-        { PAUSE_OUTPUT, perf_event_ioctls_PAUSE_OUTPUT, u32 }
-        { QUERY_BPF, perf_event_ioctls_QUERY_BPF, *mut perf_event_query_bpf }
-        { MODIFY_ATTRIBUTES, perf_event_ioctls_MODIFY_ATTRIBUTES, *mut perf_event_attr }
+        { ENABLE, ENABLE, c_uint }
+        { DISABLE, DISABLE, c_uint }
+        { REFRESH, REFRESH, c_int }
+        { RESET, RESET, c_uint }
+        { PERIOD, PERIOD, u64 }
+        { SET_OUTPUT, SET_OUTPUT, c_int }
+        { SET_FILTER, SET_FILTER, *mut c_char }
+        { ID, ID, *mut u64 }
+        { SET_BPF, SET_BPF, u32 }
+        { PAUSE_OUTPUT, PAUSE_OUTPUT, u32 }
+        { QUERY_BPF, QUERY_BPF, *mut perf_event_query_bpf }
+        { MODIFY_ATTRIBUTES, MODIFY_ATTRIBUTES, *mut perf_event_attr }
     }
 
     unsafe fn untyped_ioctl<A>(fd: c_int, ioctl: bindings::perf_event_ioctls, arg: A) -> c_int {
