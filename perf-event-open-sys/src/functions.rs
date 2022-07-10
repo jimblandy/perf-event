@@ -12,6 +12,8 @@
 //! This module is only compiled on Linux. The `bindings` declarations
 //! are useful on other platforms for parsing perf files.
 
+use crate::bindings;
+
 use libc::pid_t;
 use std::os::raw::{c_int, c_ulong};
 
