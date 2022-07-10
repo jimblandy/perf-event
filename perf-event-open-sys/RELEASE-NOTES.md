@@ -1,5 +1,13 @@
 # Release notes for `perf-event-open-sys`
 
+## (unreleased)
+
+-   The `perf_event_open_sys` crate now builds on Windows and Mac.
+    Although the system call and ioctl wrapper functions are not
+    available, the types in the `bindings` module are still provided
+    for use by code on other platforms that would like to parse perf
+    data produced on Linux or Android.
+
 ## 3.0.0
 
 -   Based on Linux kernel headers packaged by Fedora as `kernel-headers-5.18.4-200.fc36`.

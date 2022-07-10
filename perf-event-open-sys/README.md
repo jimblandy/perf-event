@@ -22,6 +22,14 @@ For a type-safe API for basic functionality, see the [perf-event] crate.
 
 [perf-event]: https://crates.io/crates/perf-event
 
+### Using perf types on other platforms
+
+Even though Windows and Mac don't have the `perf_event_open` system
+call, the `perf_event_open_sys` crate still builds on those platforms:
+the type definitions in the `bindings` module can be useful to code
+that needs to parse perf-related data produced on Linux or Android
+systems. The syscall and ioctl wrapper functions are not available.
+
 ### Updating the System Call Bindings
 
 The `bindings` module defines Rust equivalents for the types and constants used
