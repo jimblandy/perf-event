@@ -164,6 +164,14 @@
 //! crate, which provides a safe interface to a subset of `perf_event_open`'s
 //! functionality.
 //!
+//! ## Using perf types on other platforms
+//!
+//! Although the functions in this crate are only available on Linux
+//! and Android, the crate itself should build on Windows and Mac as
+//! well. On those platforms, only the `bindings` module is available:
+//! the types are useful to code that needs to parse perf data
+//! produced on Linux.
+//!
 //! [`bindings`]: bindings/index.html
 //! [`ioctls`]: ioctls/index.html
 //! [man]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
@@ -171,93 +179,10 @@
 
 pub mod bindings;
 
-use libc::pid_t;
-use std::os::raw::{c_int, c_ulong};
+// Provide actual callable code only on Linux/Android. See "Using perf
+// types on other platforms", in the top-level crate docs.
+#[cfg(any(target_os = "linux", target_os = "android"))]
+mod functions;
 
-/// The `perf_event_open` system call.
-///
-/// See the [`perf_event_open(2) man page`][man] for details.
-///
-/// On error, this returns a negated raw OS error value. The C `errno` value is
-/// not changed.
-///
-/// Note: The `attrs` argument needs to be a `*mut` because if the `size` field
-/// is too small or too large, the kernel writes the size it was expecing back
-/// into that field. It might do other things as well.
-///
-/// # Safety
-///
-/// The `attrs` argument must point to a properly initialized
-/// `perf_event_attr` struct. The measurements and other behaviors its
-/// contents request must be safe.
-///
-/// [man]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
-pub unsafe fn perf_event_open(
-    attrs: *mut bindings::perf_event_attr,
-    pid: pid_t,
-    cpu: c_int,
-    group_fd: c_int,
-    flags: c_ulong,
-) -> c_int {
-    libc::syscall(
-        bindings::__NR_perf_event_open as libc::c_long,
-        attrs as *const bindings::perf_event_attr,
-        pid,
-        cpu,
-        group_fd,
-        flags,
-    ) as c_int
-}
-
-#[allow(dead_code, non_snake_case)]
-pub mod ioctls {
-    //! Ioctls for use with `perf_event_open` file descriptors.
-    //!
-    //! See the [`perf_event_open(2)`][man] man page for details.
-    //!
-    //! On error, these return `-1` and set the C `errno` value.
-    //!
-    //! [man]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
-    use crate::bindings::{self, perf_event_attr, perf_event_query_bpf};
-    use std::os::raw::{c_char, c_int, c_uint, c_ulong};
-
-    macro_rules! define_ioctls {
-        ( $( $args:tt )* ) => {
-            $(
-                define_ioctl!($args);
-            )*
-        }
-    }
-
-    macro_rules! define_ioctl {
-        ({ $name:ident, $ioctl:ident, $arg_type:ty }) => {
-            #[allow(clippy::missing_safety_doc)]
-            pub unsafe fn $name(fd: c_int, arg: $arg_type) -> c_int {
-                untyped_ioctl(fd, bindings::$ioctl, arg)
-            }
-        };
-    }
-
-    define_ioctls! {
-        { ENABLE, ENABLE, c_uint }
-        { DISABLE, DISABLE, c_uint }
-        { REFRESH, REFRESH, c_int }
-        { RESET, RESET, c_uint }
-        { PERIOD, PERIOD, u64 }
-        { SET_OUTPUT, SET_OUTPUT, c_int }
-        { SET_FILTER, SET_FILTER, *mut c_char }
-        { ID, ID, *mut u64 }
-        { SET_BPF, SET_BPF, u32 }
-        { PAUSE_OUTPUT, PAUSE_OUTPUT, u32 }
-        { QUERY_BPF, QUERY_BPF, *mut perf_event_query_bpf }
-        { MODIFY_ATTRIBUTES, MODIFY_ATTRIBUTES, *mut perf_event_attr }
-    }
-
-    unsafe fn untyped_ioctl<A>(fd: c_int, ioctl: bindings::perf_event_ioctls, arg: A) -> c_int {
-        #[cfg(any(target_env = "musl", target_os = "android"))]
-        return libc::ioctl(fd, ioctl as c_int, arg);
-
-        #[cfg(not(any(target_env = "musl", target_os = "android")))]
-        libc::ioctl(fd, ioctl as c_ulong, arg)
-    }
-}
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub use functions::*;
