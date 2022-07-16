@@ -637,6 +637,8 @@ pub struct __kernel_fd_set {
 }
 #[test]
 fn bindgen_test_layout___kernel_fd_set() {
+    const UNINIT: ::std::mem::MaybeUninit<__kernel_fd_set> = ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
     assert_eq!(
         ::std::mem::size_of::<__kernel_fd_set>(),
         128usize,
@@ -647,23 +649,16 @@ fn bindgen_test_layout___kernel_fd_set() {
         8usize,
         concat!("Alignment of ", stringify!(__kernel_fd_set))
     );
-    fn test_field_fds_bits() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<__kernel_fd_set>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).fds_bits) as usize - ptr as usize
-            },
-            0usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(__kernel_fd_set),
-                "::",
-                stringify!(fds_bits)
-            )
-        );
-    }
-    test_field_fds_bits();
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).fds_bits) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(__kernel_fd_set),
+            "::",
+            stringify!(fds_bits)
+        )
+    );
 }
 pub type __kernel_sighandler_t =
     ::std::option::Option<unsafe extern "C" fn(arg1: ::std::os::raw::c_int)>;
@@ -694,6 +689,8 @@ pub struct __kernel_fsid_t {
 }
 #[test]
 fn bindgen_test_layout___kernel_fsid_t() {
+    const UNINIT: ::std::mem::MaybeUninit<__kernel_fsid_t> = ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
     assert_eq!(
         ::std::mem::size_of::<__kernel_fsid_t>(),
         8usize,
@@ -704,23 +701,16 @@ fn bindgen_test_layout___kernel_fsid_t() {
         4usize,
         concat!("Alignment of ", stringify!(__kernel_fsid_t))
     );
-    fn test_field_val() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<__kernel_fsid_t>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).val) as usize - ptr as usize
-            },
-            0usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(__kernel_fsid_t),
-                "::",
-                stringify!(val)
-            )
-        );
-    }
-    test_field_val();
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).val) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(__kernel_fsid_t),
+            "::",
+            stringify!(val)
+        )
+    );
 }
 pub type __kernel_off_t = __kernel_long_t;
 pub type __kernel_loff_t = ::std::os::raw::c_longlong;
@@ -934,6 +924,9 @@ pub union perf_event_attr__bindgen_ty_1 {
 }
 #[test]
 fn bindgen_test_layout_perf_event_attr__bindgen_ty_1() {
+    const UNINIT: ::std::mem::MaybeUninit<perf_event_attr__bindgen_ty_1> =
+        ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
     assert_eq!(
         ::std::mem::size_of::<perf_event_attr__bindgen_ty_1>(),
         8usize,
@@ -944,40 +937,26 @@ fn bindgen_test_layout_perf_event_attr__bindgen_ty_1() {
         8usize,
         concat!("Alignment of ", stringify!(perf_event_attr__bindgen_ty_1))
     );
-    fn test_field_sample_period() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_attr__bindgen_ty_1>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).sample_period) as usize - ptr as usize
-            },
-            0usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_attr__bindgen_ty_1),
-                "::",
-                stringify!(sample_period)
-            )
-        );
-    }
-    test_field_sample_period();
-    fn test_field_sample_freq() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_attr__bindgen_ty_1>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).sample_freq) as usize - ptr as usize
-            },
-            0usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_attr__bindgen_ty_1),
-                "::",
-                stringify!(sample_freq)
-            )
-        );
-    }
-    test_field_sample_freq();
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).sample_period) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_attr__bindgen_ty_1),
+            "::",
+            stringify!(sample_period)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).sample_freq) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_attr__bindgen_ty_1),
+            "::",
+            stringify!(sample_freq)
+        )
+    );
 }
 impl Default for perf_event_attr__bindgen_ty_1 {
     fn default() -> Self {
@@ -996,6 +975,9 @@ pub union perf_event_attr__bindgen_ty_2 {
 }
 #[test]
 fn bindgen_test_layout_perf_event_attr__bindgen_ty_2() {
+    const UNINIT: ::std::mem::MaybeUninit<perf_event_attr__bindgen_ty_2> =
+        ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
     assert_eq!(
         ::std::mem::size_of::<perf_event_attr__bindgen_ty_2>(),
         4usize,
@@ -1006,40 +988,26 @@ fn bindgen_test_layout_perf_event_attr__bindgen_ty_2() {
         4usize,
         concat!("Alignment of ", stringify!(perf_event_attr__bindgen_ty_2))
     );
-    fn test_field_wakeup_events() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_attr__bindgen_ty_2>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).wakeup_events) as usize - ptr as usize
-            },
-            0usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_attr__bindgen_ty_2),
-                "::",
-                stringify!(wakeup_events)
-            )
-        );
-    }
-    test_field_wakeup_events();
-    fn test_field_wakeup_watermark() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_attr__bindgen_ty_2>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).wakeup_watermark) as usize - ptr as usize
-            },
-            0usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_attr__bindgen_ty_2),
-                "::",
-                stringify!(wakeup_watermark)
-            )
-        );
-    }
-    test_field_wakeup_watermark();
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).wakeup_events) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_attr__bindgen_ty_2),
+            "::",
+            stringify!(wakeup_events)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).wakeup_watermark) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_attr__bindgen_ty_2),
+            "::",
+            stringify!(wakeup_watermark)
+        )
+    );
 }
 impl Default for perf_event_attr__bindgen_ty_2 {
     fn default() -> Self {
@@ -1060,6 +1028,9 @@ pub union perf_event_attr__bindgen_ty_3 {
 }
 #[test]
 fn bindgen_test_layout_perf_event_attr__bindgen_ty_3() {
+    const UNINIT: ::std::mem::MaybeUninit<perf_event_attr__bindgen_ty_3> =
+        ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
     assert_eq!(
         ::std::mem::size_of::<perf_event_attr__bindgen_ty_3>(),
         8usize,
@@ -1070,74 +1041,46 @@ fn bindgen_test_layout_perf_event_attr__bindgen_ty_3() {
         8usize,
         concat!("Alignment of ", stringify!(perf_event_attr__bindgen_ty_3))
     );
-    fn test_field_bp_addr() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_attr__bindgen_ty_3>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).bp_addr) as usize - ptr as usize
-            },
-            0usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_attr__bindgen_ty_3),
-                "::",
-                stringify!(bp_addr)
-            )
-        );
-    }
-    test_field_bp_addr();
-    fn test_field_kprobe_func() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_attr__bindgen_ty_3>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).kprobe_func) as usize - ptr as usize
-            },
-            0usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_attr__bindgen_ty_3),
-                "::",
-                stringify!(kprobe_func)
-            )
-        );
-    }
-    test_field_kprobe_func();
-    fn test_field_uprobe_path() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_attr__bindgen_ty_3>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).uprobe_path) as usize - ptr as usize
-            },
-            0usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_attr__bindgen_ty_3),
-                "::",
-                stringify!(uprobe_path)
-            )
-        );
-    }
-    test_field_uprobe_path();
-    fn test_field_config1() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_attr__bindgen_ty_3>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).config1) as usize - ptr as usize
-            },
-            0usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_attr__bindgen_ty_3),
-                "::",
-                stringify!(config1)
-            )
-        );
-    }
-    test_field_config1();
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).bp_addr) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_attr__bindgen_ty_3),
+            "::",
+            stringify!(bp_addr)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).kprobe_func) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_attr__bindgen_ty_3),
+            "::",
+            stringify!(kprobe_func)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).uprobe_path) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_attr__bindgen_ty_3),
+            "::",
+            stringify!(uprobe_path)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).config1) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_attr__bindgen_ty_3),
+            "::",
+            stringify!(config1)
+        )
+    );
 }
 impl Default for perf_event_attr__bindgen_ty_3 {
     fn default() -> Self {
@@ -1158,6 +1101,9 @@ pub union perf_event_attr__bindgen_ty_4 {
 }
 #[test]
 fn bindgen_test_layout_perf_event_attr__bindgen_ty_4() {
+    const UNINIT: ::std::mem::MaybeUninit<perf_event_attr__bindgen_ty_4> =
+        ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
     assert_eq!(
         ::std::mem::size_of::<perf_event_attr__bindgen_ty_4>(),
         8usize,
@@ -1168,74 +1114,46 @@ fn bindgen_test_layout_perf_event_attr__bindgen_ty_4() {
         8usize,
         concat!("Alignment of ", stringify!(perf_event_attr__bindgen_ty_4))
     );
-    fn test_field_bp_len() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_attr__bindgen_ty_4>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).bp_len) as usize - ptr as usize
-            },
-            0usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_attr__bindgen_ty_4),
-                "::",
-                stringify!(bp_len)
-            )
-        );
-    }
-    test_field_bp_len();
-    fn test_field_kprobe_addr() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_attr__bindgen_ty_4>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).kprobe_addr) as usize - ptr as usize
-            },
-            0usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_attr__bindgen_ty_4),
-                "::",
-                stringify!(kprobe_addr)
-            )
-        );
-    }
-    test_field_kprobe_addr();
-    fn test_field_probe_offset() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_attr__bindgen_ty_4>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).probe_offset) as usize - ptr as usize
-            },
-            0usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_attr__bindgen_ty_4),
-                "::",
-                stringify!(probe_offset)
-            )
-        );
-    }
-    test_field_probe_offset();
-    fn test_field_config2() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_attr__bindgen_ty_4>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).config2) as usize - ptr as usize
-            },
-            0usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_attr__bindgen_ty_4),
-                "::",
-                stringify!(config2)
-            )
-        );
-    }
-    test_field_config2();
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).bp_len) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_attr__bindgen_ty_4),
+            "::",
+            stringify!(bp_len)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).kprobe_addr) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_attr__bindgen_ty_4),
+            "::",
+            stringify!(kprobe_addr)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).probe_offset) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_attr__bindgen_ty_4),
+            "::",
+            stringify!(probe_offset)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).config2) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_attr__bindgen_ty_4),
+            "::",
+            stringify!(config2)
+        )
+    );
 }
 impl Default for perf_event_attr__bindgen_ty_4 {
     fn default() -> Self {
@@ -1248,6 +1166,8 @@ impl Default for perf_event_attr__bindgen_ty_4 {
 }
 #[test]
 fn bindgen_test_layout_perf_event_attr() {
+    const UNINIT: ::std::mem::MaybeUninit<perf_event_attr> = ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
     assert_eq!(
         ::std::mem::size_of::<perf_event_attr>(),
         128usize,
@@ -1258,295 +1178,176 @@ fn bindgen_test_layout_perf_event_attr() {
         8usize,
         concat!("Alignment of ", stringify!(perf_event_attr))
     );
-    fn test_field_type() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_attr>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).type_) as usize - ptr as usize
-            },
-            0usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_attr),
-                "::",
-                stringify!(type_)
-            )
-        );
-    }
-    test_field_type();
-    fn test_field_size() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_attr>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).size) as usize - ptr as usize
-            },
-            4usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_attr),
-                "::",
-                stringify!(size)
-            )
-        );
-    }
-    test_field_size();
-    fn test_field_config() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_attr>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).config) as usize - ptr as usize
-            },
-            8usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_attr),
-                "::",
-                stringify!(config)
-            )
-        );
-    }
-    test_field_config();
-    fn test_field_sample_type() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_attr>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).sample_type) as usize - ptr as usize
-            },
-            24usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_attr),
-                "::",
-                stringify!(sample_type)
-            )
-        );
-    }
-    test_field_sample_type();
-    fn test_field_read_format() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_attr>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).read_format) as usize - ptr as usize
-            },
-            32usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_attr),
-                "::",
-                stringify!(read_format)
-            )
-        );
-    }
-    test_field_read_format();
-    fn test_field_bp_type() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_attr>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).bp_type) as usize - ptr as usize
-            },
-            52usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_attr),
-                "::",
-                stringify!(bp_type)
-            )
-        );
-    }
-    test_field_bp_type();
-    fn test_field_branch_sample_type() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_attr>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).branch_sample_type) as usize - ptr as usize
-            },
-            72usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_attr),
-                "::",
-                stringify!(branch_sample_type)
-            )
-        );
-    }
-    test_field_branch_sample_type();
-    fn test_field_sample_regs_user() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_attr>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).sample_regs_user) as usize - ptr as usize
-            },
-            80usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_attr),
-                "::",
-                stringify!(sample_regs_user)
-            )
-        );
-    }
-    test_field_sample_regs_user();
-    fn test_field_sample_stack_user() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_attr>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).sample_stack_user) as usize - ptr as usize
-            },
-            88usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_attr),
-                "::",
-                stringify!(sample_stack_user)
-            )
-        );
-    }
-    test_field_sample_stack_user();
-    fn test_field_clockid() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_attr>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).clockid) as usize - ptr as usize
-            },
-            92usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_attr),
-                "::",
-                stringify!(clockid)
-            )
-        );
-    }
-    test_field_clockid();
-    fn test_field_sample_regs_intr() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_attr>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).sample_regs_intr) as usize - ptr as usize
-            },
-            96usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_attr),
-                "::",
-                stringify!(sample_regs_intr)
-            )
-        );
-    }
-    test_field_sample_regs_intr();
-    fn test_field_aux_watermark() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_attr>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).aux_watermark) as usize - ptr as usize
-            },
-            104usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_attr),
-                "::",
-                stringify!(aux_watermark)
-            )
-        );
-    }
-    test_field_aux_watermark();
-    fn test_field_sample_max_stack() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_attr>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).sample_max_stack) as usize - ptr as usize
-            },
-            108usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_attr),
-                "::",
-                stringify!(sample_max_stack)
-            )
-        );
-    }
-    test_field_sample_max_stack();
-    fn test_field___reserved_2() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_attr>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).__reserved_2) as usize - ptr as usize
-            },
-            110usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_attr),
-                "::",
-                stringify!(__reserved_2)
-            )
-        );
-    }
-    test_field___reserved_2();
-    fn test_field_aux_sample_size() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_attr>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).aux_sample_size) as usize - ptr as usize
-            },
-            112usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_attr),
-                "::",
-                stringify!(aux_sample_size)
-            )
-        );
-    }
-    test_field_aux_sample_size();
-    fn test_field___reserved_3() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_attr>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).__reserved_3) as usize - ptr as usize
-            },
-            116usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_attr),
-                "::",
-                stringify!(__reserved_3)
-            )
-        );
-    }
-    test_field___reserved_3();
-    fn test_field_sig_data() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_attr>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).sig_data) as usize - ptr as usize
-            },
-            120usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_attr),
-                "::",
-                stringify!(sig_data)
-            )
-        );
-    }
-    test_field_sig_data();
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).type_) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_attr),
+            "::",
+            stringify!(type_)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).size) as usize - ptr as usize },
+        4usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_attr),
+            "::",
+            stringify!(size)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).config) as usize - ptr as usize },
+        8usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_attr),
+            "::",
+            stringify!(config)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).sample_type) as usize - ptr as usize },
+        24usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_attr),
+            "::",
+            stringify!(sample_type)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).read_format) as usize - ptr as usize },
+        32usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_attr),
+            "::",
+            stringify!(read_format)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).bp_type) as usize - ptr as usize },
+        52usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_attr),
+            "::",
+            stringify!(bp_type)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).branch_sample_type) as usize - ptr as usize },
+        72usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_attr),
+            "::",
+            stringify!(branch_sample_type)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).sample_regs_user) as usize - ptr as usize },
+        80usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_attr),
+            "::",
+            stringify!(sample_regs_user)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).sample_stack_user) as usize - ptr as usize },
+        88usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_attr),
+            "::",
+            stringify!(sample_stack_user)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).clockid) as usize - ptr as usize },
+        92usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_attr),
+            "::",
+            stringify!(clockid)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).sample_regs_intr) as usize - ptr as usize },
+        96usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_attr),
+            "::",
+            stringify!(sample_regs_intr)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).aux_watermark) as usize - ptr as usize },
+        104usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_attr),
+            "::",
+            stringify!(aux_watermark)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).sample_max_stack) as usize - ptr as usize },
+        108usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_attr),
+            "::",
+            stringify!(sample_max_stack)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).__reserved_2) as usize - ptr as usize },
+        110usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_attr),
+            "::",
+            stringify!(__reserved_2)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).aux_sample_size) as usize - ptr as usize },
+        112usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_attr),
+            "::",
+            stringify!(aux_sample_size)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).__reserved_3) as usize - ptr as usize },
+        116usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_attr),
+            "::",
+            stringify!(__reserved_3)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).sig_data) as usize - ptr as usize },
+        120usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_attr),
+            "::",
+            stringify!(sig_data)
+        )
+    );
 }
 impl Default for perf_event_attr {
     fn default() -> Self {
@@ -2184,6 +1985,8 @@ pub struct perf_event_query_bpf {
 }
 #[test]
 fn bindgen_test_layout_perf_event_query_bpf() {
+    const UNINIT: ::std::mem::MaybeUninit<perf_event_query_bpf> = ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
     assert_eq!(
         ::std::mem::size_of::<perf_event_query_bpf>(),
         8usize,
@@ -2194,57 +1997,36 @@ fn bindgen_test_layout_perf_event_query_bpf() {
         4usize,
         concat!("Alignment of ", stringify!(perf_event_query_bpf))
     );
-    fn test_field_ids_len() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_query_bpf>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).ids_len) as usize - ptr as usize
-            },
-            0usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_query_bpf),
-                "::",
-                stringify!(ids_len)
-            )
-        );
-    }
-    test_field_ids_len();
-    fn test_field_prog_cnt() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_query_bpf>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).prog_cnt) as usize - ptr as usize
-            },
-            4usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_query_bpf),
-                "::",
-                stringify!(prog_cnt)
-            )
-        );
-    }
-    test_field_prog_cnt();
-    fn test_field_ids() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_query_bpf>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).ids) as usize - ptr as usize
-            },
-            8usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_query_bpf),
-                "::",
-                stringify!(ids)
-            )
-        );
-    }
-    test_field_ids();
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).ids_len) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_query_bpf),
+            "::",
+            stringify!(ids_len)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).prog_cnt) as usize - ptr as usize },
+        4usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_query_bpf),
+            "::",
+            stringify!(prog_cnt)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).ids) as usize - ptr as usize },
+        8usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_query_bpf),
+            "::",
+            stringify!(ids)
+        )
+    );
 }
 pub const PERF_IOC_FLAG_GROUP: perf_event_ioc_flags = 1;
 pub type perf_event_ioc_flags = ::std::os::raw::c_uint;
@@ -2433,6 +2215,9 @@ impl perf_event_mmap_page__bindgen_ty_1__bindgen_ty_1 {
 }
 #[test]
 fn bindgen_test_layout_perf_event_mmap_page__bindgen_ty_1() {
+    const UNINIT: ::std::mem::MaybeUninit<perf_event_mmap_page__bindgen_ty_1> =
+        ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
     assert_eq!(
         ::std::mem::size_of::<perf_event_mmap_page__bindgen_ty_1>(),
         8usize,
@@ -2446,24 +2231,16 @@ fn bindgen_test_layout_perf_event_mmap_page__bindgen_ty_1() {
             stringify!(perf_event_mmap_page__bindgen_ty_1)
         )
     );
-    fn test_field_capabilities() {
-        assert_eq!(
-            unsafe {
-                let uninit =
-                    ::std::mem::MaybeUninit::<perf_event_mmap_page__bindgen_ty_1>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).capabilities) as usize - ptr as usize
-            },
-            0usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_mmap_page__bindgen_ty_1),
-                "::",
-                stringify!(capabilities)
-            )
-        );
-    }
-    test_field_capabilities();
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).capabilities) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_mmap_page__bindgen_ty_1),
+            "::",
+            stringify!(capabilities)
+        )
+    );
 }
 impl Default for perf_event_mmap_page__bindgen_ty_1 {
     fn default() -> Self {
@@ -2476,6 +2253,8 @@ impl Default for perf_event_mmap_page__bindgen_ty_1 {
 }
 #[test]
 fn bindgen_test_layout_perf_event_mmap_page() {
+    const UNINIT: ::std::mem::MaybeUninit<perf_event_mmap_page> = ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
     assert_eq!(
         ::std::mem::size_of::<perf_event_mmap_page>(),
         1088usize,
@@ -2486,431 +2265,256 @@ fn bindgen_test_layout_perf_event_mmap_page() {
         8usize,
         concat!("Alignment of ", stringify!(perf_event_mmap_page))
     );
-    fn test_field_version() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_mmap_page>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).version) as usize - ptr as usize
-            },
-            0usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_mmap_page),
-                "::",
-                stringify!(version)
-            )
-        );
-    }
-    test_field_version();
-    fn test_field_compat_version() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_mmap_page>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).compat_version) as usize - ptr as usize
-            },
-            4usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_mmap_page),
-                "::",
-                stringify!(compat_version)
-            )
-        );
-    }
-    test_field_compat_version();
-    fn test_field_lock() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_mmap_page>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).lock) as usize - ptr as usize
-            },
-            8usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_mmap_page),
-                "::",
-                stringify!(lock)
-            )
-        );
-    }
-    test_field_lock();
-    fn test_field_index() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_mmap_page>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).index) as usize - ptr as usize
-            },
-            12usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_mmap_page),
-                "::",
-                stringify!(index)
-            )
-        );
-    }
-    test_field_index();
-    fn test_field_offset() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_mmap_page>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).offset) as usize - ptr as usize
-            },
-            16usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_mmap_page),
-                "::",
-                stringify!(offset)
-            )
-        );
-    }
-    test_field_offset();
-    fn test_field_time_enabled() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_mmap_page>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).time_enabled) as usize - ptr as usize
-            },
-            24usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_mmap_page),
-                "::",
-                stringify!(time_enabled)
-            )
-        );
-    }
-    test_field_time_enabled();
-    fn test_field_time_running() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_mmap_page>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).time_running) as usize - ptr as usize
-            },
-            32usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_mmap_page),
-                "::",
-                stringify!(time_running)
-            )
-        );
-    }
-    test_field_time_running();
-    fn test_field_pmc_width() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_mmap_page>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).pmc_width) as usize - ptr as usize
-            },
-            48usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_mmap_page),
-                "::",
-                stringify!(pmc_width)
-            )
-        );
-    }
-    test_field_pmc_width();
-    fn test_field_time_shift() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_mmap_page>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).time_shift) as usize - ptr as usize
-            },
-            50usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_mmap_page),
-                "::",
-                stringify!(time_shift)
-            )
-        );
-    }
-    test_field_time_shift();
-    fn test_field_time_mult() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_mmap_page>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).time_mult) as usize - ptr as usize
-            },
-            52usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_mmap_page),
-                "::",
-                stringify!(time_mult)
-            )
-        );
-    }
-    test_field_time_mult();
-    fn test_field_time_offset() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_mmap_page>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).time_offset) as usize - ptr as usize
-            },
-            56usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_mmap_page),
-                "::",
-                stringify!(time_offset)
-            )
-        );
-    }
-    test_field_time_offset();
-    fn test_field_time_zero() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_mmap_page>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).time_zero) as usize - ptr as usize
-            },
-            64usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_mmap_page),
-                "::",
-                stringify!(time_zero)
-            )
-        );
-    }
-    test_field_time_zero();
-    fn test_field_size() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_mmap_page>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).size) as usize - ptr as usize
-            },
-            72usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_mmap_page),
-                "::",
-                stringify!(size)
-            )
-        );
-    }
-    test_field_size();
-    fn test_field___reserved_1() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_mmap_page>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).__reserved_1) as usize - ptr as usize
-            },
-            76usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_mmap_page),
-                "::",
-                stringify!(__reserved_1)
-            )
-        );
-    }
-    test_field___reserved_1();
-    fn test_field_time_cycles() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_mmap_page>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).time_cycles) as usize - ptr as usize
-            },
-            80usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_mmap_page),
-                "::",
-                stringify!(time_cycles)
-            )
-        );
-    }
-    test_field_time_cycles();
-    fn test_field_time_mask() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_mmap_page>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).time_mask) as usize - ptr as usize
-            },
-            88usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_mmap_page),
-                "::",
-                stringify!(time_mask)
-            )
-        );
-    }
-    test_field_time_mask();
-    fn test_field___reserved() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_mmap_page>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).__reserved) as usize - ptr as usize
-            },
-            96usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_mmap_page),
-                "::",
-                stringify!(__reserved)
-            )
-        );
-    }
-    test_field___reserved();
-    fn test_field_data_head() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_mmap_page>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).data_head) as usize - ptr as usize
-            },
-            1024usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_mmap_page),
-                "::",
-                stringify!(data_head)
-            )
-        );
-    }
-    test_field_data_head();
-    fn test_field_data_tail() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_mmap_page>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).data_tail) as usize - ptr as usize
-            },
-            1032usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_mmap_page),
-                "::",
-                stringify!(data_tail)
-            )
-        );
-    }
-    test_field_data_tail();
-    fn test_field_data_offset() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_mmap_page>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).data_offset) as usize - ptr as usize
-            },
-            1040usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_mmap_page),
-                "::",
-                stringify!(data_offset)
-            )
-        );
-    }
-    test_field_data_offset();
-    fn test_field_data_size() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_mmap_page>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).data_size) as usize - ptr as usize
-            },
-            1048usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_mmap_page),
-                "::",
-                stringify!(data_size)
-            )
-        );
-    }
-    test_field_data_size();
-    fn test_field_aux_head() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_mmap_page>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).aux_head) as usize - ptr as usize
-            },
-            1056usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_mmap_page),
-                "::",
-                stringify!(aux_head)
-            )
-        );
-    }
-    test_field_aux_head();
-    fn test_field_aux_tail() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_mmap_page>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).aux_tail) as usize - ptr as usize
-            },
-            1064usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_mmap_page),
-                "::",
-                stringify!(aux_tail)
-            )
-        );
-    }
-    test_field_aux_tail();
-    fn test_field_aux_offset() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_mmap_page>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).aux_offset) as usize - ptr as usize
-            },
-            1072usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_mmap_page),
-                "::",
-                stringify!(aux_offset)
-            )
-        );
-    }
-    test_field_aux_offset();
-    fn test_field_aux_size() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_mmap_page>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).aux_size) as usize - ptr as usize
-            },
-            1080usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_mmap_page),
-                "::",
-                stringify!(aux_size)
-            )
-        );
-    }
-    test_field_aux_size();
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).version) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_mmap_page),
+            "::",
+            stringify!(version)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).compat_version) as usize - ptr as usize },
+        4usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_mmap_page),
+            "::",
+            stringify!(compat_version)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).lock) as usize - ptr as usize },
+        8usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_mmap_page),
+            "::",
+            stringify!(lock)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).index) as usize - ptr as usize },
+        12usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_mmap_page),
+            "::",
+            stringify!(index)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).offset) as usize - ptr as usize },
+        16usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_mmap_page),
+            "::",
+            stringify!(offset)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).time_enabled) as usize - ptr as usize },
+        24usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_mmap_page),
+            "::",
+            stringify!(time_enabled)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).time_running) as usize - ptr as usize },
+        32usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_mmap_page),
+            "::",
+            stringify!(time_running)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).pmc_width) as usize - ptr as usize },
+        48usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_mmap_page),
+            "::",
+            stringify!(pmc_width)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).time_shift) as usize - ptr as usize },
+        50usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_mmap_page),
+            "::",
+            stringify!(time_shift)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).time_mult) as usize - ptr as usize },
+        52usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_mmap_page),
+            "::",
+            stringify!(time_mult)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).time_offset) as usize - ptr as usize },
+        56usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_mmap_page),
+            "::",
+            stringify!(time_offset)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).time_zero) as usize - ptr as usize },
+        64usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_mmap_page),
+            "::",
+            stringify!(time_zero)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).size) as usize - ptr as usize },
+        72usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_mmap_page),
+            "::",
+            stringify!(size)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).__reserved_1) as usize - ptr as usize },
+        76usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_mmap_page),
+            "::",
+            stringify!(__reserved_1)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).time_cycles) as usize - ptr as usize },
+        80usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_mmap_page),
+            "::",
+            stringify!(time_cycles)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).time_mask) as usize - ptr as usize },
+        88usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_mmap_page),
+            "::",
+            stringify!(time_mask)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).__reserved) as usize - ptr as usize },
+        96usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_mmap_page),
+            "::",
+            stringify!(__reserved)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).data_head) as usize - ptr as usize },
+        1024usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_mmap_page),
+            "::",
+            stringify!(data_head)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).data_tail) as usize - ptr as usize },
+        1032usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_mmap_page),
+            "::",
+            stringify!(data_tail)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).data_offset) as usize - ptr as usize },
+        1040usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_mmap_page),
+            "::",
+            stringify!(data_offset)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).data_size) as usize - ptr as usize },
+        1048usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_mmap_page),
+            "::",
+            stringify!(data_size)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).aux_head) as usize - ptr as usize },
+        1056usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_mmap_page),
+            "::",
+            stringify!(aux_head)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).aux_tail) as usize - ptr as usize },
+        1064usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_mmap_page),
+            "::",
+            stringify!(aux_tail)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).aux_offset) as usize - ptr as usize },
+        1072usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_mmap_page),
+            "::",
+            stringify!(aux_offset)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).aux_size) as usize - ptr as usize },
+        1080usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_mmap_page),
+            "::",
+            stringify!(aux_size)
+        )
+    );
 }
 impl Default for perf_event_mmap_page {
     fn default() -> Self {
@@ -2930,6 +2534,8 @@ pub struct perf_event_header {
 }
 #[test]
 fn bindgen_test_layout_perf_event_header() {
+    const UNINIT: ::std::mem::MaybeUninit<perf_event_header> = ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
     assert_eq!(
         ::std::mem::size_of::<perf_event_header>(),
         8usize,
@@ -2940,57 +2546,36 @@ fn bindgen_test_layout_perf_event_header() {
         4usize,
         concat!("Alignment of ", stringify!(perf_event_header))
     );
-    fn test_field_type() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_header>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).type_) as usize - ptr as usize
-            },
-            0usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_header),
-                "::",
-                stringify!(type_)
-            )
-        );
-    }
-    test_field_type();
-    fn test_field_misc() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_header>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).misc) as usize - ptr as usize
-            },
-            4usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_header),
-                "::",
-                stringify!(misc)
-            )
-        );
-    }
-    test_field_misc();
-    fn test_field_size() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_event_header>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).size) as usize - ptr as usize
-            },
-            6usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_event_header),
-                "::",
-                stringify!(size)
-            )
-        );
-    }
-    test_field_size();
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).type_) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_header),
+            "::",
+            stringify!(type_)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).misc) as usize - ptr as usize },
+        4usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_header),
+            "::",
+            stringify!(misc)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).size) as usize - ptr as usize },
+        6usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_header),
+            "::",
+            stringify!(size)
+        )
+    );
 }
 #[repr(C)]
 #[derive(Debug, Default, Copy, Clone)]
@@ -3000,6 +2585,8 @@ pub struct perf_ns_link_info {
 }
 #[test]
 fn bindgen_test_layout_perf_ns_link_info() {
+    const UNINIT: ::std::mem::MaybeUninit<perf_ns_link_info> = ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
     assert_eq!(
         ::std::mem::size_of::<perf_ns_link_info>(),
         16usize,
@@ -3010,40 +2597,26 @@ fn bindgen_test_layout_perf_ns_link_info() {
         8usize,
         concat!("Alignment of ", stringify!(perf_ns_link_info))
     );
-    fn test_field_dev() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_ns_link_info>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).dev) as usize - ptr as usize
-            },
-            0usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_ns_link_info),
-                "::",
-                stringify!(dev)
-            )
-        );
-    }
-    test_field_dev();
-    fn test_field_ino() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_ns_link_info>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).ino) as usize - ptr as usize
-            },
-            8usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_ns_link_info),
-                "::",
-                stringify!(ino)
-            )
-        );
-    }
-    test_field_ino();
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).dev) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_ns_link_info),
+            "::",
+            stringify!(dev)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).ino) as usize - ptr as usize },
+        8usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_ns_link_info),
+            "::",
+            stringify!(ino)
+        )
+    );
 }
 pub const NET_NS_INDEX: _bindgen_ty_3 = 0;
 pub const UTS_NS_INDEX: _bindgen_ty_3 = 1;
@@ -3307,6 +2880,8 @@ impl perf_mem_data_src__bindgen_ty_1 {
 }
 #[test]
 fn bindgen_test_layout_perf_mem_data_src() {
+    const UNINIT: ::std::mem::MaybeUninit<perf_mem_data_src> = ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
     assert_eq!(
         ::std::mem::size_of::<perf_mem_data_src>(),
         8usize,
@@ -3317,23 +2892,16 @@ fn bindgen_test_layout_perf_mem_data_src() {
         8usize,
         concat!("Alignment of ", stringify!(perf_mem_data_src))
     );
-    fn test_field_val() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_mem_data_src>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).val) as usize - ptr as usize
-            },
-            0usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_mem_data_src),
-                "::",
-                stringify!(val)
-            )
-        );
-    }
-    test_field_val();
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).val) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_mem_data_src),
+            "::",
+            stringify!(val)
+        )
+    );
 }
 impl Default for perf_mem_data_src {
     fn default() -> Self {
@@ -3354,6 +2922,8 @@ pub struct perf_branch_entry {
 }
 #[test]
 fn bindgen_test_layout_perf_branch_entry() {
+    const UNINIT: ::std::mem::MaybeUninit<perf_branch_entry> = ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
     assert_eq!(
         ::std::mem::size_of::<perf_branch_entry>(),
         24usize,
@@ -3364,40 +2934,26 @@ fn bindgen_test_layout_perf_branch_entry() {
         8usize,
         concat!("Alignment of ", stringify!(perf_branch_entry))
     );
-    fn test_field_from() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_branch_entry>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).from) as usize - ptr as usize
-            },
-            0usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_branch_entry),
-                "::",
-                stringify!(from)
-            )
-        );
-    }
-    test_field_from();
-    fn test_field_to() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_branch_entry>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).to) as usize - ptr as usize
-            },
-            8usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_branch_entry),
-                "::",
-                stringify!(to)
-            )
-        );
-    }
-    test_field_to();
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).from) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_branch_entry),
+            "::",
+            stringify!(from)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).to) as usize - ptr as usize },
+        8usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_branch_entry),
+            "::",
+            stringify!(to)
+        )
+    );
 }
 impl perf_branch_entry {
     #[inline]
@@ -3534,6 +3090,9 @@ pub struct perf_sample_weight__bindgen_ty_1 {
 }
 #[test]
 fn bindgen_test_layout_perf_sample_weight__bindgen_ty_1() {
+    const UNINIT: ::std::mem::MaybeUninit<perf_sample_weight__bindgen_ty_1> =
+        ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
     assert_eq!(
         ::std::mem::size_of::<perf_sample_weight__bindgen_ty_1>(),
         8usize,
@@ -3547,60 +3106,41 @@ fn bindgen_test_layout_perf_sample_weight__bindgen_ty_1() {
             stringify!(perf_sample_weight__bindgen_ty_1)
         )
     );
-    fn test_field_var1_dw() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_sample_weight__bindgen_ty_1>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).var1_dw) as usize - ptr as usize
-            },
-            0usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_sample_weight__bindgen_ty_1),
-                "::",
-                stringify!(var1_dw)
-            )
-        );
-    }
-    test_field_var1_dw();
-    fn test_field_var2_w() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_sample_weight__bindgen_ty_1>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).var2_w) as usize - ptr as usize
-            },
-            4usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_sample_weight__bindgen_ty_1),
-                "::",
-                stringify!(var2_w)
-            )
-        );
-    }
-    test_field_var2_w();
-    fn test_field_var3_w() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_sample_weight__bindgen_ty_1>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).var3_w) as usize - ptr as usize
-            },
-            6usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_sample_weight__bindgen_ty_1),
-                "::",
-                stringify!(var3_w)
-            )
-        );
-    }
-    test_field_var3_w();
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).var1_dw) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_sample_weight__bindgen_ty_1),
+            "::",
+            stringify!(var1_dw)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).var2_w) as usize - ptr as usize },
+        4usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_sample_weight__bindgen_ty_1),
+            "::",
+            stringify!(var2_w)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).var3_w) as usize - ptr as usize },
+        6usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_sample_weight__bindgen_ty_1),
+            "::",
+            stringify!(var3_w)
+        )
+    );
 }
 #[test]
 fn bindgen_test_layout_perf_sample_weight() {
+    const UNINIT: ::std::mem::MaybeUninit<perf_sample_weight> = ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
     assert_eq!(
         ::std::mem::size_of::<perf_sample_weight>(),
         8usize,
@@ -3611,23 +3151,16 @@ fn bindgen_test_layout_perf_sample_weight() {
         8usize,
         concat!("Alignment of ", stringify!(perf_sample_weight))
     );
-    fn test_field_full() {
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<perf_sample_weight>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).full) as usize - ptr as usize
-            },
-            0usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(perf_sample_weight),
-                "::",
-                stringify!(full)
-            )
-        );
-    }
-    test_field_full();
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).full) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_sample_weight),
+            "::",
+            stringify!(full)
+        )
+    );
 }
 impl Default for perf_sample_weight {
     fn default() -> Self {
