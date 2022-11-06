@@ -337,7 +337,7 @@ pub enum CacheResult {
 }
 
 bitflags! {
-    /// The type of breakpoint to set.
+    /// Memory access mask for a hardware breakpoint.
     ///
     /// Note that it is not valid to combine `EXECUTE` with either of `READ` or
     /// `WRITE`.
@@ -360,6 +360,76 @@ bitflags! {
 }
 
 /// A hardware breakpoint.
+///
+/// A hardware breakpoint watches a region of memory for accesses. It has three
+/// parameters:
+/// - the address that is being watched (`addr`)
+/// - the number of bytes that breakpoint covers (`len`)
+/// - which type of memory accesses we care about (`ty`)
+///
+/// Note that both number of bytes that can be watched as well as the number of
+/// breakpoints that is allowed to be active at any given time is limited.
+///
+/// # Execute Breakpoint
+/// We can use a breakpoint to count the number of times that a function gets
+/// called, as long as the compiler does not optimize the function away.
+///
+/// ```
+/// # use perf_event::Builder;
+/// # use perf_event::events::Breakpoint;
+/// #[inline(never)]
+/// fn do_some_things() {
+///     // ...
+///     # println!("test println so the function doesn't get removed")
+/// }
+///
+/// let fnptr = do_some_things as fn() as usize;
+/// let mut counter = Builder::new()
+///     .kind(Breakpoint::execute(fnptr as u64))
+///     .build()?;
+/// counter.enable()?;
+///
+/// for _ in 0..500 {
+///     do_some_things();
+/// }
+///
+/// counter.disable()?;
+/// assert_eq!(counter.read()?, 500);
+/// # Ok::<(), std::io::Error>(())
+/// ```
+///
+/// # Memory Breakpoint
+/// We can also use a breakpoint to count the number of times that a memory
+/// location is accessed.
+/// ```
+/// # use perf_event::Builder;
+/// # use perf_event::events::Breakpoint;
+/// #
+/// let mut data: Vec<u64> = (0..1024).rev().collect();
+///
+/// let mut counter = Builder::new()
+///     .kind(Breakpoint::read_write(&data[20] as *const _ as usize as u64, 8))
+///     .build()?;
+/// counter.enable()?;
+/// data.sort();
+/// counter.disable()?;
+///
+/// println!("Position 20 accessed {} times", counter.read()?);
+/// # Ok::<(), std::io::Error>(())
+/// ```
+///
+/// # Usage Notes
+/// - Some systems do not support creating read-only or write-only breakpoints.
+///   If you are getting `EINVAL` errors while trying to build such a counter
+///   you might find that instead building a read-write counter will work.
+///
+/// - It is not valid to have a breakpoint that matches on read/write and
+///   execute accesses. Trying to do this will result in an error.
+///
+/// - The valid values of len are quite limited. The [`perf_event_open`][man]
+///   manpage indicates that the only valid values are 1, 2, 4, and 8.
+///
+/// [man]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Breakpoint {
     /// The type of breakpoint to set.
