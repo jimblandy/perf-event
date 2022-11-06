@@ -14,6 +14,10 @@
 //! -   [`Software`] events are counted by the kernel. This includes things
 //!     like context switches, page faults, and so on.
 //!
+//! -   [`Breakpoint`] events correspond to hardware breakpoints. They can
+//!     count read/write accesses to an address as well as execution of an
+//!     instruction address.
+//!
 //! The `Event` type is just an enum with a variant for each of the above types,
 //! which all implement `Into<Event>`.
 //!
@@ -28,6 +32,7 @@
 //! [`Cache`]: struct.Cache.html
 
 #![allow(non_camel_case_types)]
+use bitflags::bitflags;
 use perf_event_open_sys::bindings;
 
 /// Any sort of event. This is a sum of the [`Hardware`],
@@ -47,6 +52,9 @@ pub enum Event {
 
     #[allow(missing_docs)]
     Cache(Cache),
+
+    #[allow(missing_docs)]
+    Breakpoint(Breakpoint),
 }
 
 impl Event {
@@ -63,6 +71,14 @@ impl Event {
             Event::Cache(cache) => {
                 attr.type_ = bindings::PERF_TYPE_HW_CACHE;
                 attr.config = cache.as_config();
+            }
+            Event::Breakpoint(bp) => {
+                attr.type_ = bindings::PERF_TYPE_BREAKPOINT;
+                // Clear config in case it was set by a previous call to update_attrs
+                attr.config = 0;
+                attr.bp_type = bp.ty.bits();
+                attr.__bindgen_anon_3.bp_addr = bp.addr;
+                attr.__bindgen_anon_4.bp_len = bp.len;
             }
         }
     }
@@ -318,4 +334,102 @@ pub enum CacheResult {
 
     /// to measure misses
     MISS = bindings::PERF_COUNT_HW_CACHE_RESULT_MISS,
+}
+
+bitflags! {
+    /// The type of breakpoint to set.
+    ///
+    /// Note that it is not valid to combine `EXECUTE` with either of `READ` or
+    /// `WRITE`.
+    pub struct BreakpointType : u32 {
+        /// No breakpoint.
+        const EMPTY = bindings::HW_BREAKPOINT_EMPTY;
+
+        /// Count when we read the memory location.
+        const READ = bindings::HW_BREAKPOINT_R;
+
+        /// Count when we write the memory location.
+        const WRITE = bindings::HW_BREAKPOINT_W;
+
+        /// Count when we read or write the memory location.
+        const READ_WRITE = Self::READ.union(Self::WRITE).bits();
+
+        /// Count when we execute code at the memory location.
+        const EXECUTE = bindings::HW_BREAKPOINT_X;
+    }
+}
+
+/// A hardware breakpoint.
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub struct Breakpoint {
+    /// The type of breakpoint to set.
+    pub ty: BreakpointType,
+
+    /// The address of the breakpoint. For execution breakpoints this is the
+    /// address of the instruction of interest; for read and write breakpoints
+    /// it is the address of the memory location of interest.
+    pub addr: u64,
+
+    /// The length of the breakpoint being measured.
+    ///
+    /// There are a limited number of valid values for this field. Basically,
+    /// the options are 1, 2, 4, and 8. Setting this field to anything else
+    /// will cause counter creation to fail with an error.
+    pub len: u64,
+}
+
+impl Breakpoint {
+    /// Create a breakpoint configuration to count the number of times that
+    /// the instruction at the provided address was executed.
+    pub const fn execute(addr: u64) -> Self {
+        Self {
+            ty: BreakpointType::EXECUTE,
+            addr,
+            // According to the perf_event_open man page, execute breakpoints
+            // should set len to sizeof(long).
+            len: std::mem::size_of::<libc::c_long>() as _,
+        }
+    }
+
+    /// Create a breakpoint configuration to count the number of times that
+    /// we read from the provided memory location.
+    ///
+    /// See the struct field docs for valid values of `len`.
+    pub const fn read(addr: u64, len: u64) -> Self {
+        Self {
+            ty: BreakpointType::READ,
+            addr,
+            len,
+        }
+    }
+
+    /// Create a breakpoint configuration to count the number of times that
+    /// we write to the provided memory location.
+    ///
+    /// See the struct field docs for valid values of `len`.
+    pub const fn write(addr: u64, len: u64) -> Self {
+        Self {
+            ty: BreakpointType::WRITE,
+            addr,
+            len,
+        }
+    }
+
+    /// Create a breakpoint configuration to count the number of times that
+    /// we either read from or write to the provided memory location.
+    ///
+    /// See the struct field docs for valid values of `len`.
+    pub const fn read_write(addr: u64, len: u64) -> Self {
+        Self {
+            ty: BreakpointType::READ_WRITE,
+            addr,
+            len,
+        }
+    }
+}
+
+impl From<Breakpoint> for Event {
+    fn from(bp: Breakpoint) -> Self {
+        Event::Breakpoint(bp)
+    }
 }
