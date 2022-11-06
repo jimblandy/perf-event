@@ -50,19 +50,20 @@ pub enum Event {
 }
 
 impl Event {
-    pub(crate) fn r#type(&self) -> bindings::perf_type_id {
+    pub(crate) fn update_attrs(self, attr: &mut bindings::perf_event_attr) {
         match self {
-            Event::Hardware(_) => bindings::PERF_TYPE_HARDWARE,
-            Event::Software(_) => bindings::PERF_TYPE_SOFTWARE,
-            Event::Cache(_) => bindings::PERF_TYPE_HW_CACHE,
-        }
-    }
-
-    pub(crate) fn config(self) -> u64 {
-        match self {
-            Event::Hardware(hw) => hw as _,
-            Event::Software(sw) => sw as _,
-            Event::Cache(cache) => cache.as_config(),
+            Event::Hardware(hw) => {
+                attr.type_ = bindings::PERF_TYPE_HARDWARE;
+                attr.config = hw as _;
+            }
+            Event::Software(sw) => {
+                attr.type_ = bindings::PERF_TYPE_SOFTWARE;
+                attr.config = sw as _;
+            }
+            Event::Cache(cache) => {
+                attr.type_ = bindings::PERF_TYPE_HW_CACHE;
+                attr.config = cache.as_config();
+            }
         }
     }
 }
