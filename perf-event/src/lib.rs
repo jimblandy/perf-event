@@ -514,10 +514,17 @@ impl<'a> Builder<'a> {
         self
     }
 
-    /// New threads will inherit the counter. (Default to false.)
+    /// Set whether this counter is inherited by new threads.
     ///
-    /// This can not be used if the counter belongs to a `Group`, doing so will
-    /// result in an error when the counter is built.
+    /// When this flag is set, this counter observes activity in new threads
+    /// created by any thread already being observed.
+    ///
+    /// By default, the flag is unset: counters are not inherited, and observe
+    /// only the threads specified when they are created.
+    ///
+    /// This flag cannot be set if the counter belongs to a `Group`. Doing so
+    /// will result in an error when the counter is built. This is a kernel
+    /// limitation.
     pub fn inherit(mut self, inherit: bool) -> Builder<'a> {
         let flag = if inherit { 1 } else { 0 };
         self.attrs.set_inherit(flag);
