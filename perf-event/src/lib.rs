@@ -606,7 +606,7 @@ impl<'a> Builder<'a> {
         };
 
         let file = unsafe {
-            File::from_raw_fd(check_raw_syscall(|| {
+            File::from_raw_fd(check_errno_syscall(|| {
                 sys::perf_event_open(&mut self.attrs, pid, cpu, group_fd, flags as c_ulong)
             })?)
         };
@@ -772,7 +772,7 @@ impl Group {
             | sys::bindings::PERF_FORMAT_GROUP) as u64;
 
         let file = unsafe {
-            File::from_raw_fd(check_raw_syscall(|| {
+            File::from_raw_fd(check_errno_syscall(|| {
                 sys::perf_event_open(&mut attrs, 0, -1, -1, 0)
             })?)
         };
@@ -1029,22 +1029,6 @@ unsafe trait SliceAsBytesMut: Sized {
 
 unsafe impl SliceAsBytesMut for u64 {}
 
-/// Produce an `io::Result` from a raw system call.
-///
-/// A 'raw' system call is one that reports failure by returning negated raw OS
-/// error value.
-fn check_raw_syscall<F>(f: F) -> io::Result<c_int>
-where
-    F: FnOnce() -> c_int,
-{
-    let result = f();
-    if result < 0 {
-        Err(io::Error::from_raw_os_error(-result))
-    } else {
-        Ok(result)
-    }
-}
-
 /// Produce an `io::Result` from an errno-style system call.
 ///
 /// An 'errno-style' system call is one that reports failure by returning -1 and
@@ -1067,4 +1051,21 @@ fn simple_build() {
     Builder::new()
         .build()
         .expect("Couldn't build default Counter");
+}
+
+#[test]
+#[cfg(target_os = "linux")]
+fn test_error_code_is_correct() {
+    // This configuration should always result in EINVAL
+    let builder = Builder::new()
+        // CPU_CLOCK is literally always supported so we don't have to worry
+        // about test failures when in VMs.
+        .kind(events::Software::CPU_CLOCK)
+        // There should _hopefully_ never be a system with this many CPUs.
+        .one_cpu(i32::MAX as usize);
+
+    match builder.build() {
+        Ok(_) => panic!("counter construction was not supposed to succeed"),
+        Err(e) => assert_eq!(e.raw_os_error(), Some(libc::EINVAL)),
+    }
 }
