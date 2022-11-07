@@ -1,6 +1,6 @@
 [package]
 name = "perf-event"
-version = "0.4.7"
+version = "0.4.8"
 description = "A Rust interface to Linux performance monitoring"
 license = "MIT OR Apache-2.0"
 authors = ["Jim Blandy <jimb@red-bean.com>"]
