@@ -37,7 +37,14 @@ The `examples` directory includes programs that count other sorts of events.
 ## See also
 
 The [`perfcnt`] crate provides more extensive coverage of the Linux
-`perf_event_open` API than this crate. However, `perfcnt` does not build on
-stable Rust.
+`perf_event_open` API than this crate.
+
+Markus Stange's [`linux-perf-event-reader`][lper] supports events.
+This crate only handles counters for now.
+
+The [`not-perf`] project is a rewrite of `perf` in Rust, and has a
+bunch of code for dealing with the Linux perf API.
 
 [`perfcnt`]: https://crates.io/crates/perfcnt
+[lper]: https://crates.io/crates/linux-perf-event-reader
+[`not-perf`]: https://github.com/koute/not-perf
