@@ -1,12 +1,20 @@
 # Release notes for `perf-event-open-sys`
 
-## (unreleased)
+## 4.0.0
+
+-   Regenerated `x86_64` bindings from Fedora's
+    `kernel-headers-5.19.4-200.fc36.x86_64` package.
+
+-   Added support for 64-bit ARM (`aarch64`).
 
 -   The `perf_event_open_sys` crate now builds on Windows and Mac.
     Although the system call and ioctl wrapper functions are not
     available, the types in the `bindings` module are still provided
     for use by code on other platforms that would like to parse perf
     data produced on Linux or Android.
+
+-   Contrary to the documentation, `perf_event_open` does set `errno`.
+    The documentation has been fixed.
 
 ## 3.0.0
 
