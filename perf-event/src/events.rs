@@ -398,7 +398,7 @@ bitflags! {
 /// # Ok::<(), std::io::Error>(())
 /// ```
 ///
-/// # Memory Breakpoint
+/// # Data Breakpoint
 /// We can also use a breakpoint to count the number of times that a memory
 /// location is accessed.
 /// ```
@@ -421,13 +421,14 @@ bitflags! {
 /// # Usage Notes
 /// - Some systems do not support creating read-only or write-only breakpoints.
 ///   If you are getting `EINVAL` errors while trying to build such a counter
-///   you might find that instead building a read-write counter will work.
+///   using a read-write breakpoint might work instead.
 ///
-/// - It is not valid to have a breakpoint that matches on read/write and
+/// - It is not valid to have a breakpoint that matches on both read/write and
 ///   execute accesses. Trying to do this will result in an error.
 ///
 /// - The valid values of len are quite limited. The [`perf_event_open`][man]
-///   manpage indicates that the only valid values are 1, 2, 4, and 8.
+///   manpage indicates that the only valid values for `bp_len` are 1, 2, 4,
+///   and 8.
 ///
 /// [man]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]

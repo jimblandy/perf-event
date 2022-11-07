@@ -1,4 +1,4 @@
-use perf_event::*;
+use perf_event::{events, Builder};
 use std::fs::OpenOptions;
 use std::io::Write;
 
@@ -13,7 +13,6 @@ fn copy_and_fwrite(data: &[u8], file: &mut std::fs::File) -> std::io::Result<()>
     Ok(())
 }
 
-// Test a read-write data breakpoint
 #[test]
 fn data() {
     let mut file = OpenOptions::new()
