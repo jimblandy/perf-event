@@ -217,6 +217,9 @@ enum EventPid<'a> {
 
     /// Monitor members of the given cgroup.
     CGroup(&'a File),
+
+    /// Monitor any process on some given CPU.
+    Any,
 }
 
 /// A group of counters that can be managed as a unit.
@@ -433,6 +436,7 @@ impl<'a> EventPid<'a> {
     // Return the `pid` arg and the `flags` bits representing `self`.
     fn as_args(&self) -> (pid_t, u32) {
         match self {
+            EventPid::Any => (-1, 0),
             EventPid::ThisProcess => (0, 0),
             EventPid::Other(pid) => (*pid, 0),
             EventPid::CGroup(file) => (file.as_raw_fd(), sys::bindings::PERF_FLAG_PID_CGROUP),
@@ -477,6 +481,18 @@ impl<'a> Builder<'a> {
         Builder::default()
     }
 
+    /// Include kernel code.
+    pub fn include_kernel(mut self) -> Builder<'a> {
+        self.attrs.set_exclude_kernel(0);
+        self
+    }
+
+    /// Include hypervisor code.
+    pub fn include_hv(mut self) -> Builder<'a> {
+        self.attrs.set_exclude_hv(0);
+        self
+    }
+
     /// Observe the calling process. (This is the default.)
     pub fn observe_self(mut self) -> Builder<'a> {
         self.who = EventPid::ThisProcess;
@@ -489,6 +505,26 @@ impl<'a> Builder<'a> {
     /// [man-capabilities]: http://man7.org/linux/man-pages/man7/capabilities.7.html
     pub fn observe_pid(mut self, pid: pid_t) -> Builder<'a> {
         self.who = EventPid::Other(pid);
+        self
+    }
+
+    /// Observe all processes.
+    ///
+    /// Linux does not support observing all processes on all CPUs without
+    /// restriction, so combining `any_pid` with [`any_cpu`] will cause the
+    /// final [`build`] to return an error. This must be used together with
+    /// [`one_cpu`], to select a specific CPU to observe.
+    ///
+    /// This requires [`CAP_PERFMON`][cap] or [`CAP_SYS_ADMIN`][cap]
+    /// capabilities, or a `/proc/sys/kernel/perf_event_paranoid` value of less
+    /// than 1.
+    ///
+    /// [`any_cpu`]: Builder::any_cpu
+    /// [`build`]: Builder::build
+    /// [`one_cpu`]: Builder::one_cpu
+    /// [cap]: http://man7.org/linux/man-pages/man7/capabilities.7.html
+    pub fn any_pid(mut self) -> Builder<'a> {
+        self.who = EventPid::Any;
         self
     }
 
@@ -509,6 +545,17 @@ impl<'a> Builder<'a> {
     }
 
     /// Observe code running on any CPU core. (This is the default.)
+    ///
+    /// Linux does not support observing all processes on all CPUs without
+    /// restriction, so combining `any_cpu` with [`any_pid`] will cause
+    /// [`build`] to return an error. This must be used with [`observe_self`]
+    /// (the default), [`observe_pid`], or [`observe_cgroup`].
+    ///
+    /// [`any_pid`]: Builder::any_pid
+    /// [`build`]: Builder::build
+    /// [`observe_self`]: Builder::observe_self
+    /// [`observe_pid`]: Builder::observe_pid
+    /// [`observe_cgroup`]: Builder::observe_cgroup
     pub fn any_cpu(mut self) -> Builder<'a> {
         self.cpu = None;
         self
