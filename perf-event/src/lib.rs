@@ -78,7 +78,7 @@ use perf_event_open_sys::bindings::perf_event_attr;
 use std::fs::File;
 use std::io::{self, Read};
 use std::os::raw::{c_int, c_uint, c_ulong};
-use std::os::unix::io::{AsRawFd, FromRawFd};
+use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 
 pub mod events;
 
@@ -749,14 +749,14 @@ impl std::fmt::Debug for Counter {
     }
 }
 
-impl std::os::unix::io::AsRawFd for Counter {
-    fn as_raw_fd(&self) -> std::os::fd::RawFd {
+impl AsRawFd for Counter {
+    fn as_raw_fd(&self) -> RawFd {
         self.file.as_raw_fd()
     }
 }
 
-impl std::os::unix::io::IntoRawFd for Counter {
-    fn into_raw_fd(self) -> std::os::fd::RawFd {
+impl IntoRawFd for Counter {
+    fn into_raw_fd(self) -> RawFd {
         self.file.into_raw_fd()
     }
 }
@@ -897,14 +897,14 @@ impl std::fmt::Debug for Group {
     }
 }
 
-impl std::os::unix::io::AsRawFd for Group {
-    fn as_raw_fd(&self) -> std::os::fd::RawFd {
+impl AsRawFd for Group {
+    fn as_raw_fd(&self) -> RawFd {
         self.file.as_raw_fd()
     }
 }
 
-impl std::os::unix::io::IntoRawFd for Group {
-    fn into_raw_fd(self) -> std::os::fd::RawFd {
+impl IntoRawFd for Group {
+    fn into_raw_fd(self) -> RawFd {
         self.file.into_raw_fd()
     }
 }
