@@ -36,8 +36,8 @@
 //!
 //! // Populate the fields we need.
 //! attrs.size = std::mem::size_of::<sys::bindings::perf_event_attr>() as u32;
-//! attrs.type_ = sys::bindings::perf_type_id_PERF_TYPE_HARDWARE;
-//! attrs.config = sys::bindings::perf_hw_id_PERF_COUNT_HW_INSTRUCTIONS as u64;
+//! attrs.type_ = sys::bindings::PERF_TYPE_HARDWARE;
+//! attrs.config = sys::bindings::PERF_COUNT_HW_INSTRUCTIONS as u64;
 //! attrs.set_disabled(1);
 //! attrs.set_exclude_kernel(1);
 //! attrs.set_exclude_hv(1);
@@ -70,8 +70,9 @@
 //! ## Kernel versions
 //!
 //! The bindings in this crate are generated from the Linux kernel headers
-//! packaged by Fedora as `kernel-headers-5.18.4-200.fc36`, which
-//! corresponds to `PERF_EVENT_ATTR_SIZE_VER7`.
+//! packaged by Fedora as:
+//! - x86_64: `kernel-headers-5.19.4-200.fc36.x86_64` (`PERF_ATTR_SIZE_VER7`)
+//! - aarch64: `kernel-headers-5.18.4-201.fc36.aarch64` (`PERF_ATTR_SIZE_VER7`)
 //!
 //! As explained above, bugs aside, it is not necessary to use the version of
 //! these structures that matches the kernel you want to run under, so it should
@@ -177,6 +178,12 @@
 //! [man]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
 //! [`perf_event`]: https://crates.io/crates/perf_event
 
+#[cfg(target_arch = "aarch64")]
+#[path = "bindings_aarch64.rs"]
+pub mod bindings;
+
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[path = "bindings_x86_64.rs"]
 pub mod bindings;
 
 // Provide actual callable code only on Linux/Android. See "Using perf
