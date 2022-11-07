@@ -21,8 +21,8 @@ use std::os::raw::{c_int, c_ulong};
 ///
 /// See the [`perf_event_open(2) man page`][man] for details.
 ///
-/// On error, this returns a negated raw OS error value. The C `errno` value is
-/// not changed.
+/// On error, this returns -1, and the C `errno` value (accessible via
+/// `std::io::Error::last_os_error`) is set to indicate the error.
 ///
 /// Note: The `attrs` argument needs to be a `*mut` because if the `size` field
 /// is too small or too large, the kernel writes the size it was expecing back
