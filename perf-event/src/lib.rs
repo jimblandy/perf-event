@@ -727,6 +727,17 @@ impl<'a> Builder<'a> {
         self
     }
 
+    /// Enable the generation of [`Mmap`] records for `PROT_EXEC` mappings
+    /// when sampling. This allows tools to notice new executable code being
+    /// mapped into a program (e.g. dyamic shared libraries) so that addresses
+    /// can be mapped back to the original code.
+    /// 
+    /// [`Mmap`]: crate::samples::Mmap
+    pub fn mmap(mut self, mmap: bool) -> Self {
+        self.attrs.set_mmap(mmap.into());
+        self
+    }
+
     /// Count events of the given kind. This accepts an [`Event`] value,
     /// or any type that can be converted to one, so you can pass [`Hardware`],
     /// [`Software`] and [`Cache`] values directly.

@@ -8,6 +8,10 @@ use bytes::Buf;
 use perf_event_open_sys::bindings::{self, perf_event_attr, perf_event_header};
 use std::fmt;
 
+mod mmap;
+
+pub use self::mmap::Mmap;
+
 /// The type of the record as communicated by the kernel.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Default)]
 pub struct RecordType(pub u32);
@@ -172,6 +176,9 @@ pub struct SampleId {
 #[derive(Clone, Debug)]
 #[non_exhaustive]
 pub enum RecordEvent {
+    /// Record of a new memory map within the process.
+    Mmap(Mmap),
+
     /// An event was generated but `perf-event` was not able to parse it.
     /// Instead, the bytes making up the event are available here.
     Unknown(Vec<u8>),
@@ -185,7 +192,7 @@ pub enum ParseError {
 }
 
 /// All the config info needed to parse a record from the perf ring buffer.
-/// 
+///
 /// If you need something new, add it here!
 pub(crate) struct ParseConfig {
     sample_type: Sample,
@@ -307,8 +314,13 @@ impl Record {
         header: &perf_event_header,
         buf: &mut B,
     ) -> Result<Self, ParseError> {
-        let sample_id_len = SampleId::expected_size(config);
-        let mut limited = buf.take(buf.remaining() - sample_id_len);
+        let ty = header.type_.into();
+        let sample_id_len = match ty {
+            // MMAP and SAMPLE do not include the sample_id trailer
+            RecordType::MMAP | RecordType::SAMPLE => None,
+            _ => Some(SampleId::expected_size(config)),
+        };
+        let mut limited = buf.take(buf.remaining() - sample_id_len.unwrap_or(0));
 
         let event = match header.type_ {
             _ => RecordEvent::Unknown({
@@ -321,10 +333,22 @@ impl Record {
             return Err(ParseError::unexpected_remaining_input());
         }
 
-        let sample_id = SampleId::parse(config, buf)?;
+        let sample_id = match sample_id_len {
+            Some(_) => SampleId::parse(config, buf)?,
+            // Fill in some fields from the record in cases where there is no
+            // sample_id encoded with the record.
+            None => match &event {
+                RecordEvent::Mmap(mmap) => SampleId {
+                    pid: Some(mmap.pid),
+                    tid: Some(mmap.tid),
+                    ..Default::default()
+                },
+                _ => SampleId::default()
+            }
+        };
 
         Ok(Self {
-            ty: header.type_.into(),
+            ty,
             misc: RecordMiscFlags::from_bits_truncate(header.misc),
             event,
             sample_id,
@@ -424,6 +448,7 @@ pub(crate) trait ParseBuf: Buf {
         Ok(bytes)
     }
 
+    /// Parse a constant number of bytes to an array.
     fn parse_bytes<const N: usize>(&mut self) -> Result<[u8; N], ParseError> {
         if self.remaining() < N {
             return Err(ParseError::unexpected_eof());
@@ -432,6 +457,11 @@ pub(crate) trait ParseBuf: Buf {
         let mut bytes = [0; N];
         self.copy_to_slice(&mut bytes);
         Ok(bytes)
+    }
+
+    /// Parse the remaining bytes within the buffer to a Vec.
+    fn parse_remainder(&mut self) -> Result<Vec<u8>, ParseError> {
+        self.parse_vec(self.remaining())
     }
 
     fn parse_header(&mut self) -> Result<bindings::perf_event_header, ParseError> {
