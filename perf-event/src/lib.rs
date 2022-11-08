@@ -738,6 +738,37 @@ impl<'a> Builder<'a> {
         self
     }
 
+    /// Set how many bytes will be written before an overflow notification
+    /// happens.
+    /// 
+    /// Note only one of `wakup_watermark` and [`wakeup_events`] can be
+    /// configured.
+    /// 
+    /// [`wakeup_events`]: Self::wakeup_events
+    pub fn wakeup_watermark(mut self, watermark: usize) -> Self {
+        self.attrs.set_watermark(1);
+        self.attrs.__bindgen_anon_2.wakeup_watermark = watermark as _;
+        self
+    }
+
+    /// Set how many samples will be written before an overflow notification
+    /// happens.
+    /// 
+    /// Note that `wakeup_events` only counts [`RecordType::SAMPLE`] records.
+    /// To receive overflow notifications for all record type use 
+    /// [`wakeup_watermark`] instead.
+    /// 
+    /// Prior to Linux 3.0, setting `wakeup_events` to 0 resulted in no
+    /// overflow notifications; more recent kernels treat 0 the same as 1.
+    /// 
+    /// [`RecordType::SAMPLE`]: crate::samples::RecordType::SAMPLE
+    /// [`wakeup_watermark`]: Self::wakeup_watermark
+    pub fn wakeup_events(mut self, events: usize) -> Self {
+        self.attrs.set_watermark(0);
+        self.attrs.__bindgen_anon_2.wakeup_events = events as _;
+        self
+    }
+
     /// Count events of the given kind. This accepts an [`Event`] value,
     /// or any type that can be converted to one, so you can pass [`Hardware`],
     /// [`Software`] and [`Cache`] values directly.
