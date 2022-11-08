@@ -1411,7 +1411,7 @@ where
 /// - `ptr` must be valid for writes.
 /// - `ptr` must be properly aligned.
 #[allow(dead_code)]
-pub(crate) unsafe fn atomic_store(ptr: *const u64, val: u64, order: Ordering) {
+unsafe fn atomic_store(ptr: *const u64, val: u64, order: Ordering) {
     (*(ptr as *const AtomicU64)).store(val, order)
 }
 
@@ -1421,14 +1421,14 @@ pub(crate) unsafe fn atomic_store(ptr: *const u64, val: u64, order: Ordering) {
 /// - `ptr` must be valid for reads.
 /// - `ptr` must be properly aligned.
 #[allow(dead_code)]
-pub(crate) unsafe fn atomic_load(ptr: *const u64, order: Ordering) -> u64 {
+unsafe fn atomic_load(ptr: *const u64, order: Ordering) -> u64 {
     (*(ptr as *const AtomicU64)).load(order)
 }
 
 /// A [`Buf`] that can be either a single byte slice or two disjoint byte
 /// slices.
 #[allow(dead_code)]
-pub(crate) enum ByteBuffer<'a> {
+enum ByteBuffer<'a> {
     Single(&'a [u8]),
     Split(&'a [u8], &'a [u8]),
 }
@@ -1459,6 +1459,8 @@ impl<'a> bytes::Buf for ByteBuffer<'a> {
         }
     }
 }
+
+
 
 #[test]
 fn simple_build() {
