@@ -72,18 +72,13 @@
 
 #![deny(missing_docs)]
 
-use bytes::Buf;
 use events::Event;
 use libc::pid_t;
-use memmap2::MmapMut;
-use perf_event_open_sys::bindings::{self, perf_event_attr};
-use samples::{ParseError, Record};
+use perf_event_open_sys::bindings::perf_event_attr;
 use std::fs::File;
 use std::io::{self, Read};
-use std::ops::{Deref, DerefMut};
 use std::os::raw::{c_int, c_uint, c_ulong};
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
-use std::sync::atomic::{AtomicU64, Ordering};
 
 pub mod events;
 #[cfg(feature = "unstable")]
@@ -154,17 +149,18 @@ pub struct Counter {
 }
 
 /// A sampler for one kind of perf event.
-/// 
+///
 /// A `Sampler` is the combination of a [`Counter`] along with a ringbuffer
 /// that allows for reading events emitted by the kernel. It supports all the
 /// same operations as a [`Counter`] along with the ability to read events.
+#[cfg(feature = "unstable")]
 pub struct Sampler {
     // Rust drops in order of declaration. To ensure that the memory map is
     // deleted before we close the descriptor it needs to be declared before
     // counter.
-    mmap: MmapMut,
+    mmap: memmap2::MmapMut,
     counter: Counter,
-    attrs: bindings::perf_event_attr,
+    attrs: sys::bindings::perf_event_attr,
 }
 
 /// A builder for [`Counter`]s.
@@ -453,6 +449,137 @@ pub struct CountAndTime {
     pub time_running: u64,
 }
 
+#[cfg(feature = "unstable")]
+bitflags::bitflags! {
+    /// Specifies which fields to include in the sample.
+    ///
+    /// These fields will be recorded in the [`Sampler`] output buffer.
+    ///
+    /// [`Sampler`]: crate::Sampler
+    pub struct Sample : u64 {
+        /// Record the instruction pointer.
+        const IP = sys::bindings::PERF_SAMPLE_IP;
+
+        /// Record the process and thread IDs.
+        const TID = sys::bindings::PERF_SAMPLE_TID;
+
+        /// Record a timestamp.
+        const TIME = sys::bindings::PERF_SAMPLE_TIME;
+
+        /// Record an address, if applicable.
+        const ADDR = sys::bindings::PERF_SAMPLE_ADDR;
+
+        /// Record counter values for all events in a group, not just the
+        /// group leader.
+        const READ = sys::bindings::PERF_SAMPLE_READ;
+
+        /// Record a unique ID for the opened event's group leader.
+        const CALLCHAIN = sys::bindings::PERF_SAMPLE_CALLCHAIN;
+
+        /// Record CPU number.
+        const ID = sys::bindings::PERF_SAMPLE_ID;
+
+        /// Record the callchain (stack backtrace).
+        const CPU = sys::bindings::PERF_SAMPLE_CPU;
+
+        /// Record the current sampling period.
+        const PERIOD = sys::bindings::PERF_SAMPLE_PERIOD;
+
+        /// Record a unique ID for the opened event. Unlike [`ID`] an actual ID
+        /// is returned, not the group leader.
+        ///
+        /// This ID is the same as the one returned by [`Counter::id`]
+        ///
+        /// [`ID`]: Self::ID
+        /// [`Counter::id`]: crate::Counter::id
+        const STREAM_ID = sys::bindings::PERF_SAMPLE_STREAM_ID;
+
+        /// Record additional data, if applicable. Usually returned by
+        /// tracepoint events.
+        const RAW = sys::bindings::PERF_SAMPLE_RAW;
+
+        /// Provides a record of recent branches, as provided by CPU branch
+        /// sampling hardware (such as Intel Last Branch Record). Not all
+        /// hardware supports this feature.
+        ///
+        /// Available since Linux 3.4.
+        const BRANCH_STACK = sys::bindings::PERF_SAMPLE_BRANCH_STACK;
+
+        /// Record the current user-level CPU register state (the values in the
+        /// process before the kernel was called).
+        ///
+        /// Available since Linux 3.7.
+        const REGS_USER = sys::bindings::PERF_SAMPLE_REGS_USER;
+
+        /// Record the user level stack, allowing stack unwinding.
+        ///
+        /// Available since Linux 3.7.
+        const STACK_USER = sys::bindings::PERF_SAMPLE_STACK_USER;
+
+        /// Record a hardware provided weight value that expresses how costly
+        /// the sampled event was. This allows the hardware to highlight
+        /// expensive events in a profile.
+        ///
+        /// Available since Linux 3.10.
+        const WEIGHT = sys::bindings::PERF_SAMPLE_WEIGHT;
+
+        /// Record the data source: where in the memory hierarchy the data
+        /// associated with the sampled instruction came from. This is
+        /// available only if the underlying hardware supports this feature.
+        ///
+        /// Available since Linux 3.10.
+        const DATA_SRC = sys::bindings::PERF_SAMPLE_DATA_SRC;
+
+        /// Places the [`ID`] value in a fixed position in the record, either
+        /// at the beginning (for sample events) or at the end (if a non-sample
+        /// event).
+        ///
+        /// This was necessary because a sample stream may have records from
+        /// various different event sources with different `sample_type`
+        /// settings. Parsing the event stream properly was not possible
+        /// because the format of the record was needed to find the `SAMPLE_ID`,
+        /// but the format could not be found without knowing what event the
+        /// sample belonged to (causing a circular dependency).
+        ///
+        /// The `IDENTIFIER` setting makes the event stream always parsable by
+        /// putting `ID` in a fixed location, even though it means having
+        /// duplicate `ID` fields in records.
+        const IDENTIFIER = sys::bindings::PERF_SAMPLE_IDENTIFIER;
+
+        /// Record reasons for transactional memory abort events (for example,
+        /// from Intel TSX transactional memory support).
+        ///
+        /// The `precise_ip` setting must be greater than 0 and a transactional
+        /// memory abort must be measured or no values will be recorded. Also
+        /// note that some perf_event measurements, such as sampled cycle
+        /// counting, may cause extraneous aborts (by causing an interrupt
+        /// during a transaction).
+        const TRANSACTION = sys::bindings::PERF_SAMPLE_TRANSACTION;
+
+        /// Record a subset of the current CPU register state as specified by
+        /// `sample_regs_intr`. Unlike [`REGS_USER`] the register values will
+        /// return kernel register state if the overflow happened while kernel
+        /// code was running. If the CPU supports hardware sampling of register
+        /// state (e.e. PEBS on Intel x86) and `precise_ip` is set higher than
+        /// zero then the register values returned are those captured by the
+        /// hardware at the time of the sampled instruction's retirement.
+        ///
+        /// [`REGS_USER`]: Self::REGS_USER
+        const REGS_INTR = sys::bindings::PERF_SAMPLE_REGS_INTR;
+
+        /// Record the physical address of data like in [`Sample::ADDR`].
+        const PHYS_ADDR = sys::bindings::PERF_SAMPLE_PHYS_ADDR;
+
+        /// Record the perf_event cgroup ID of the process. This corresponds
+        /// to the `id` field of the `CGROUP` event.
+        const CGROUP = sys::bindings::PERF_SAMPLE_CGROUP;
+
+        // Don't clobber unknown flags when constructing the bitflag struct.
+        #[doc(hidden)]
+        const _ALLOW_ALL_FLAGS = !0;
+    }
+}
+
 impl<'a> EventPid<'a> {
     // Return the `pid` arg and the `flags` bits representing `self`.
     fn as_args(&self) -> (pid_t, u32) {
@@ -708,6 +835,7 @@ impl<'a> Builder<'a> {
     /// the `Builder`. The kernel's returned errors are not always helpful.
     ///
     /// [`enable`]: Counter::enable
+    #[cfg(feature = "unstable")]
     pub fn build_sampler(self, buflen: usize) -> io::Result<Sampler> {
         let attrs = self.attrs;
         let counter = self.build()?;
@@ -878,14 +1006,16 @@ impl IntoRawFd for Counter {
 
 #[cfg(feature = "unstable")]
 impl Sampler {
-    fn page(&self) -> &bindings::perf_event_mmap_page {
+    fn page(&self) -> &sys::bindings::perf_event_mmap_page {
         unsafe { &*(self.mmap.as_ptr() as *const _) }
     }
 
     /// Read the next record from this sampler.
-    pub fn next(&mut self) -> Result<Option<Record>, ParseError> {
-        use crate::samples::{Parse, ParseBuf};
+    pub fn next(&mut self) -> Result<Option<samples::Record>, samples::ParseError> {
+        use crate::samples::{Parse, ParseBuf, Record};
+        use bytes::Buf;
         use std::slice;
+        use std::sync::atomic::Ordering;
 
         let page = self.page();
         let tail = page.data_tail;
@@ -922,17 +1052,12 @@ impl Sampler {
 
         // Make sure to advance the tail pointer no matter what happens below.
         let _guard = drop_guard::guard((), |_| {
-            // ORDERING: We have not written anything to the data section of
-            //           the ring buffer so we don't need to syncronize with
-            //           the kernel here. This means we can use a relaxed
-            //           atomic write instead of a release one.
-            //
             // SAFETY: &page.data_tail is a valid pointer.
             unsafe {
                 atomic_store(
                     &page.data_tail,
                     tail + (header.size as u64),
-                    Ordering::Relaxed,
+                    Ordering::Release,
                 )
             };
         });
@@ -941,7 +1066,8 @@ impl Sampler {
     }
 }
 
-impl Deref for Sampler {
+#[cfg(feature = "unstable")]
+impl std::ops::Deref for Sampler {
     type Target = Counter;
 
     fn deref(&self) -> &Self::Target {
@@ -949,18 +1075,21 @@ impl Deref for Sampler {
     }
 }
 
-impl DerefMut for Sampler {
+#[cfg(feature = "unstable")]
+impl std::ops::DerefMut for Sampler {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.counter
     }
 }
 
+#[cfg(feature = "unstable")]
 impl AsRawFd for Sampler {
     fn as_raw_fd(&self) -> RawFd {
         self.counter.as_raw_fd()
     }
 }
 
+#[cfg(feature = "unstable")]
 impl IntoRawFd for Sampler {
     fn into_raw_fd(self) -> RawFd {
         self.counter.into_raw_fd()
@@ -1281,8 +1410,9 @@ where
 /// # Safety
 /// - `ptr` must be valid for writes.
 /// - `ptr` must be properly aligned.
-pub(crate) unsafe fn atomic_store(ptr: *const u64, val: u64, order: Ordering) {
-    (*(ptr as *const AtomicU64)).store(val, order)
+#[cfg(feature = "unstable")]
+pub(crate) unsafe fn atomic_store(ptr: *const u64, val: u64, order: std::sync::atomic::Ordering) {
+    (*(ptr as *const std::sync::atomic::AtomicU64)).store(val, order)
 }
 
 /// Perform an atomic read from the value stored at `ptr`.
@@ -1290,18 +1420,21 @@ pub(crate) unsafe fn atomic_store(ptr: *const u64, val: u64, order: Ordering) {
 /// # Safety
 /// - `ptr` must be valid for reads.
 /// - `ptr` must be properly aligned.
-pub(crate) unsafe fn atomic_load(ptr: *const u64, order: Ordering) -> u64 {
-    (*(ptr as *const AtomicU64)).load(order)
+#[cfg(feature = "unstable")]
+pub(crate) unsafe fn atomic_load(ptr: *const u64, order: std::sync::atomic::Ordering) -> u64 {
+    (*(ptr as *const std::sync::atomic::AtomicU64)).load(order)
 }
 
 /// A [`Buf`] that can be either a single byte slice or two disjoint byte
 /// slices.
+#[cfg(feature = "unstable")]
 pub(crate) enum ByteBuffer<'a> {
     Single(&'a [u8]),
     Split(&'a [u8], &'a [u8]),
 }
 
-impl<'a> Buf for ByteBuffer<'a> {
+#[cfg(feature = "unstable")]
+impl<'a> bytes::Buf for ByteBuffer<'a> {
     fn remaining(&self) -> usize {
         match self {
             Self::Single(buf) => buf.len(),
