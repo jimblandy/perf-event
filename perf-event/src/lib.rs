@@ -72,15 +72,22 @@
 
 #![deny(missing_docs)]
 
+use bytes::Buf;
 use events::Event;
 use libc::pid_t;
-use perf_event_open_sys::bindings::perf_event_attr;
+use memmap2::MmapMut;
+use perf_event_open_sys::bindings::{self, perf_event_attr};
+use samples::{ParseError, Record};
 use std::fs::File;
 use std::io::{self, Read};
+use std::ops::{Deref, DerefMut};
 use std::os::raw::{c_int, c_uint, c_ulong};
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 pub mod events;
+#[cfg(feature = "unstable")]
+pub mod samples;
 
 #[cfg(feature = "hooks")]
 pub mod hooks;
@@ -144,6 +151,20 @@ pub struct Counter {
 
     /// The unique id assigned to this counter by the kernel.
     id: u64,
+}
+
+/// A sampler for one kind of perf event.
+/// 
+/// A `Sampler` is the combination of a [`Counter`] along with a ringbuffer
+/// that allows for reading events emitted by the kernel. It supports all the
+/// same operations as a [`Counter`] along with the ability to read events.
+pub struct Sampler {
+    // Rust drops in order of declaration. To ensure that the memory map is
+    // deleted before we close the descriptor it needs to be declared before
+    // counter.
+    mmap: MmapMut,
+    counter: Counter,
+    attrs: bindings::perf_event_attr,
 }
 
 /// A builder for [`Counter`]s.
@@ -671,6 +692,48 @@ impl<'a> Builder<'a> {
 
         Ok(Counter { file, id })
     }
+
+    /// Construct a [`Sampler`] according to the specifications made on this
+    /// `Builder`.
+    ///     
+    /// A freshly built [`Sampler`] is disabled. To begin counting events, you
+    /// must call [`enable`] on the `Counter` or the `Group` to which it belongs.
+    ///
+    /// If the `Builder` requests features that the running kernel does not
+    /// support, it returns `Err(e)` where `e.kind() == ErrorKind::Other` and
+    /// `e.raw_os_error() == Some(libc::E2BIG)`.
+    ///
+    /// Unfortunately, problems in counter configuration are detected at this
+    /// point, by the kernel, not earlier when the offending request is made on
+    /// the `Builder`. The kernel's returned errors are not always helpful.
+    ///
+    /// [`enable`]: Counter::enable
+    pub fn build_sampler(self, buflen: usize) -> io::Result<Sampler> {
+        let attrs = self.attrs;
+        let counter = self.build()?;
+
+        // The mmap length for the needs to be a power-of-two multiple of the
+        // pagesize.
+        let pagesize =
+            check_errno_syscall(|| unsafe { libc::sysconf(libc::_SC_PAGESIZE) })? as usize;
+        let len = pagesize
+            + buflen
+                .checked_next_power_of_two()
+                .unwrap_or(!(usize::MAX >> 1))
+                .max(pagesize);
+
+        let mmap = unsafe {
+            memmap2::MmapOptions::new()
+                .len(len)
+                .map_mut(&counter.file)?
+        };
+
+        Ok(Sampler {
+            counter,
+            attrs,
+            mmap,
+        })
+    }
 }
 
 impl Counter {
@@ -810,6 +873,97 @@ impl AsRawFd for Counter {
 impl IntoRawFd for Counter {
     fn into_raw_fd(self) -> RawFd {
         self.file.into_raw_fd()
+    }
+}
+
+#[cfg(feature = "unstable")]
+impl Sampler {
+    fn page(&self) -> &bindings::perf_event_mmap_page {
+        unsafe { &*(self.mmap.as_ptr() as *const _) }
+    }
+
+    /// Read the next record from this sampler.
+    pub fn next(&mut self) -> Result<Option<Record>, ParseError> {
+        use crate::samples::{Parse, ParseBuf};
+        use std::slice;
+
+        let page = self.page();
+        let tail = page.data_tail;
+        // ORDERING: The acquire load synchronizes with the read barrier done
+        //           by the kernel so that all data written in the ring buffer
+        //           is visible.
+        // SAFETY: &page.data_head is a valid pointer.
+        let head = unsafe { atomic_load(&page.data_head, Ordering::Acquire) };
+
+        if tail == head {
+            return Ok(None);
+        }
+
+        let mod_tail = (tail % page.data_size) as usize;
+        let mod_head = (head % page.data_size) as usize;
+        // SAFETY: perf_event_open guarantees that page.data_offset is within the memory
+        //         region pointed to by self.mmap.
+        let data_start = unsafe { self.mmap.as_ptr().add(page.data_offset as usize) };
+        // SAFETY: mod_tail is always guaranteed to be within the memory region
+        //         within self.mmap.
+        let tail_start = unsafe { data_start.add(mod_tail) };
+
+        let mut buffer = if mod_head > mod_tail {
+            ByteBuffer::Single(unsafe { slice::from_raw_parts(tail_start, mod_head - mod_tail) })
+        } else {
+            ByteBuffer::Split(
+                unsafe { slice::from_raw_parts(tail_start, page.data_size as usize - mod_tail) },
+                unsafe { slice::from_raw_parts(data_start, mod_head) },
+            )
+        };
+
+        let header = buffer.parse_header()?;
+        let mut reader = buffer.take(header.size as _);
+
+        // Make sure to advance the tail pointer no matter what happens below.
+        let _guard = drop_guard::guard((), |_| {
+            // ORDERING: We have not written anything to the data section of
+            //           the ring buffer so we don't need to syncronize with
+            //           the kernel here. This means we can use a relaxed
+            //           atomic write instead of a release one.
+            //
+            // SAFETY: &page.data_tail is a valid pointer.
+            unsafe {
+                atomic_store(
+                    &page.data_tail,
+                    tail + (header.size as u64),
+                    Ordering::Relaxed,
+                )
+            };
+        });
+
+        Ok(Some(Record::parse(&self.attrs, &header, &mut reader)?))
+    }
+}
+
+impl Deref for Sampler {
+    type Target = Counter;
+
+    fn deref(&self) -> &Self::Target {
+        &self.counter
+    }
+}
+
+impl DerefMut for Sampler {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.counter
+    }
+}
+
+impl AsRawFd for Sampler {
+    fn as_raw_fd(&self) -> RawFd {
+        self.counter.as_raw_fd()
+    }
+}
+
+impl IntoRawFd for Sampler {
+    fn into_raw_fd(self) -> RawFd {
+        self.counter.into_raw_fd()
     }
 }
 
@@ -1119,6 +1273,58 @@ where
         Err(io::Error::last_os_error())
     } else {
         Ok(result)
+    }
+}
+
+/// Do an atomic write to the value stored at `ptr`.
+///
+/// # Safety
+/// - `ptr` must be valid for writes.
+/// - `ptr` must be properly aligned.
+pub(crate) unsafe fn atomic_store(ptr: *const u64, val: u64, order: Ordering) {
+    (*(ptr as *const AtomicU64)).store(val, order)
+}
+
+/// Perform an atomic read from the value stored at `ptr`.
+///
+/// # Safety
+/// - `ptr` must be valid for reads.
+/// - `ptr` must be properly aligned.
+pub(crate) unsafe fn atomic_load(ptr: *const u64, order: Ordering) -> u64 {
+    (*(ptr as *const AtomicU64)).load(order)
+}
+
+/// A [`Buf`] that can be either a single byte slice or two disjoint byte
+/// slices.
+pub(crate) enum ByteBuffer<'a> {
+    Single(&'a [u8]),
+    Split(&'a [u8], &'a [u8]),
+}
+
+impl<'a> Buf for ByteBuffer<'a> {
+    fn remaining(&self) -> usize {
+        match self {
+            Self::Single(buf) => buf.len(),
+            Self::Split(a, b) => a.len() + b.len(),
+        }
+    }
+
+    fn chunk(&self) -> &[u8] {
+        match self {
+            Self::Single(buf) => buf,
+            Self::Split(buf, _) => buf,
+        }
+    }
+
+    fn advance(&mut self, cnt: usize) {
+        match self {
+            Self::Single(buf) => buf.advance(cnt),
+            Self::Split(buf, _) if buf.len() <= cnt => buf.advance(cnt),
+            Self::Split(head, rest) => {
+                rest.advance(cnt - head.len());
+                *self = Self::Single(*rest);
+            }
+        }
     }
 }
 
