@@ -733,6 +733,7 @@ impl<'a> Builder<'a> {
     /// can be mapped back to the original code.
     /// 
     /// [`Mmap`]: crate::samples::Mmap
+    #[cfg(feature = "unstable")]
     pub fn mmap(mut self, mmap: bool) -> Self {
         self.attrs.set_mmap(mmap.into());
         self
@@ -745,6 +746,7 @@ impl<'a> Builder<'a> {
     /// configured.
     /// 
     /// [`wakeup_events`]: Self::wakeup_events
+    #[cfg(feature = "unstable")]
     pub fn wakeup_watermark(mut self, watermark: usize) -> Self {
         self.attrs.set_watermark(1);
         self.attrs.__bindgen_anon_2.wakeup_watermark = watermark as _;
@@ -763,6 +765,7 @@ impl<'a> Builder<'a> {
     /// 
     /// [`RecordType::SAMPLE`]: crate::samples::RecordType::SAMPLE
     /// [`wakeup_watermark`]: Self::wakeup_watermark
+    #[cfg(feature = "unstable")]
     pub fn wakeup_events(mut self, events: usize) -> Self {
         self.attrs.set_watermark(0);
         self.attrs.__bindgen_anon_2.wakeup_events = events as _;
