@@ -2,6 +2,7 @@
 
 #![warn(missing_docs)]
 
+use crate::Sample;
 use bitflags::bitflags;
 use bytes::Buf;
 use perf_event_open_sys::bindings::{self, perf_event_attr, perf_event_header};
@@ -183,6 +184,29 @@ pub enum ParseError {
     Unsupported(&'static str),
 }
 
+/// All the config info needed to parse a record from the perf ring buffer.
+/// 
+/// If you need something new, add it here!
+pub(crate) struct ParseConfig {
+    sample_type: Sample,
+    sample_id_all: bool,
+}
+
+impl From<&'_ perf_event_attr> for ParseConfig {
+    fn from(attr: &perf_event_attr) -> Self {
+        Self {
+            sample_type: Sample::from_bits_truncate(attr.sample_type),
+            sample_id_all: attr.sample_id_all() != 0,
+        }
+    }
+}
+
+impl From<perf_event_attr> for ParseConfig {
+    fn from(attr: perf_event_attr) -> Self {
+        Self::from(&attr)
+    }
+}
+
 impl From<u32> for RecordType {
     fn from(value: u32) -> Self {
         Self(value)
@@ -272,22 +296,18 @@ impl ParseError {
 /// Trait for types which are parseable given the necessary configuration
 /// context.
 pub(crate) trait Parse {
-    fn parse<B: Buf>(
-        attr: &perf_event_attr,
-        header: &perf_event_header,
-        buf: &mut B,
-    ) -> Result<Self, ParseError>
+    fn parse<B: Buf>(config: &ParseConfig, buf: &mut B) -> Result<Self, ParseError>
     where
         Self: Sized;
 }
 
-impl Parse for Record {
-    fn parse<B: Buf>(
-        attr: &perf_event_attr,
+impl Record {
+    pub(crate) fn parse<B: Buf>(
+        config: &ParseConfig,
         header: &perf_event_header,
         buf: &mut B,
     ) -> Result<Self, ParseError> {
-        let sample_id_len = SampleId::expected_size(attr);
+        let sample_id_len = SampleId::expected_size(config);
         let mut limited = buf.take(buf.remaining() - sample_id_len);
 
         let event = match header.type_ {
@@ -301,7 +321,7 @@ impl Parse for Record {
             return Err(ParseError::unexpected_remaining_input());
         }
 
-        let sample_id = SampleId::parse(attr, header, buf)?;
+        let sample_id = SampleId::parse(config, buf)?;
 
         Ok(Self {
             ty: header.type_.into(),
@@ -313,34 +333,34 @@ impl Parse for Record {
 }
 
 impl SampleId {
-    fn expected_size(attr: &perf_event_attr) -> usize {
-        if attr.sample_id_all() == 0 {
+    fn expected_size(config: &ParseConfig) -> usize {
+        if config.sample_id_all {
             return 0;
         }
 
         let mut len = 0;
 
-        if contains(attr.sample_type, bindings::PERF_SAMPLE_TID) {
+        if config.sample_type.contains(Sample::TID) {
             len += std::mem::size_of::<u64>();
         }
 
-        if contains(attr.sample_type, bindings::PERF_SAMPLE_TIME) {
+        if config.sample_type.contains(Sample::TIME) {
             len += std::mem::size_of::<u64>();
         }
 
-        if contains(attr.sample_type, bindings::PERF_SAMPLE_ID) {
+        if config.sample_type.contains(Sample::ID) {
             len += std::mem::size_of::<u64>();
         }
 
-        if contains(attr.sample_type, bindings::PERF_SAMPLE_STREAM_ID) {
+        if config.sample_type.contains(Sample::STREAM_ID) {
             len += std::mem::size_of::<u64>();
         }
 
-        if contains(attr.sample_type, bindings::PERF_SAMPLE_CPU) {
+        if config.sample_type.contains(Sample::CPU) {
             len += std::mem::size_of::<u64>();
         }
 
-        if contains(attr.sample_type, bindings::PERF_SAMPLE_IDENTIFIER) {
+        if config.sample_type.contains(Sample::IDENTIFIER) {
             len += std::mem::size_of::<u64>();
         }
 
@@ -349,39 +369,35 @@ impl SampleId {
 }
 
 impl Parse for SampleId {
-    fn parse<B: Buf>(
-        attr: &perf_event_attr,
-        _: &perf_event_header,
-        buf: &mut B,
-    ) -> Result<Self, ParseError> {
-        if attr.sample_id_all() == 0 {
+    fn parse<B: Buf>(config: &ParseConfig, buf: &mut B) -> Result<Self, ParseError> {
+        if config.sample_id_all {
             return Ok(Self::default());
         }
 
         let mut sample = Self::default();
-        if contains(attr.sample_type, bindings::PERF_SAMPLE_TID) {
+        if config.sample_type.contains(Sample::TID) {
             sample.pid = Some(buf.parse()?);
             sample.tid = Some(buf.parse()?);
         }
 
-        if contains(attr.sample_type, bindings::PERF_SAMPLE_TIME) {
+        if config.sample_type.contains(Sample::TIME) {
             sample.time = Some(buf.parse()?);
         }
 
-        if contains(attr.sample_type, bindings::PERF_SAMPLE_ID) {
+        if config.sample_type.contains(Sample::ID) {
             sample.id = Some(buf.parse()?);
         }
 
-        if contains(attr.sample_type, bindings::PERF_SAMPLE_STREAM_ID) {
+        if config.sample_type.contains(Sample::STREAM_ID) {
             sample.stream_id = Some(buf.parse()?);
         }
 
-        if contains(attr.sample_type, bindings::PERF_SAMPLE_CPU) {
+        if config.sample_type.contains(Sample::CPU) {
             sample.cpu = Some(buf.parse()?);
             let _ = buf.parse::<u32>()?; // res
         }
 
-        if contains(attr.sample_type, bindings::PERF_SAMPLE_IDENTIFIER) {
+        if config.sample_type.contains(Sample::IDENTIFIER) {
             sample.id = Some(buf.parse()?);
         }
 
@@ -481,8 +497,3 @@ parse_impl!(u8);
 parse_impl!(u16);
 parse_impl!(u32);
 parse_impl!(u64);
-
-/// Small utility method to mask some of the arithmetic away.
-fn contains(sample: u64, flag: u64) -> bool {
-    sample & flag != 0
-}

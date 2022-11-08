@@ -1014,7 +1014,7 @@ impl Sampler {
 
     /// Read the next record from this sampler.
     pub fn next(&mut self) -> Result<Option<samples::Record>, samples::ParseError> {
-        use crate::samples::{Parse, ParseBuf, Record};
+        use crate::samples::{ParseConfig, ParseBuf, Record};
         use bytes::Buf;
         use std::slice;
 
@@ -1063,7 +1063,8 @@ impl Sampler {
             };
         });
 
-        Ok(Some(Record::parse(&self.attrs, &header, &mut reader)?))
+        let config = ParseConfig::from(&self.attrs);
+        Ok(Some(Record::parse(&config, &header, &mut reader)?))
     }
 }
 
