@@ -79,6 +79,7 @@ use std::fs::File;
 use std::io::{self, Read};
 use std::os::raw::{c_int, c_uint, c_ulong};
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 pub mod events;
 #[cfg(feature = "unstable")]
@@ -1015,7 +1016,6 @@ impl Sampler {
         use crate::samples::{Parse, ParseBuf, Record};
         use bytes::Buf;
         use std::slice;
-        use std::sync::atomic::Ordering;
 
         let page = self.page();
         let tail = page.data_tail;
@@ -1410,9 +1410,9 @@ where
 /// # Safety
 /// - `ptr` must be valid for writes.
 /// - `ptr` must be properly aligned.
-#[cfg(feature = "unstable")]
-pub(crate) unsafe fn atomic_store(ptr: *const u64, val: u64, order: std::sync::atomic::Ordering) {
-    (*(ptr as *const std::sync::atomic::AtomicU64)).store(val, order)
+#[allow(dead_code)]
+pub(crate) unsafe fn atomic_store(ptr: *const u64, val: u64, order: Ordering) {
+    (*(ptr as *const AtomicU64)).store(val, order)
 }
 
 /// Perform an atomic read from the value stored at `ptr`.
@@ -1420,20 +1420,19 @@ pub(crate) unsafe fn atomic_store(ptr: *const u64, val: u64, order: std::sync::a
 /// # Safety
 /// - `ptr` must be valid for reads.
 /// - `ptr` must be properly aligned.
-#[cfg(feature = "unstable")]
-pub(crate) unsafe fn atomic_load(ptr: *const u64, order: std::sync::atomic::Ordering) -> u64 {
-    (*(ptr as *const std::sync::atomic::AtomicU64)).load(order)
+#[allow(dead_code)]
+pub(crate) unsafe fn atomic_load(ptr: *const u64, order: Ordering) -> u64 {
+    (*(ptr as *const AtomicU64)).load(order)
 }
 
 /// A [`Buf`] that can be either a single byte slice or two disjoint byte
 /// slices.
-#[cfg(feature = "unstable")]
+#[allow(dead_code)]
 pub(crate) enum ByteBuffer<'a> {
     Single(&'a [u8]),
     Split(&'a [u8], &'a [u8]),
 }
 
-#[cfg(feature = "unstable")]
 impl<'a> bytes::Buf for ByteBuffer<'a> {
     fn remaining(&self) -> usize {
         match self {
@@ -1455,7 +1454,7 @@ impl<'a> bytes::Buf for ByteBuffer<'a> {
             Self::Split(buf, _) if buf.len() <= cnt => buf.advance(cnt),
             Self::Split(head, rest) => {
                 rest.advance(cnt - head.len());
-                *self = Self::Single(*rest);
+                *self = Self::Single(rest);
             }
         }
     }
