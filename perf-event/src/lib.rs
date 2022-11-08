@@ -77,6 +77,7 @@ use libc::pid_t;
 use perf_event_open_sys::bindings::perf_event_attr;
 use std::fs::File;
 use std::io::{self, Read};
+use std::mem::ManuallyDrop;
 use std::os::raw::{c_int, c_uint, c_ulong};
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -1051,7 +1052,7 @@ impl Sampler {
         let mut reader = buffer.take(header.size as _);
 
         // Make sure to advance the tail pointer no matter what happens below.
-        let _guard = drop_guard::guard((), |_| {
+        let _guard = DropGuard::new(|| {
             // SAFETY: &page.data_tail is a valid pointer.
             unsafe {
                 atomic_store(
@@ -1460,7 +1461,27 @@ impl<'a> bytes::Buf for ByteBuffer<'a> {
     }
 }
 
+struct DropGuard<F: FnOnce()> {
+    func: ManuallyDrop<F>,
+}
 
+#[allow(dead_code)]
+impl<F: FnOnce()> DropGuard<F> {
+    pub fn new(func: F) -> Self {
+        Self {
+            func: ManuallyDrop::new(func),
+        }
+    }
+}
+
+impl<F: FnOnce()> Drop for DropGuard<F> {
+    fn drop(&mut self) {
+        // SAFETY: We never touch func again and func is only initialized in
+        //         new() and never modified until here.
+        let func = unsafe { ManuallyDrop::take(&mut self.func) };
+        func();
+    }
+}
 
 #[test]
 fn simple_build() {
