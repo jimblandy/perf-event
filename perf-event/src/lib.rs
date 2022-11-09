@@ -829,10 +829,10 @@ impl<'a> Builder<'a> {
     /// Indicate additional values to include in the generated sample events.
     /// Note that this method is additive and does not remove previously added
     /// sample types.
-    /// 
+    ///
     /// See the documentation of [`Sample`] for what's available to be
     /// collected.
-    /// 
+    ///
     /// # Example
     /// Here we build a sampler that grabs the instruction pointer, process ID,
     /// thread ID, and timestamp whenever the underlying event triggers a
