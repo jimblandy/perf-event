@@ -41,7 +41,16 @@ impl Parse for Mmap {
             addr: buf.get_u64_ne(),
             len: buf.get_u64_ne(),
             pgoff: buf.get_u64_ne(),
-            filename: OsString::from_vec(buf.parse_remainder()),
+            filename: {
+                let mut vec = buf.parse_remainder();
+
+                // Remove padding nul bytes from the entry
+                while let Some(b'\0') = vec.last() {
+                    vec.pop();
+                }
+                
+                OsString::from_vec(vec)
+            },
         }
     }
 }
@@ -49,5 +58,28 @@ impl Parse for Mmap {
 impl From<Mmap> for RecordEvent {
     fn from(mmap: Mmap) -> Self {
         RecordEvent::Mmap(mmap)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[cfg_attr(not(target_endian = "little"), ignore)]
+    fn test_parse() {
+        let mut bytes: &[u8] = &[
+            10, 100, 0, 0, 11, 100, 0, 0, 0, 160, 118, 129, 189, 127, 0, 0, 0, 16, 0, 0, 0, 0, 0,
+            0, 0, 160, 118, 129, 189, 127, 0, 0, 47, 47, 97, 110, 111, 110, 0, 0,
+        ];
+
+        let mmap = Mmap::parse(&ParseConfig::default(), &mut bytes);
+
+        assert_eq!(mmap.pid, 25610);
+        assert_eq!(mmap.tid, 25611);
+        assert_eq!(mmap.addr, 0x7FBD8176A000);
+        assert_eq!(mmap.len, 4096);
+        assert_eq!(mmap.pgoff, 0x7FBD8176A000);
+        assert_eq!(mmap.filename, "//anon");
     }
 }
