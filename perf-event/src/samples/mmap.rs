@@ -48,7 +48,7 @@ impl Parse for Mmap {
                 while let Some(b'\0') = vec.last() {
                     vec.pop();
                 }
-                
+
                 OsString::from_vec(vec)
             },
         }
