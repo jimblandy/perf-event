@@ -458,6 +458,7 @@ bitflags::bitflags! {
     /// These fields will be recorded in the [`Sampler`] output buffer.
     ///
     /// [`Sampler`]: crate::Sampler
+    #[derive(Default)]
     pub struct Sample : u64 {
         /// Record the instruction pointer.
         const IP = sys::bindings::PERF_SAMPLE_IP;
@@ -731,7 +732,7 @@ impl<'a> Builder<'a> {
     /// when sampling. This allows tools to notice new executable code being
     /// mapped into a program (e.g. dyamic shared libraries) so that addresses
     /// can be mapped back to the original code.
-    /// 
+    ///
     /// [`Mmap`]: crate::samples::Mmap
     #[cfg(feature = "unstable")]
     pub fn mmap(mut self, mmap: bool) -> Self {
@@ -741,10 +742,10 @@ impl<'a> Builder<'a> {
 
     /// Set how many bytes will be written before an overflow notification
     /// happens.
-    /// 
+    ///
     /// Note only one of `wakup_watermark` and [`wakeup_events`] can be
     /// configured.
-    /// 
+    ///
     /// [`wakeup_events`]: Self::wakeup_events
     #[cfg(feature = "unstable")]
     pub fn wakeup_watermark(mut self, watermark: usize) -> Self {
@@ -755,14 +756,14 @@ impl<'a> Builder<'a> {
 
     /// Set how many samples will be written before an overflow notification
     /// happens.
-    /// 
+    ///
     /// Note that `wakeup_events` only counts [`RecordType::SAMPLE`] records.
-    /// To receive overflow notifications for all record type use 
+    /// To receive overflow notifications for all record type use
     /// [`wakeup_watermark`] instead.
-    /// 
+    ///
     /// Prior to Linux 3.0, setting `wakeup_events` to 0 resulted in no
     /// overflow notifications; more recent kernels treat 0 the same as 1.
-    /// 
+    ///
     /// [`RecordType::SAMPLE`]: crate::samples::RecordType::SAMPLE
     /// [`wakeup_watermark`]: Self::wakeup_watermark
     #[cfg(feature = "unstable")]
@@ -1058,10 +1059,11 @@ impl Sampler {
     }
 
     /// Read the next record from this sampler.
-    pub fn next(&mut self) -> Result<Option<samples::Record>, samples::ParseError> {
-        use crate::samples::{ParseConfig, ParseBuf, Record};
+    pub fn next(&mut self) -> Option<samples::Record> {
+        use crate::samples::{ParseBuf, ParseConfig, Record};
         use bytes::Buf;
-        use std::slice;
+        use std::{mem, slice};
+        use sys::bindings::perf_event_header;
 
         let page = self.page();
         let tail = page.data_tail;
@@ -1072,7 +1074,7 @@ impl Sampler {
         let head = unsafe { atomic_load(&page.data_head, Ordering::Acquire) };
 
         if tail == head {
-            return Ok(None);
+            return None;
         }
 
         let mod_tail = (tail % page.data_size) as usize;
@@ -1093,8 +1095,8 @@ impl Sampler {
             )
         };
 
-        let header = buffer.parse_header()?;
-        let mut reader = buffer.take(header.size as _);
+        let header = buffer.parse_header();
+        let mut reader = buffer.take(header.size as usize - mem::size_of::<perf_event_header>());
 
         // Make sure to advance the tail pointer no matter what happens below.
         let _guard = DropGuard::new(|| {
@@ -1109,7 +1111,7 @@ impl Sampler {
         });
 
         let config = ParseConfig::from(&self.attrs);
-        Ok(Some(Record::parse(&config, &header, &mut reader)?))
+        Some(Record::parse(&config, &header, &mut reader))
     }
 }
 
@@ -1475,6 +1477,7 @@ unsafe fn atomic_load(ptr: *const u64, order: Ordering) -> u64 {
 /// A [`Buf`] that can be either a single byte slice or two disjoint byte
 /// slices.
 #[allow(dead_code)]
+#[derive(Copy, Clone)]
 enum ByteBuffer<'a> {
     Single(&'a [u8]),
     Split(&'a [u8], &'a [u8]),

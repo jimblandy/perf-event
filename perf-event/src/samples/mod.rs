@@ -184,16 +184,10 @@ pub enum RecordEvent {
     Unknown(Vec<u8>),
 }
 
-#[allow(missing_docs)]
-pub enum ParseError {
-    UnexpectedEof,
-    UnexpectedRemainder,
-    Unsupported(&'static str),
-}
-
 /// All the config info needed to parse a record from the perf ring buffer.
 ///
 /// If you need something new, add it here!
+#[derive(Default)]
 pub(crate) struct ParseConfig {
     sample_type: Sample,
     sample_id_all: bool,
@@ -283,58 +277,36 @@ impl RecordMiscFlags {
     }
 }
 
-impl ParseError {
-    pub(crate) fn unexpected_eof() -> Self {
-        Self::UnexpectedEof
-    }
-
-    pub(crate) fn unexpected_remaining_input() -> Self {
-        Self::UnexpectedRemainder
-    }
-
-    /// The message here is to force documenting _why_ whatever we're trying to
-    /// do is unsupported so that it's there when someone goes to fix it.
-    #[allow(dead_code)]
-    pub(crate) fn unsupported(message: &'static str) -> Self {
-        Self::Unsupported(message)
-    }
-}
-
 /// Trait for types which are parseable given the necessary configuration
 /// context.
 pub(crate) trait Parse {
-    fn parse<B: Buf>(config: &ParseConfig, buf: &mut B) -> Result<Self, ParseError>
+    fn parse<B: Buf>(config: &ParseConfig, buf: &mut B) -> Self
     where
         Self: Sized;
 }
 
 impl Record {
-    pub(crate) fn parse<B: Buf>(
-        config: &ParseConfig,
-        header: &perf_event_header,
-        buf: &mut B,
-    ) -> Result<Self, ParseError> {
+    pub(crate) fn parse<B>(config: &ParseConfig, header: &perf_event_header, buf: &mut B) -> Self
+    where
+        B: Buf,
+    {
         let ty = header.type_.into();
         let sample_id_len = match ty {
             // MMAP and SAMPLE do not include the sample_id trailer
             RecordType::MMAP | RecordType::SAMPLE => None,
             _ => Some(SampleId::expected_size(config)),
         };
-        let mut limited = buf.take(buf.remaining() - sample_id_len.unwrap_or(0));
 
-        let event = match header.type_ {
-            _ => RecordEvent::Unknown({
-                let remaining = limited.remaining();
-                limited.parse_vec(remaining)?
-            }),
+        let mut limited = buf.take(buf.remaining() - sample_id_len.unwrap_or(0));
+        let event = match ty {
+            RecordType::MMAP => Mmap::parse(config, &mut limited).into(),
+            _ => RecordEvent::Unknown(limited.parse_remainder()),
         };
 
-        if limited.remaining() != 0 {
-            return Err(ParseError::unexpected_remaining_input());
-        }
+        limited.advance(limited.remaining());
 
         let sample_id = match sample_id_len {
-            Some(_) => SampleId::parse(config, buf)?,
+            Some(_) => SampleId::parse(config, buf),
             // Fill in some fields from the record in cases where there is no
             // sample_id encoded with the record.
             None => match &event {
@@ -343,16 +315,16 @@ impl Record {
                     tid: Some(mmap.tid),
                     ..Default::default()
                 },
-                _ => SampleId::default()
-            }
+                _ => SampleId::default(),
+            },
         };
 
-        Ok(Self {
+        Self {
             ty,
             misc: RecordMiscFlags::from_bits_truncate(header.misc),
             event,
             sample_id,
-        })
+        }
     }
 }
 
@@ -393,137 +365,78 @@ impl SampleId {
 }
 
 impl Parse for SampleId {
-    fn parse<B: Buf>(config: &ParseConfig, buf: &mut B) -> Result<Self, ParseError> {
+    fn parse<B: Buf>(config: &ParseConfig, buf: &mut B) -> Self {
         if config.sample_id_all {
-            return Ok(Self::default());
+            return Self::default();
         }
 
         let mut sample = Self::default();
         if config.sample_type.contains(Sample::TID) {
-            sample.pid = Some(buf.parse()?);
-            sample.tid = Some(buf.parse()?);
+            sample.pid = Some(buf.get_u32());
+            sample.tid = Some(buf.get_u32());
         }
 
         if config.sample_type.contains(Sample::TIME) {
-            sample.time = Some(buf.parse()?);
+            sample.time = Some(buf.get_u64());
         }
 
         if config.sample_type.contains(Sample::ID) {
-            sample.id = Some(buf.parse()?);
+            sample.id = Some(buf.get_u64());
         }
 
         if config.sample_type.contains(Sample::STREAM_ID) {
-            sample.stream_id = Some(buf.parse()?);
+            sample.stream_id = Some(buf.get_u64());
         }
 
         if config.sample_type.contains(Sample::CPU) {
-            sample.cpu = Some(buf.parse()?);
-            let _ = buf.parse::<u32>()?; // res
+            sample.cpu = Some(buf.get_u32());
+            let _ = buf.get_u32(); // res
         }
 
         if config.sample_type.contains(Sample::IDENTIFIER) {
-            sample.id = Some(buf.parse()?);
+            sample.id = Some(buf.get_u64());
         }
 
-        Ok(sample)
+        sample
     }
 }
 
 /// Utility trait for parsing data out of a [`Buf`] without panicking.
 pub(crate) trait ParseBuf: Buf {
-    fn parse_vec(&mut self, mut len: usize) -> Result<Vec<u8>, ParseError> {
-        if self.remaining() < len {
-            return Err(ParseError::unexpected_eof());
-        }
+    fn parse_vec(&mut self, mut len: usize) -> Vec<u8> {
+        assert!(len <= self.remaining());
 
-        let mut bytes = Vec::with_capacity(len);
+        let mut vec = Vec::with_capacity(len);
+
         while len > 0 {
             let chunk = self.chunk();
             let chunk = &chunk[..len.min(chunk.len())];
-            bytes.extend_from_slice(chunk);
+            vec.extend_from_slice(chunk);
             len -= chunk.len();
             self.advance(chunk.len());
         }
 
-        Ok(bytes)
+        vec
     }
 
     /// Parse a constant number of bytes to an array.
-    fn parse_bytes<const N: usize>(&mut self) -> Result<[u8; N], ParseError> {
-        if self.remaining() < N {
-            return Err(ParseError::unexpected_eof());
-        }
+    fn parse_bytes<const N: usize>(&mut self) -> [u8; N] {
+        assert!(N <= self.remaining());
 
         let mut bytes = [0; N];
         self.copy_to_slice(&mut bytes);
-        Ok(bytes)
+        bytes
     }
 
     /// Parse the remaining bytes within the buffer to a Vec.
-    fn parse_remainder(&mut self) -> Result<Vec<u8>, ParseError> {
+    fn parse_remainder(&mut self) -> Vec<u8> {
         self.parse_vec(self.remaining())
     }
 
-    fn parse_header(&mut self) -> Result<bindings::perf_event_header, ParseError> {
-        let bytes = self.parse_bytes::<{ std::mem::size_of::<perf_event_header>() }>()?;
-        Ok(unsafe { std::mem::transmute(bytes) })
-    }
-
-    fn parse<P: Parseable>(&mut self) -> Result<P, ParseError> {
-        P::parse(self)
+    fn parse_header(&mut self) -> bindings::perf_event_header {
+        let bytes = self.parse_bytes::<{ std::mem::size_of::<perf_event_header>() }>();
+        unsafe { std::mem::transmute(bytes) }
     }
 }
 
-impl<B: Buf> ParseBuf for B {
-    fn parse_vec(&mut self, mut len: usize) -> Result<Vec<u8>, ParseError> {
-        if self.remaining() < len {
-            return Err(ParseError::unexpected_eof());
-        }
-
-        let mut bytes = Vec::with_capacity(len);
-        while len > 0 {
-            let chunk = self.chunk();
-            let chunk = &chunk[..len.min(chunk.len())];
-            bytes.extend_from_slice(chunk);
-            len -= chunk.len();
-            self.advance(chunk.len());
-        }
-
-        Ok(bytes)
-    }
-
-    fn parse_bytes<const N: usize>(&mut self) -> Result<[u8; N], ParseError> {
-        if self.remaining() < N {
-            return Err(ParseError::unexpected_eof());
-        }
-
-        let mut bytes = [0; N];
-        self.copy_to_slice(&mut bytes);
-        Ok(bytes)
-    }
-}
-
-/// Utility trait for [`ParseBuf::parse`].
-pub(crate) trait Parseable: Sized {
-    fn parse<B>(buf: &mut B) -> Result<Self, ParseError>
-    where
-        B: Buf + ?Sized;
-}
-
-macro_rules! parse_impl {
-    ($ty:ty) => {
-        impl Parseable for $ty {
-            fn parse<B>(mut buf: &mut B) -> Result<Self, ParseError>
-            where
-                B: Buf + ?Sized,
-            {
-                buf.parse_bytes().map(Self::from_ne_bytes)
-            }
-        }
-    };
-}
-
-parse_impl!(u8);
-parse_impl!(u16);
-parse_impl!(u32);
-parse_impl!(u64);
+impl<B: Buf> ParseBuf for B {}
