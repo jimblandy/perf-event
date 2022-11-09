@@ -1355,7 +1355,7 @@ impl Counts {
 #[cfg(feature = "unstable")]
 impl Sample {
     /// Create a sample from the underlying bits.
-    pub fn new(bits: u64) -> Self {
+    pub const fn new(bits: u64) -> Self {
         Self { bits }
     }
 }

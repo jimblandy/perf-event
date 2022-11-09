@@ -193,10 +193,17 @@ pub(crate) struct ParseConfig {
     sample_id_all: bool,
 }
 
+impl RecordMiscFlags {
+    /// Create a set of flags from the underlying bits.
+    pub const fn new(bits: u16) -> Self {
+        Self { bits }
+    }
+}
+
 impl From<&'_ perf_event_attr> for ParseConfig {
     fn from(attr: &perf_event_attr) -> Self {
         Self {
-            sample_type: Sample::from_bits_truncate(attr.sample_type),
+            sample_type: Sample::new(attr.sample_type),
             sample_id_all: attr.sample_id_all() != 0,
         }
     }
@@ -321,7 +328,7 @@ impl Record {
 
         Self {
             ty,
-            misc: RecordMiscFlags::from_bits_truncate(header.misc),
+            misc: RecordMiscFlags::new(header.misc),
             event,
             sample_id,
         }
