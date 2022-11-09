@@ -160,7 +160,7 @@ pub struct Sampler {
     // Rust drops in order of declaration. To ensure that the memory map is
     // deleted before we close the descriptor it needs to be declared before
     // counter.
-    mmap: memmap2::MmapMut,
+    mmap: memmap2::MmapRaw,
     counter: Counter,
     attrs: sys::bindings::perf_event_attr,
 }
@@ -922,11 +922,9 @@ impl<'a> Builder<'a> {
                 .unwrap_or(!(usize::MAX >> 1))
                 .max(pagesize);
 
-        let mmap = unsafe {
-            memmap2::MmapOptions::new()
-                .len(len)
-                .map_mut(&counter.file)?
-        };
+        let mmap = memmap2::MmapOptions::new()
+            .len(len)
+            .map_raw(&counter.file)?;
 
         Ok(Sampler {
             counter,
