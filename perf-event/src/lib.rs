@@ -81,6 +81,7 @@ use std::mem::ManuallyDrop;
 use std::os::raw::{c_int, c_uint, c_ulong};
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{Duration, Instant};
 
 pub mod events;
 #[cfg(feature = "unstable")]
@@ -1076,11 +1077,15 @@ impl IntoRawFd for Counter {
 
 #[cfg(feature = "unstable")]
 impl Sampler {
-    fn page(&self) -> *const sys::bindings::perf_event_mmap_page {
-        self.mmap.as_ptr() as *const _
-    }
-
-    /// Read the next record from this sampler.
+    /// Read the next record from the ring buffer. This method does not block.
+    /// If you want blocking behaviour, use [`next_blocking`] instead.
+    ///
+    /// It is possible to get readiness notifications for when events are
+    /// present in the ring buffer (e.g. for async code). See the documentation
+    /// on the [`perf_event_open`][man] manpage for details on how to do this.
+    ///
+    /// [`next_blocking`]: Self::next_blocking
+    /// [man]: https://man7.org/linux/man-pages/man2/perf_event_open.2.html
     pub fn next(&mut self) -> Option<samples::Record> {
         use crate::samples::{ParseBuf, ParseConfig, Record};
         use bytes::Buf;
@@ -1160,6 +1165,60 @@ impl Sampler {
 
         let config = ParseConfig::from(&self.attrs);
         Some(Record::parse(&config, &header, &mut reader))
+    }
+
+    /// Read the next record from the ring buffer. This method will block (with
+    /// an optional timeout) until a new record is available.
+    ///
+    /// If this sampler is only enabled for a single process and that process
+    /// exits, this method will return `None` even if no timeout is passed.
+    /// Note that this only works on Linux 3.18 and above.
+    pub fn next_blocking(&mut self, timeout: Option<Duration>) -> Option<samples::Record> {
+        let deadline = timeout.map(|timeout| Instant::now() + timeout);
+
+        loop {
+            if let Some(record) = self.next() {
+                return Some(record);
+            }
+
+            let timeout = match deadline {
+                Some(deadline) => deadline
+                    .checked_duration_since(Instant::now())?
+                    .as_millis()
+                    .min(libc::c_int::MAX as u128) as libc::c_int,
+                None => -1,
+            };
+
+            let mut pollfd = libc::pollfd {
+                fd: self.as_raw_fd(),
+                events: libc::POLLIN,
+                revents: 0,
+            };
+
+            match check_errno_syscall(|| unsafe { libc::poll(&mut pollfd, 1, timeout) }) {
+                // poll timed out.
+                Ok(0) => return None,
+                // The sampler was tracking a single other process and that
+                // process has exited.
+                Ok(_) if pollfd.revents & libc::POLLHUP != 0 => return None,
+                // Must be POLLIN, there should be an event ready.
+                Ok(_) => continue,
+                Err(e) => match e.raw_os_error() {
+                    Some(libc::EINTR) => continue,
+                    // The only other possible kernel errors here are so rare
+                    // that it doesn't make sense to make this API have a
+                    // result because of them. To whit, they are:
+                    // - EINVAL - the process ran out of file descriptors
+                    // - ENOMEM - the kernel couldn't allocate memory for the
+                    //            poll datastructures.
+                    _ => return None,
+                },
+            }
+        }
+    }
+
+    fn page(&self) -> *const sys::bindings::perf_event_mmap_page {
+        self.mmap.as_ptr() as *const _
     }
 }
 
