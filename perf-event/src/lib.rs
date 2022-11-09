@@ -1076,43 +1076,65 @@ impl IntoRawFd for Counter {
 
 #[cfg(feature = "unstable")]
 impl Sampler {
-    fn page(&self) -> &sys::bindings::perf_event_mmap_page {
-        unsafe { &*(self.mmap.as_ptr() as *const _) }
+    fn page(&self) -> *const sys::bindings::perf_event_mmap_page {
+        self.mmap.as_ptr() as *const _
     }
 
     /// Read the next record from this sampler.
     pub fn next(&mut self) -> Option<samples::Record> {
         use crate::samples::{ParseBuf, ParseConfig, Record};
         use bytes::Buf;
-        use std::{mem, slice};
-        use sys::bindings::perf_event_header;
+        use memoffset::raw_field;
+        use std::{mem, ptr, slice};
+        use sys::bindings::{perf_event_header, perf_event_mmap_page};
 
         let page = self.page();
-        let tail = page.data_tail;
-        // ORDERING: The acquire load synchronizes with the read barrier done
-        //           by the kernel so that all data written in the ring buffer
-        //           is visible.
-        // SAFETY: &page.data_head is a valid pointer.
-        let head = unsafe { atomic_load(&page.data_head, Ordering::Acquire) };
+
+        // SAFETY:
+        // - page points to a valid instance of perf_event_mmap_page.
+        // - data_tail is only written by the user side so it is safe to do a
+        //   non-atomic read here.
+        let tail = unsafe { ptr::read(raw_field!(page, perf_event_mmap_page, data_tail)) };
+        // ATOMICS:
+        // - The acquire load here syncronizes with the release store in the
+        //   kernel and ensures that all the data written to the ring buffer
+        //   before data_head is visible to this thread.
+        // SAFETY:
+        // - page points to a valid instance of perf_event_mmap_page.
+        let head = unsafe {
+            atomic_load(
+                raw_field!(page, perf_event_mmap_page, data_head),
+                Ordering::Acquire,
+            )
+        };
 
         if tail == head {
             return None;
         }
 
-        let mod_tail = (tail % page.data_size) as usize;
-        let mod_head = (head % page.data_size) as usize;
-        // SAFETY: perf_event_open guarantees that page.data_offset is within the memory
-        //         region pointed to by self.mmap.
-        let data_start = unsafe { self.mmap.as_ptr().add(page.data_offset as usize) };
-        // SAFETY: mod_tail is always guaranteed to be within the memory region
-        //         within self.mmap.
+        // SAFETY: (for both statements)
+        // - page points to a valid instance of perf_event_mmap_page.
+        // - neither of these fields are written to except before the map is
+        //   created so reading from them non-atomically is safe.
+        let data_size = unsafe { ptr::read(raw_field!(page, perf_event_mmap_page, data_size)) };
+        let data_offset = unsafe { ptr::read(raw_field!(page, perf_event_mmap_page, data_offset)) };
+
+        let mod_tail = (tail % data_size) as usize;
+        let mod_head = (head % data_size) as usize;
+
+        // SAFETY:
+        // - perf_event_open guarantees that page.data_offset is within the
+        //   memory mapping.
+        let data_start = unsafe { self.mmap.as_ptr().add(data_offset as usize) };
+        // SAFETY:
+        // - data_start is guaranteed to be valid for at least data_size bytes.
         let tail_start = unsafe { data_start.add(mod_tail) };
 
         let mut buffer = if mod_head > mod_tail {
             ByteBuffer::Single(unsafe { slice::from_raw_parts(tail_start, mod_head - mod_tail) })
         } else {
             ByteBuffer::Split(
-                unsafe { slice::from_raw_parts(tail_start, page.data_size as usize - mod_tail) },
+                unsafe { slice::from_raw_parts(tail_start, data_size as usize - mod_tail) },
                 unsafe { slice::from_raw_parts(data_start, mod_head) },
             )
         };
@@ -1122,10 +1144,14 @@ impl Sampler {
 
         // Make sure to advance the tail pointer no matter what happens below.
         let _guard = DropGuard::new(|| {
-            // SAFETY: &page.data_tail is a valid pointer.
+            // ATOMICS:
+            // - We use a release write here to prevent the compiler from
+            //   moving reads past the store to data_tail.
+            // SAFETY:
+            // - page points to a valid instance of perf_event_mmap_page
             unsafe {
                 atomic_store(
-                    &page.data_tail,
+                    raw_field!(page, perf_event_mmap_page, data_tail),
                     tail + (header.size as u64),
                     Ordering::Release,
                 )
@@ -1544,6 +1570,7 @@ struct DropGuard<F: FnOnce()> {
     func: ManuallyDrop<F>,
 }
 
+/// Simple type that calls a function once it is dropped.
 #[allow(dead_code)]
 impl<F: FnOnce()> DropGuard<F> {
     pub fn new(func: F) -> Self {
