@@ -728,51 +728,6 @@ impl<'a> Builder<'a> {
         self
     }
 
-    /// Enable the generation of [`Mmap`] records for `PROT_EXEC` mappings
-    /// when sampling. This allows tools to notice new executable code being
-    /// mapped into a program (e.g. dyamic shared libraries) so that addresses
-    /// can be mapped back to the original code.
-    ///
-    /// [`Mmap`]: crate::samples::Mmap
-    #[cfg(feature = "unstable")]
-    pub fn mmap(mut self, mmap: bool) -> Self {
-        self.attrs.set_mmap(mmap.into());
-        self
-    }
-
-    /// Set how many bytes will be written before an overflow notification
-    /// happens.
-    ///
-    /// Note only one of `wakup_watermark` and [`wakeup_events`] can be
-    /// configured.
-    ///
-    /// [`wakeup_events`]: Self::wakeup_events
-    #[cfg(feature = "unstable")]
-    pub fn wakeup_watermark(mut self, watermark: usize) -> Self {
-        self.attrs.set_watermark(1);
-        self.attrs.__bindgen_anon_2.wakeup_watermark = watermark as _;
-        self
-    }
-
-    /// Set how many samples will be written before an overflow notification
-    /// happens.
-    ///
-    /// Note that `wakeup_events` only counts [`RecordType::SAMPLE`] records.
-    /// To receive overflow notifications for all record type use
-    /// [`wakeup_watermark`] instead.
-    ///
-    /// Prior to Linux 3.0, setting `wakeup_events` to 0 resulted in no
-    /// overflow notifications; more recent kernels treat 0 the same as 1.
-    ///
-    /// [`RecordType::SAMPLE`]: crate::samples::RecordType::SAMPLE
-    /// [`wakeup_watermark`]: Self::wakeup_watermark
-    #[cfg(feature = "unstable")]
-    pub fn wakeup_events(mut self, events: usize) -> Self {
-        self.attrs.set_watermark(0);
-        self.attrs.__bindgen_anon_2.wakeup_events = events as _;
-        self
-    }
-
     /// Count events of the given kind. This accepts an [`Event`] value,
     /// or any type that can be converted to one, so you can pass [`Hardware`],
     /// [`Software`] and [`Cache`] values directly.
@@ -867,6 +822,51 @@ impl<'a> Builder<'a> {
 
         Ok(Counter { file, id })
     }
+}
+
+#[cfg(feature = "unstable")]
+impl<'a> Builder<'a> {
+    /// Enable the generation of [`Mmap`] records for `PROT_EXEC` mappings
+    /// when sampling. This allows tools to notice new executable code being
+    /// mapped into a program (e.g. dyamic shared libraries) so that addresses
+    /// can be mapped back to the original code.
+    ///
+    /// [`Mmap`]: crate::samples::Mmap
+    pub fn mmap(mut self, mmap: bool) -> Self {
+        self.attrs.set_mmap(mmap.into());
+        self
+    }
+
+    /// Set how many bytes will be written before an overflow notification
+    /// happens.
+    ///
+    /// Note only one of `wakup_watermark` and [`wakeup_events`] can be
+    /// configured.
+    ///
+    /// [`wakeup_events`]: Self::wakeup_events
+    pub fn wakeup_watermark(mut self, watermark: usize) -> Self {
+        self.attrs.set_watermark(1);
+        self.attrs.__bindgen_anon_2.wakeup_watermark = watermark as _;
+        self
+    }
+
+    /// Set how many samples will be written before an overflow notification
+    /// happens.
+    ///
+    /// Note that `wakeup_events` only counts [`RecordType::SAMPLE`] records.
+    /// To receive overflow notifications for all record type use
+    /// [`wakeup_watermark`] instead.
+    ///
+    /// Prior to Linux 3.0, setting `wakeup_events` to 0 resulted in no
+    /// overflow notifications; more recent kernels treat 0 the same as 1.
+    ///
+    /// [`RecordType::SAMPLE`]: crate::samples::RecordType::SAMPLE
+    /// [`wakeup_watermark`]: Self::wakeup_watermark
+    pub fn wakeup_events(mut self, events: usize) -> Self {
+        self.attrs.set_watermark(0);
+        self.attrs.__bindgen_anon_2.wakeup_events = events as _;
+        self
+    }
 
     /// Construct a [`Sampler`] according to the specifications made on this
     /// `Builder`.
@@ -883,7 +883,6 @@ impl<'a> Builder<'a> {
     /// the `Builder`. The kernel's returned errors are not always helpful.
     ///
     /// [`enable`]: Counter::enable
-    #[cfg(feature = "unstable")]
     pub fn build_sampler(self, buflen: usize) -> io::Result<Sampler> {
         let attrs = self.attrs;
         let counter = self.build()?;
