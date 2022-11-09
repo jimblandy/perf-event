@@ -826,6 +826,31 @@ impl<'a> Builder<'a> {
 
 #[cfg(feature = "unstable")]
 impl<'a> Builder<'a> {
+    /// Indicate additional values to include in the generated sample events.
+    /// Note that this method is additive and does not remove previously added
+    /// sample types.
+    /// 
+    /// See the documentation of [`Sample`] for what's available to be
+    /// collected.
+    /// 
+    /// # Example
+    /// Here we build a sampler that grabs the instruction pointer, process ID,
+    /// thread ID, and timestamp whenever the underlying event triggers a
+    /// sampling.
+    /// ```
+    /// # use perf_event::{Builder, Sample};
+    /// let mut sampler = Builder::new()
+    ///     .sample(Sample::IP)
+    ///     .sample(Sample::TID)
+    ///     .sample(Sample::TIME)
+    ///     .build_sampler(8192)?;
+    /// # Ok::<_, std::io::Error>(())
+    /// ```
+    pub fn sample(mut self, sample: Sample) -> Self {
+        self.attrs.sample_type |= sample.bits();
+        self
+    }
+
     /// Enable the generation of [`Mmap`] records for `PROT_EXEC` mappings
     /// when sampling. This allows tools to notice new executable code being
     /// mapped into a program (e.g. dyamic shared libraries) so that addresses
@@ -1324,6 +1349,14 @@ impl Counts {
 
         // (id, &value)
         (id_val[1], &id_val[0])
+    }
+}
+
+#[cfg(feature = "unstable")]
+impl Sample {
+    /// Create a sample from the underlying bits.
+    pub fn new(bits: u64) -> Self {
+        Self { bits }
     }
 }
 
