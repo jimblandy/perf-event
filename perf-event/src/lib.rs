@@ -895,7 +895,9 @@ impl<'a> Builder<'a> {
     }
 
     /// Construct a [`Sampler`] according to the specifications made on this
-    /// `Builder`.
+    /// `Builder`. Requires that you specify a buffer size for the ring buffer.
+    /// This will be rounded up to the next power-of-two multiple of the page
+    /// size.
     ///     
     /// A freshly built [`Sampler`] is disabled. To begin counting events, you
     /// must call [`enable`] on the `Counter` or the `Group` to which it belongs.
@@ -908,7 +910,7 @@ impl<'a> Builder<'a> {
     /// point, by the kernel, not earlier when the offending request is made on
     /// the `Builder`. The kernel's returned errors are not always helpful.
     ///
-    /// [`enable`]: Counter::enable
+    /// [`enable`]: Sampler::enable
     pub fn build_sampler(self, buflen: usize) -> io::Result<Sampler> {
         let attrs = self.attrs;
         let counter = self.build()?;
