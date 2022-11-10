@@ -419,6 +419,11 @@ pub(crate) trait ParseBuf: Buf {
         vec
     }
 
+    /// Parse the remaining bytes within the buffer to a Vec.
+    fn parse_remainder(&mut self) -> Vec<u8> {
+        self.parse_vec(self.remaining())
+    }
+
     /// Parse a constant number of bytes to an array.
     fn parse_bytes<const N: usize>(&mut self) -> [u8; N] {
         assert!(N <= self.remaining());
@@ -426,11 +431,6 @@ pub(crate) trait ParseBuf: Buf {
         let mut bytes = [0; N];
         self.copy_to_slice(&mut bytes);
         bytes
-    }
-
-    /// Parse the remaining bytes within the buffer to a Vec.
-    fn parse_remainder(&mut self) -> Vec<u8> {
-        self.parse_vec(self.remaining())
     }
 
     fn parse_header(&mut self) -> bindings::perf_event_header {
