@@ -210,6 +210,68 @@ impl RecordMiscFlags {
     }
 }
 
+impl Record {
+    pub(crate) fn parse<B>(config: &ParseConfig, header: &perf_event_header, buf: &mut B) -> Self
+    where
+        B: Buf,
+    {
+        let ty = header.type_.into();
+        let sample_id_len = match ty {
+            // MMAP and SAMPLE do not include the sample_id trailer
+            RecordType::MMAP | RecordType::SAMPLE => None,
+            _ => Some(SampleId::expected_size(config)),
+        };
+
+        let mut limited = buf.take(buf.remaining() - sample_id_len.unwrap_or(0));
+        let event = match ty {
+            RecordType::MMAP => Mmap::parse(config, &mut limited).into(),
+            _ => RecordEvent::Unknown(limited.parse_remainder()),
+        };
+
+        limited.advance(limited.remaining());
+
+        let sample_id = match sample_id_len {
+            Some(_) => SampleId::parse(config, buf),
+            // Fill in some fields from the record in cases where there is no
+            // sample_id encoded with the record.
+            None => match &event {
+                RecordEvent::Mmap(mmap) => SampleId {
+                    pid: Some(mmap.pid),
+                    tid: Some(mmap.tid),
+                    ..Default::default()
+                },
+                _ => SampleId::default(),
+            },
+        };
+
+        Self {
+            ty,
+            misc: RecordMiscFlags::new(header.misc),
+            event,
+            sample_id,
+        }
+    }
+}
+
+impl SampleId {
+    fn expected_size(config: &ParseConfig) -> usize {
+        if config.sample_id_all {
+            return 0;
+        }
+
+        let configs = [
+            config.sample_type.contains(Sample::TID),
+            config.sample_type.contains(Sample::TIME),
+            config.sample_type.contains(Sample::ID),
+            config.sample_type.contains(Sample::STREAM_ID),
+            config.sample_type.contains(Sample::CPU),
+            config.sample_type.contains(Sample::IDENTIFIER),
+        ];
+
+        configs.iter().copied().filter(|&x| x).count() * std::mem::size_of::<u64>()
+    }
+}
+
 impl From<&'_ perf_event_attr> for ParseConfig {
     fn from(attr: &perf_event_attr) -> Self {
         Self {
@@ -302,85 +364,6 @@ pub(crate) trait Parse {
         Self: Sized;
 }
 
-impl Record {
-    pub(crate) fn parse<B>(config: &ParseConfig, header: &perf_event_header, buf: &mut B) -> Self
-    where
-        B: Buf,
-    {
-        let ty = header.type_.into();
-        let sample_id_len = match ty {
-            // MMAP and SAMPLE do not include the sample_id trailer
-            RecordType::MMAP | RecordType::SAMPLE => None,
-            _ => Some(SampleId::expected_size(config)),
-        };
-
-        let mut limited = buf.take(buf.remaining() - sample_id_len.unwrap_or(0));
-        let event = match ty {
-            RecordType::MMAP => Mmap::parse(config, &mut limited).into(),
-            _ => RecordEvent::Unknown(limited.parse_remainder()),
-        };
-
-        limited.advance(limited.remaining());
-
-        let sample_id = match sample_id_len {
-            Some(_) => SampleId::parse(config, buf),
-            // Fill in some fields from the record in cases where there is no
-            // sample_id encoded with the record.
-            None => match &event {
-                RecordEvent::Mmap(mmap) => SampleId {
-                    pid: Some(mmap.pid),
-                    tid: Some(mmap.tid),
-                    ..Default::default()
-                },
-                _ => SampleId::default(),
-            },
-        };
-
-        Self {
-            ty,
-            misc: RecordMiscFlags::new(header.misc),
-            event,
-            sample_id,
-        }
-    }
-}
-
-impl SampleId {
-    fn expected_size(config: &ParseConfig) -> usize {
-        if config.sample_id_all {
-            return 0;
-        }
-
-        let mut len = 0;
-
-        if config.sample_type.contains(Sample::TID) {
-            len += std::mem::size_of::<u64>();
-        }
-
-        if config.sample_type.contains(Sample::TIME) {
-            len += std::mem::size_of::<u64>();
-        }
-
-        if config.sample_type.contains(Sample::ID) {
-            len += std::mem::size_of::<u64>();
-        }
-
-        if config.sample_type.contains(Sample::STREAM_ID) {
-            len += std::mem::size_of::<u64>();
-        }
-
-        if config.sample_type.contains(Sample::CPU) {
-            len += std::mem::size_of::<u64>();
-        }
-
-        if config.sample_type.contains(Sample::IDENTIFIER) {
-            len += std::mem::size_of::<u64>();
-        }
-
-        len
-    }
-}
-
 impl Parse for SampleId {
     fn parse<B: Buf>(config: &ParseConfig, buf: &mut B) -> Self {
         if config.sample_id_all {
@@ -389,29 +372,29 @@ impl Parse for SampleId {
 
         let mut sample = Self::default();
         if config.sample_type.contains(Sample::TID) {
-            sample.pid = Some(buf.get_u32());
-            sample.tid = Some(buf.get_u32());
+            sample.pid = Some(buf.get_u32_ne());
+            sample.tid = Some(buf.get_u32_ne());
         }
 
         if config.sample_type.contains(Sample::TIME) {
-            sample.time = Some(buf.get_u64());
+            sample.time = Some(buf.get_u64_ne());
         }
 
         if config.sample_type.contains(Sample::ID) {
-            sample.id = Some(buf.get_u64());
+            sample.id = Some(buf.get_u64_ne());
         }
 
         if config.sample_type.contains(Sample::STREAM_ID) {
-            sample.stream_id = Some(buf.get_u64());
+            sample.stream_id = Some(buf.get_u64_ne());
         }
 
         if config.sample_type.contains(Sample::CPU) {
-            sample.cpu = Some(buf.get_u32());
-            let _ = buf.get_u32(); // res
+            sample.cpu = Some(buf.get_u32_ne());
+            let _ = buf.get_u32_ne(); // res
         }
 
         if config.sample_type.contains(Sample::IDENTIFIER) {
-            sample.id = Some(buf.get_u64());
+            sample.id = Some(buf.get_u64_ne());
         }
 
         sample
