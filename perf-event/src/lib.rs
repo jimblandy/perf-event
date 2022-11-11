@@ -85,7 +85,6 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 pub mod events;
-#[cfg(feature = "unstable")]
 pub mod samples;
 
 #[cfg(feature = "hooks")]
@@ -157,7 +156,6 @@ pub struct Counter {
 /// A `Sampler` is the combination of a [`Counter`] along with a ringbuffer
 /// that allows for reading events emitted by the kernel. It supports all the
 /// same operations as a [`Counter`] along with the ability to read events.
-#[cfg(feature = "unstable")]
 pub struct Sampler {
     // Rust drops in order of declaration. To ensure that the memory map is
     // deleted before we close the descriptor it needs to be declared before
@@ -453,7 +451,6 @@ pub struct CountAndTime {
     pub time_running: u64,
 }
 
-#[cfg(feature = "unstable")]
 bitflags::bitflags! {
     /// Specifies which fields to include in the sample.
     ///
@@ -826,7 +823,6 @@ impl<'a> Builder<'a> {
     }
 }
 
-#[cfg(feature = "unstable")]
 impl<'a> Builder<'a> {
     /// Indicate additional values to include in the generated sample events.
     /// Note that this method is additive and does not remove previously added
@@ -1078,7 +1074,6 @@ impl IntoRawFd for Counter {
     }
 }
 
-#[cfg(feature = "unstable")]
 impl Sampler {
     /// Read the next record from the ring buffer. This method does not block.
     /// If you want blocking behaviour, use [`next_blocking`] instead.
@@ -1225,7 +1220,6 @@ impl Sampler {
     }
 }
 
-#[cfg(feature = "unstable")]
 impl std::ops::Deref for Sampler {
     type Target = Counter;
 
@@ -1234,21 +1228,18 @@ impl std::ops::Deref for Sampler {
     }
 }
 
-#[cfg(feature = "unstable")]
 impl std::ops::DerefMut for Sampler {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.counter
     }
 }
 
-#[cfg(feature = "unstable")]
 impl AsRawFd for Sampler {
     fn as_raw_fd(&self) -> RawFd {
         self.counter.as_raw_fd()
     }
 }
 
-#[cfg(feature = "unstable")]
 impl IntoRawFd for Sampler {
     fn into_raw_fd(self) -> RawFd {
         self.counter.into_raw_fd()
@@ -1438,7 +1429,6 @@ impl Counts {
     }
 }
 
-#[cfg(feature = "unstable")]
 impl Sample {
     /// Create a sample from the underlying bits.
     pub const fn new(bits: u64) -> Self {

@@ -19,7 +19,6 @@ categories = [
 # Enable syscall interception hooks for mock testing and logging.
 hooks = []
 default = ["hooks"]
-unstable = []
 
 [dependencies]
 bitflags = "1.3"
