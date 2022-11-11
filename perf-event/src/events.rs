@@ -76,9 +76,21 @@ impl Event {
                 attr.type_ = bindings::PERF_TYPE_BREAKPOINT;
                 // Clear config in case it was set by a previous call to update_attrs
                 attr.config = 0;
-                attr.bp_type = bp.ty.bits();
-                attr.__bindgen_anon_3.bp_addr = bp.addr;
-                attr.__bindgen_anon_4.bp_len = bp.len;
+
+                match bp {
+                    Breakpoint::Data { access, addr, len } => {
+                        attr.bp_type = access.bits();
+                        attr.__bindgen_anon_3.bp_addr = addr;
+                        attr.__bindgen_anon_4.bp_len = len;
+                    }
+                    Breakpoint::Code { addr } => {
+                        attr.bp_type = bindings::HW_BREAKPOINT_X;
+                        attr.__bindgen_anon_3.bp_addr = addr;
+                        // According to the perf_event_open man page, execute breakpoints
+                        // should set len to sizeof(long).
+                        attr.__bindgen_anon_4.bp_len = std::mem::size_of::<libc::c_long>() as _;
+                    }
+                }
             }
         }
     }
@@ -337,14 +349,8 @@ pub enum CacheResult {
 }
 
 bitflags! {
-    /// Memory access mask for a hardware breakpoint.
-    ///
-    /// Note that it is not valid to combine `EXECUTE` with either of `READ` or
-    /// `WRITE`.
-    pub struct BreakpointType : u32 {
-        /// No breakpoint.
-        const EMPTY = bindings::HW_BREAKPOINT_EMPTY;
-
+    /// Memory access mask for a hardware data breakpoint.
+    pub struct BreakpointAccess : u32 {
         /// Count when we read the memory location.
         const READ = bindings::HW_BREAKPOINT_R;
 
@@ -353,9 +359,6 @@ bitflags! {
 
         /// Count when we read or write the memory location.
         const READ_WRITE = Self::READ.union(Self::WRITE).bits();
-
-        /// Count when we execute code at the memory location.
-        const EXECUTE = bindings::HW_BREAKPOINT_X;
     }
 }
 
@@ -423,43 +426,44 @@ bitflags! {
 ///   If you are getting `EINVAL` errors while trying to build such a counter
 ///   using a read-write breakpoint might work instead.
 ///
-/// - It is not valid to have a breakpoint that matches on both read/write and
-///   execute accesses. Trying to do this will result in an error.
-///
 /// - The valid values of len are quite limited. The [`perf_event_open`][man]
 ///   manpage indicates that the only valid values for `bp_len` are 1, 2, 4,
 ///   and 8.
 ///
 /// [man]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct Breakpoint {
-    /// The type of breakpoint to set.
-    pub ty: BreakpointType,
+pub enum Breakpoint {
+    /// Data breakpoint. Triggers when code reads or writes to the memory area
+    /// as configured by the parameters below.
+    Data {
+        /// Bitfield containing the types of accesses we want the breakpoint to
+        /// trigger on.
+        access: BreakpointAccess,
 
-    /// The address of the breakpoint. For execution breakpoints this is the
-    /// address of the instruction of interest; for read and write breakpoints
-    /// it is the address of the memory location of interest.
-    pub addr: u64,
+        /// The address of the memory location on which the breakpoint should
+        /// trigger.
+        addr: u64,
 
-    /// The length of the breakpoint being measured.
-    ///
-    /// There are a limited number of valid values for this field. Basically,
-    /// the options are 1, 2, 4, and 8. Setting this field to anything else
-    /// will cause counter creation to fail with an error.
-    pub len: u64,
+        /// The length of the breakpoint being measured.
+        ///
+        /// There are a limited number of valid values for this field. Basically,
+        /// the options are 1, 2, 4, and 8. Setting this field to anything else
+        /// will cause counter creation to fail with an error.
+        len: u64
+    },
+
+    /// Code breakpoint. Triggers when the code at the address is executed.
+    Code {
+        /// The address that the breakpoint is monitoring.
+        addr: u64
+    }
 }
 
 impl Breakpoint {
     /// Create a breakpoint configuration to count the number of times that
     /// the instruction at the provided address was executed.
     pub const fn execute(addr: u64) -> Self {
-        Self {
-            ty: BreakpointType::EXECUTE,
-            addr,
-            // According to the perf_event_open man page, execute breakpoints
-            // should set len to sizeof(long).
-            len: std::mem::size_of::<libc::c_long>() as _,
-        }
+        Self::Code { addr }
     }
 
     /// Create a breakpoint configuration to count the number of times that
@@ -467,8 +471,8 @@ impl Breakpoint {
     ///
     /// See the struct field docs for valid values of `len`.
     pub const fn read(addr: u64, len: u64) -> Self {
-        Self {
-            ty: BreakpointType::READ,
+        Self::Data {
+            access: BreakpointAccess::READ,
             addr,
             len,
         }
@@ -479,8 +483,8 @@ impl Breakpoint {
     ///
     /// See the struct field docs for valid values of `len`.
     pub const fn write(addr: u64, len: u64) -> Self {
-        Self {
-            ty: BreakpointType::WRITE,
+        Self::Data {
+            access: BreakpointAccess::WRITE,
             addr,
             len,
         }
@@ -491,8 +495,8 @@ impl Breakpoint {
     ///
     /// See the struct field docs for valid values of `len`.
     pub const fn read_write(addr: u64, len: u64) -> Self {
-        Self {
-            ty: BreakpointType::READ_WRITE,
+        Self::Data {
+            access: BreakpointAccess::READ_WRITE,
             addr,
             len,
         }
