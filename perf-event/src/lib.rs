@@ -1618,7 +1618,7 @@ impl<'a> bytes::Buf for ByteBuffer<'a> {
     fn advance(&mut self, cnt: usize) {
         match self {
             Self::Single(buf) => buf.advance(cnt),
-            Self::Split(buf, _) if buf.len() <= cnt => buf.advance(cnt),
+            Self::Split(buf, _) if buf.len() > cnt => buf.advance(cnt),
             Self::Split(head, rest) => {
                 rest.advance(cnt - head.len());
                 *self = Self::Single(rest);
@@ -1650,26 +1650,58 @@ impl<F: FnOnce()> Drop for DropGuard<F> {
     }
 }
 
-#[test]
-fn simple_build() {
-    Builder::new()
-        .build()
-        .expect("Couldn't build default Counter");
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-#[test]
-#[cfg(target_os = "linux")]
-fn test_error_code_is_correct() {
-    // This configuration should always result in EINVAL
-    let builder = Builder::new()
-        // CPU_CLOCK is literally always supported so we don't have to worry
-        // about test failures when in VMs.
-        .kind(events::Software::CPU_CLOCK)
-        // There should _hopefully_ never be a system with this many CPUs.
-        .one_cpu(i32::MAX as usize);
+    #[test]
+    fn simple_build() {
+        Builder::new()
+            .build()
+            .expect("Couldn't build default Counter");
+    }
+    
+    #[test]
+    #[cfg(target_os = "linux")]
+    fn test_error_code_is_correct() {
+        // This configuration should always result in EINVAL
+        let builder = Builder::new()
+            // CPU_CLOCK is literally always supported so we don't have to worry
+            // about test failures when in VMs.
+            .kind(events::Software::CPU_CLOCK)
+            // There should _hopefully_ never be a system with this many CPUs.
+            .one_cpu(i32::MAX as usize);
+    
+        match builder.build() {
+            Ok(_) => panic!("counter construction was not supposed to succeed"),
+            Err(e) => assert_eq!(e.raw_os_error(), Some(libc::EINVAL)),
+        }
+    }
 
-    match builder.build() {
-        Ok(_) => panic!("counter construction was not supposed to succeed"),
-        Err(e) => assert_eq!(e.raw_os_error(), Some(libc::EINVAL)),
+    #[test]
+    fn buf_advance_over_split() {
+        use bytes::Buf;
+
+        let mut buf = ByteBuffer::Split(b"aaaaaa", b"bbbbb");
+        buf.advance(7);
+        assert_eq!(buf.remaining(), 4);
+    }
+
+    #[test]
+    fn buf_advance_to_split() {
+        use bytes::Buf;
+
+        let mut buf = ByteBuffer::Split(b"aaaaaa", b"bbbbb");
+        buf.advance(6);
+        assert_eq!(buf.remaining(), 5);
+    }
+
+    #[test]
+    fn buf_advance_before_split() {
+        use bytes::Buf;
+
+        let mut buf = ByteBuffer::Split(b"aaaaaa", b"bbbbb");
+        buf.advance(5);
+        assert_eq!(buf.remaining(), 6);
     }
 }
