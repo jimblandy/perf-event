@@ -1661,7 +1661,7 @@ mod tests {
             .build()
             .expect("Couldn't build default Counter");
     }
-    
+
     #[test]
     #[cfg(target_os = "linux")]
     fn test_error_code_is_correct() {
@@ -1672,7 +1672,7 @@ mod tests {
             .kind(events::Software::CPU_CLOCK)
             // There should _hopefully_ never be a system with this many CPUs.
             .one_cpu(i32::MAX as usize);
-    
+
         match builder.build() {
             Ok(_) => panic!("counter construction was not supposed to succeed"),
             Err(e) => assert_eq!(e.raw_os_error(), Some(libc::EINVAL)),
