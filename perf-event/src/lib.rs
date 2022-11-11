@@ -81,6 +81,7 @@ use std::mem::ManuallyDrop;
 use std::os::raw::{c_int, c_uint, c_ulong};
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 use std::sync::atomic::{AtomicU64, Ordering};
+#[allow(unused_imports)]
 use std::time::{Duration, Instant};
 
 pub mod events;
