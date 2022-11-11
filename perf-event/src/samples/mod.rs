@@ -295,33 +295,31 @@ impl From<u32> for RecordType {
 
 impl fmt::Debug for RecordType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut st = f.debug_tuple("RecordType");
+        const NAME: &str = "RecordType";
 
         match *self {
-            Self::MMAP => st.field(&"MMAP"),
-            Self::LOST => st.field(&"LOST"),
-            Self::COMM => st.field(&"COMM"),
-            Self::EXIT => st.field(&"EXIT"),
-            Self::THROTTLE => st.field(&"THROTTLE"),
-            Self::UNTHROTTLE => st.field(&"UNTHROTTLE"),
-            Self::FORK => st.field(&"FORK"),
-            Self::READ => st.field(&"READ"),
-            Self::SAMPLE => st.field(&"SAMPLE"),
-            Self::MMAP2 => st.field(&"MMAP2"),
-            Self::AUX => st.field(&"AUX"),
-            Self::ITRACE_START => st.field(&"ITRACE_START"),
-            Self::LOST_SAMPLES => st.field(&"LOST_SAMPLES"),
-            Self::SWITCH => st.field(&"SWITCH"),
-            Self::SWITCH_CPU_WIDE => st.field(&"SWITCH_CPU_WIDE"),
-            Self::NAMESPACES => st.field(&"NAMESPACES"),
-            Self::KSYMBOL => st.field(&"KSYMBOL"),
-            Self::BPF_EVENT => st.field(&"BPF_EVENT"),
-            Self::CGROUP => st.field(&"CGROUP"),
-            Self::TEXT_POKE => st.field(&"TEXT_POKE"),
-            Self(value) => st.field(&value),
-        };
-
-        st.finish()
+            Self::MMAP => write!(f, "{NAME}::MMAP"),
+            Self::LOST => write!(f, "{NAME}::LOST"),
+            Self::COMM => write!(f, "{NAME}::COMM"),
+            Self::EXIT => write!(f, "{NAME}::EXIT"),
+            Self::THROTTLE => write!(f, "{NAME}::THROTTLE"),
+            Self::UNTHROTTLE => write!(f, "{NAME}::UNTHROTTLE"),
+            Self::FORK => write!(f, "{NAME}::FORK"),
+            Self::READ => write!(f, "{NAME}::READ"),
+            Self::SAMPLE => write!(f, "{NAME}::SAMPLE"),
+            Self::MMAP2 => write!(f, "{NAME}::MMAP2"),
+            Self::AUX => write!(f, "{NAME}::AUX"),
+            Self::ITRACE_START => write!(f, "{NAME}::ITRACE_START"),
+            Self::LOST_SAMPLES => write!(f, "{NAME}::LOST_SAMPLES"),
+            Self::SWITCH => write!(f, "{NAME}::SWITCH"),
+            Self::SWITCH_CPU_WIDE => write!(f, "{NAME}::SWITCH_CPU_WIDE"),
+            Self::NAMESPACES => write!(f, "{NAME}::NAMESPACES"),
+            Self::KSYMBOL => write!(f, "{NAME}::KSYMBOL"),
+            Self::BPF_EVENT => write!(f, "{NAME}::BPF_EVENT"),
+            Self::CGROUP => write!(f, "{NAME}::CGROUP"),
+            Self::TEXT_POKE => write!(f, "{NAME}::TEXT_POKE"),
+            Self(value) => f.debug_tuple(NAME).field(&value).finish(),
+        }
     }
 }
 
@@ -333,19 +331,17 @@ impl From<u16> for RecordCpuMode {
 
 impl fmt::Debug for RecordCpuMode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut st = f.debug_tuple("RecordCpuMode");
+        const NAME: &str = "RecordCpuMode";
 
         match *self {
-            Self::UNKNOWN => st.field(&"UNKNOWN"),
-            Self::KERNEL => st.field(&"KERNEL"),
-            Self::USER => st.field(&"USER"),
-            Self::HYPERVISOR => st.field(&"HYPERVISOR"),
-            Self::GUEST_KERNEL => st.field(&"GUEST_KERNEL"),
-            Self::GUEST_USER => st.field(&"GUEST_USER"),
-            Self(value) => st.field(&value),
-        };
-
-        st.finish()
+            Self::UNKNOWN => write!(f, "{NAME}::UNKNOWN"),
+            Self::KERNEL => write!(f, "{NAME}::KERNEL"),
+            Self::USER => write!(f, "{NAME}::USER"),
+            Self::HYPERVISOR => write!(f, "{NAME}::HYPERVISOR"),
+            Self::GUEST_KERNEL => write!(f, "{NAME}::GUEST_KERNEL"),
+            Self::GUEST_USER => write!(f, "{NAME}::GUEST_USER"),
+            Self(value) => f.debug_tuple(NAME).field(&value).finish(),
+        }
     }
 }
 
