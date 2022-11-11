@@ -1,24 +1,17 @@
 use perf_event::{events, Builder};
-use std::fs::OpenOptions;
-use std::io::Write;
 
 // Need a function that will not be optimized away or inlined by the compiler.
 #[inline(never)]
-fn copy_and_fwrite(data: &[u8], file: &mut std::fs::File) -> std::io::Result<()> {
-    // This guarantees that the memory within data is read so that we can test
-    // read breakpoints.
-    let copy = data.to_vec();
-
-    file.write(&copy)?;
-    Ok(())
+fn use_data(data: &[u8]) {
+    for byte in data {
+        // Use a volatile read here to ensure that the resulting program
+        // actually does the read from data and it doesn't get optimized away.
+        unsafe { std::ptr::read_volatile(byte) };
+    }
 }
 
 #[test]
 fn data() {
-    let mut file = OpenOptions::new()
-        .write(true)
-        .open("/dev/null")
-        .expect("Unable to open /dev/null for writing");
     let data = b"TEST DATA".to_vec();
 
     let mut counter = Builder::new()
@@ -32,7 +25,7 @@ fn data() {
     counter.enable().unwrap();
 
     for _ in 0..1000 {
-        copy_and_fwrite(&data, &mut file).unwrap();
+        use_data(&data);
     }
 
     counter.disable().unwrap();
@@ -41,12 +34,8 @@ fn data() {
 
 #[test]
 fn execute() {
-    let mut file = OpenOptions::new()
-        .write(true)
-        .open("/dev/null")
-        .expect("Unable to open /dev/null for writing");
     let data = b"TEST DATA".to_vec();
-    let fnptr = copy_and_fwrite as fn(_, _) -> _;
+    let fnptr = use_data as fn(_) -> _;
 
     let mut counter = Builder::new()
         .kind(events::Breakpoint::execute(fnptr as usize as u64))
@@ -56,7 +45,7 @@ fn execute() {
     counter.enable().unwrap();
 
     for _ in 0..1000 {
-        copy_and_fwrite(&data, &mut file).unwrap();
+        use_data(&data);
     }
 
     counter.disable().unwrap();
