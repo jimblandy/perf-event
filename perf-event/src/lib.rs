@@ -911,7 +911,7 @@ impl<'a> Builder<'a> {
     /// point, by the kernel, not earlier when the offending request is made on
     /// the `Builder`. The kernel's returned errors are not always helpful.
     ///
-    /// [`enable`]: Sampler::enable
+    /// [`enable`]: Counter::enable
     pub fn build_sampler(self, buflen: usize) -> io::Result<Sampler> {
         let attrs = self.attrs;
         let counter = self.build()?;
