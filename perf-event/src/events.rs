@@ -449,14 +449,14 @@ pub enum Breakpoint {
         /// There are a limited number of valid values for this field. Basically,
         /// the options are 1, 2, 4, and 8. Setting this field to anything else
         /// will cause counter creation to fail with an error.
-        len: u64
+        len: u64,
     },
 
     /// Code breakpoint. Triggers when the code at the address is executed.
     Code {
         /// The address that the breakpoint is monitoring.
-        addr: u64
-    }
+        addr: u64,
+    },
 }
 
 impl Breakpoint {
