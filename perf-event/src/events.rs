@@ -460,14 +460,14 @@ pub enum Breakpoint {
 }
 
 impl Breakpoint {
-    /// Create a breakpoint configuration to count the number of times that
-    /// the instruction at the provided address was executed.
+    /// Create a code execution breakpoint, that counts the number of
+    /// times the instruction at the provided address was executed.
     pub const fn execute(addr: u64) -> Self {
         Self::Code { addr }
     }
 
-    /// Create a breakpoint configuration to count the number of times that
-    /// we read from the provided memory location.
+    /// Create a memory read breakpoint, that counts the number of
+    /// times we read from the provided memory location.
     ///
     /// See the struct field docs for valid values of `len`.
     pub const fn read(addr: u64, len: u64) -> Self {
@@ -478,8 +478,8 @@ impl Breakpoint {
         }
     }
 
-    /// Create a breakpoint configuration to count the number of times that
-    /// we write to the provided memory location.
+    /// Create a memory write breakpoint, that counts the number of
+    /// times we write to the provided memory location.
     ///
     /// See the struct field docs for valid values of `len`.
     pub const fn write(addr: u64, len: u64) -> Self {
@@ -490,8 +490,9 @@ impl Breakpoint {
         }
     }
 
-    /// Create a breakpoint configuration to count the number of times that
-    /// we either read from or write to the provided memory location.
+    /// Create a memory access breakpoint, that counts the number of
+    /// times we either read from or write to the provided memory
+    /// location.
     ///
     /// See the struct field docs for valid values of `len`.
     pub const fn read_write(addr: u64, len: u64) -> Self {
