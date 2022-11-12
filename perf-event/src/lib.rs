@@ -463,8 +463,7 @@ impl<'a> Default for Builder<'a> {
             | sys::bindings::PERF_FORMAT_TOTAL_TIME_RUNNING as u64;
 
         let kind = Event::Hardware(events::Hardware::INSTRUCTIONS);
-        attrs.type_ = kind.r#type();
-        attrs.config = kind.config();
+        kind.update_attrs(&mut attrs);
 
         Builder {
             attrs,
@@ -609,8 +608,7 @@ impl<'a> Builder<'a> {
     /// [`Cache`]: events::Cache
     pub fn kind<K: Into<Event>>(mut self, kind: K) -> Builder<'a> {
         let kind = kind.into();
-        self.attrs.type_ = kind.r#type();
-        self.attrs.config = kind.config();
+        kind.update_attrs(&mut self.attrs);
         self
     }
 

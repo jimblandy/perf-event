@@ -21,6 +21,7 @@ hooks = []
 default = ["hooks"]
 
 [dependencies]
+bitflags = "1.3"
 libc = "0.2"
 
 [dependencies.perf-event-open-sys]
