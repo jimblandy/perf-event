@@ -72,7 +72,7 @@
 
 #![deny(missing_docs)]
 
-use crate::samples::Sample;
+use crate::samples::SampleType;
 use events::Event;
 use libc::pid_t;
 use perf_event_open_sys::bindings::perf_event_attr;
@@ -695,11 +695,10 @@ impl<'a> Builder<'a> {
 
 impl<'a> Builder<'a> {
     /// Indicate additional values to include in the generated sample events.
-    /// Note that this method is additive and does not remove previously added
-    /// sample types.
     ///
-    /// See the documentation of [`Sample`] for what's available to be
-    /// collected.
+    /// Note that this method is additive and does not remove previously added
+    /// sample types. See the documentation of [`SampleType`] or the [manpage]
+    /// for what's available to be collected.
     ///
     /// # Example
     /// Here we build a sampler that grabs the instruction pointer, process ID,
@@ -714,15 +713,17 @@ impl<'a> Builder<'a> {
     ///     .build_sampler(8192)?;
     /// # Ok::<_, std::io::Error>(())
     /// ```
-    pub fn sample(mut self, sample: Sample) -> Self {
+    /// 
+    /// [manpage]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
+    pub fn sample(mut self, sample: SampleType) -> Self {
         self.attrs.sample_type |= sample.bits();
         self
     }
 
-    /// Enable the generation of [`Mmap`] records for `PROT_EXEC` mappings
-    /// when sampling. This allows tools to notice new executable code being
-    /// mapped into a program (e.g. dyamic shared libraries) so that addresses
-    /// can be mapped back to the original code.
+    /// Enable the generation of [`Mmap`] records.
+    /// 
+    /// [`Mmap`] records are emitted when the process/thread that is being
+    /// observed creates a new executable memory mapping.
     ///
     /// [`Mmap`]: crate::samples::Mmap
     pub fn mmap(mut self, mmap: bool) -> Self {
@@ -730,10 +731,10 @@ impl<'a> Builder<'a> {
         self
     }
 
-    /// Set how many bytes will be written before an overflow notification
-    /// happens.
+    /// Set how many bytes will be written before the kernel sends an overflow
+    /// notification.
     ///
-    /// Note only one of `wakup_watermark` and [`wakeup_events`] can be
+    /// Note only one of `wakeup_watermark` and [`wakeup_events`] can be
     /// configured.
     ///
     /// [`wakeup_events`]: Self::wakeup_events
@@ -743,17 +744,15 @@ impl<'a> Builder<'a> {
         self
     }
 
-    /// Set how many samples will be written before an overflow notification
-    /// happens.
-    ///
-    /// Note that `wakeup_events` only counts [`RecordType::SAMPLE`] records.
-    /// To receive overflow notifications for all record type use
-    /// [`wakeup_watermark`] instead.
-    ///
-    /// Prior to Linux 3.0, setting `wakeup_events` to 0 resulted in no
-    /// overflow notifications; more recent kernels treat 0 the same as 1.
-    ///
-    /// [`RecordType::SAMPLE`]: crate::samples::RecordType::SAMPLE
+    /// Set how many samples will be written before the kernel sends an
+    /// overflow notification.
+    /// 
+    /// Note only one of [`wakeup_watermark`] and `wakeup_events` can be
+    /// configured.
+    /// 
+    /// Some caveats apply, see the [manpage] for the full documentation.
+    /// 
+    /// [manpage]: https://man7.org/linux/man-pages/man2/perf_event_open.2.html
     /// [`wakeup_watermark`]: Self::wakeup_watermark
     pub fn wakeup_events(mut self, events: usize) -> Self {
         self.attrs.set_watermark(0);
@@ -762,9 +761,10 @@ impl<'a> Builder<'a> {
     }
 
     /// Construct a [`Sampler`] according to the specifications made on this
-    /// `Builder`. Requires that you specify a buffer size for the ring buffer.
-    /// This will be rounded up to the next power-of-two multiple of the page
-    /// size.
+    /// `Builder`.
+    /// 
+    /// Requires that you specify a buffer size for the ring buffer. This will
+    /// be rounded up to the next power-of-two multiple of the page size.
     ///     
     /// A freshly built [`Sampler`] is disabled. To begin counting events, you
     /// must call [`enable`] on the `Counter` or the `Group` to which it belongs.

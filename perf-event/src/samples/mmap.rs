@@ -5,8 +5,10 @@ use std::os::unix::prelude::OsStringExt;
 use super::{Parse, ParseBuf, ParseConfig, RecordEvent};
 
 /// MMAP events record memory mappings.
+/// 
+/// See the [manpage] for more documentation here.
 ///
-/// This allows us to correlate user-space IPs to code.
+/// [manpage]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
 #[derive(Clone, Debug)]
 pub struct Mmap {
     /// The process ID.
@@ -15,16 +17,16 @@ pub struct Mmap {
     /// The thread ID.
     pub tid: u32,
 
-    /// The address of the allocated memory.
+    /// The address of the memory mapping.
     pub addr: u64,
 
-    /// The length of the allocated memory.
+    /// The length of the memory mapping.
     pub len: u64,
 
-    /// The page offset of the allocated memory.
+    /// The page offset of the memory mapping.
     pub pgoff: u64,
 
-    /// A string describing the backing of the allocated memory.
+    /// A string describing the backing of the memory mapping.
     ///
     /// For mappings of files this will be a file path.
     pub filename: OsString,

@@ -18,12 +18,12 @@ use std::fmt;
 
 mod mmap;
 
+pub use self::bitflags_defs::{SampleType, RecordMiscFlags};
 pub use self::mmap::Mmap;
-pub use self::sample_def::Sample;
 
 // Need a module here to avoid the allow applying to everything.
 #[allow(missing_docs)]
-mod sample_def {
+mod bitflags_defs {
     use super::*;
 
     bitflags::bitflags! {
@@ -35,7 +35,7 @@ mod sample_def {
         /// [`Sampler`]: crate::Sampler
         /// [manpage]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
         #[derive(Default)]
-        pub struct Sample : u64 {
+        pub struct SampleType : u64 {
             const IP = bindings::PERF_SAMPLE_IP;
             const TID = bindings::PERF_SAMPLE_TID;
             const TIME = bindings::PERF_SAMPLE_TIME;
@@ -64,9 +64,58 @@ mod sample_def {
         }
     }
 
-    impl Sample {
+    bitflags! {
+        /// Additional flags about the record event.
+        ///
+        /// Not all of these apply for every record type and in certain cases the
+        /// same bit is reused to mean different things for different record types.
+        ///
+        /// See the [manpage] for documentation on what each flag means.
+        ///
+        /// [manpage]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
+        #[derive(Default)]
+        pub struct RecordMiscFlags : u16 {
+            /// The first few bytes of these flags actually contain an enum value.
+            /// 
+            /// Use [`cpumode`](Self::cpumode) to access them.
+            const CPUMODE_MASK = bindings::PERF_RECORD_MISC_CPUMODE_MASK as _;
+
+            /// Indicates that the associated [`Mmap`] or [`Mmap2`] record is
+            /// for a non-executable memory mapping.
+            const MMAP_DATA = bindings::PERF_RECORD_MISC_MMAP_DATA as _;
+
+            /// Indicates that the [`Comm`] record is due to an `exec` syscall.
+            const COMM_EXEC = bindings::PERF_RECORD_MISC_COMM_EXEC as _;
+
+            /// Indicates that the context switch event was away from the
+            /// process ID contained within the sample.
+            const SWITCH_OUT = bindings::PERF_RECORD_MISC_SWITCH_OUT as _;
+
+            /// Indicates that the contents of [`Sample::ip`] points to the
+            /// exact instruction that generated the event.
+            const EXACT_IP = bindings::PERF_RECORD_MISC_EXACT_IP as _;
+
+            const EXT_RESERVED = bindings::PERF_RECORD_MISC_EXT_RESERVED as _;
+
+            // New flags will likely be added to the perf_event_open interface in
+            // the future. In that case we would like to avoid deleting those flags.
+            // This field will ensure that the bitflags crate does not truncate any
+            // flags when we construct a RecordMiscFlags instance.
+            #[doc(hidden)]
+            const _ALLOW_ALL_FLAGS = u16::MAX;
+        }
+    }
+
+    impl SampleType {
         /// Create a sample from the underlying bits.
         pub const fn new(bits: u64) -> Self {
+            Self { bits }
+        }
+    }
+
+    impl RecordMiscFlags {
+        /// Create a set of flags from the underlying bits.
+        pub const fn new(bits: u16) -> Self {
             Self { bits }
         }
     }
@@ -102,79 +151,21 @@ impl RecordType {
 }
 
 /// Indicates the CPU mode in which the sample was collected.
+///
+/// See the [manpage] for the documentation of what each value means.
+///
+/// [manpage]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Default)]
 pub struct RecordCpuMode(pub u16);
 
+#[allow(missing_docs)]
 impl RecordCpuMode {
-    /// Unknown CPU mode.
     pub const UNKNOWN: Self = Self(bindings::PERF_RECORD_MISC_CPUMODE_UNKNOWN as _);
-
-    /// The sample happened in the kernel.
     pub const KERNEL: Self = Self(bindings::PERF_RECORD_MISC_KERNEL as _);
-
-    /// The sample happened in user code.
     pub const USER: Self = Self(bindings::PERF_RECORD_MISC_USER as _);
-
-    /// The sample happened in the hypervisor.
     pub const HYPERVISOR: Self = Self(bindings::PERF_RECORD_MISC_HYPERVISOR as _);
-
-    /// The sample happened in the guest kernel (since Linux 2.6.35).
     pub const GUEST_KERNEL: Self = Self(bindings::PERF_RECORD_MISC_GUEST_KERNEL as _);
-
-    /// The sample happened in guest user code (since Linux 2.6.35).
     pub const GUEST_USER: Self = Self(bindings::PERF_RECORD_MISC_GUEST_USER as _);
-}
-
-bitflags! {
-    /// Additional flags about the record event.
-    ///
-    /// Not all of these apply for every record type and in certain cases the
-    /// same bit is reused to mean different things for different record types.
-    #[derive(Default)]
-    pub struct RecordMiscFlags : u16 {
-        /// The first 3 bits of the misc flags actually contain an enum that
-        /// describes which cpu mode the sample was collected in.
-        ///
-        /// To access this, use the [`cpumode`][Self::cpumode] function.
-        const CPUMODE_MASK = bindings::PERF_RECORD_MISC_CPUMODE_MASK as _;
-
-        /// Indicates that the mapping is not executable; otherwise the mapping
-        /// is executable.
-        ///
-        /// This flag only applies to MMAP and MMAP2 records.
-        const MMAP_DATA = bindings::PERF_RECORD_MISC_MMAP_DATA as _;
-
-        /// Indicates that the process name change was caused by an
-        /// [`execve(2)`] system call. Only emitted on kernels more recent than
-        /// Linux 3.16.
-        ///
-        /// This flag only applies to COMM records.
-        ///
-        /// [`execve(2)`]: https://man7.org/linux/man-pages/man2/execve.2.html
-        const COMM_EXEC = bindings::PERF_RECORD_MISC_COMM_EXEC as _;
-
-        /// When a SWITCH or SWITCH_CPU_WIDE record is generated, this bit
-        /// indicates that the context switch is away from the current process
-        /// (instead of into the current process).
-        ///
-        /// This flag only applies to SWITCH and SWITCH_CPU_WIDE records.
-        const SWITCH_OUT = bindings::PERF_RECORD_MISC_SWITCH_OUT as _;
-
-        /// Indicates that sampled ip address within the record points to the
-        /// actual instruction that triggered the event.
-        const EXACT_IP = bindings::PERF_RECORD_MISC_EXACT_IP as _;
-
-        /// Indicates that there is extended data available (since Linux 2.6.35).
-        /// This flag is currently not used.
-        const EXT_RESERVED = bindings::PERF_RECORD_MISC_EXT_RESERVED as _;
-
-        // New flags will likely be added to the perf_event_open interface in
-        // the future. In that case we would like to avoid deleting those flags.
-        // This field will ensure that the bitflags crate does not truncate any
-        // flags when we construct a RecordMiscFlags instance.
-        #[doc(hidden)]
-        const _ALLOW_ALL_FLAGS = u16::MAX;
-    }
 }
 
 /// An event emitted by the kernel.
@@ -217,13 +208,16 @@ pub struct SampleId {
     /// The time at which the event was generated.
     pub time: Option<u64>,
 
-    /// An ID which uniquely identifies the counter. If the counter is a member
-    /// of an event group then the group leader ID is returned instead.
+    /// An ID which uniquely identifies the counter.
+    /// 
+    /// If the counter that generated this event was a member of a group, then
+    /// this will be the ID of the group leader instead.
     pub id: Option<u64>,
 
-    /// An ID which uniquely identifies the counter. Unlike `id`, if the
-    /// counter is a member of a group then the counter's ID is returned and
-    /// not the group leader's.
+    /// An ID which uniquely identifies the counter.
+    /// 
+    /// If the counter that generated this event is a member of a group, then
+    /// this will still be the member of the counter and not the group leader.
     pub stream_id: Option<u64>,
 
     /// The CPU on which the event was generated.
@@ -237,10 +231,11 @@ pub struct SampleId {
 #[derive(Clone, Debug)]
 #[non_exhaustive]
 pub enum RecordEvent {
-    /// Record of a new memory map within the process.
+    /// Record of a new memory map.
     Mmap(Mmap),
 
     /// An event was generated but `perf-event` was not able to parse it.
+    /// 
     /// Instead, the bytes making up the event are available here.
     Unknown(Vec<u8>),
 }
@@ -250,15 +245,8 @@ pub enum RecordEvent {
 /// If you need something new, add it here!
 #[derive(Default)]
 pub(crate) struct ParseConfig {
-    sample_type: Sample,
+    sample_type: SampleType,
     sample_id_all: bool,
-}
-
-impl RecordMiscFlags {
-    /// Create a set of flags from the underlying bits.
-    pub const fn new(bits: u16) -> Self {
-        Self { bits }
-    }
 }
 
 impl Record {
@@ -311,12 +299,12 @@ impl SampleId {
         }
 
         let configs = [
-            config.sample_type.contains(Sample::TID),
-            config.sample_type.contains(Sample::TIME),
-            config.sample_type.contains(Sample::ID),
-            config.sample_type.contains(Sample::STREAM_ID),
-            config.sample_type.contains(Sample::CPU),
-            config.sample_type.contains(Sample::IDENTIFIER),
+            config.sample_type.contains(SampleType::TID),
+            config.sample_type.contains(SampleType::TIME),
+            config.sample_type.contains(SampleType::ID),
+            config.sample_type.contains(SampleType::STREAM_ID),
+            config.sample_type.contains(SampleType::CPU),
+            config.sample_type.contains(SampleType::IDENTIFIER),
         ];
 
         configs.iter().copied().filter(|&x| x).count() * std::mem::size_of::<u64>()
@@ -326,7 +314,7 @@ impl SampleId {
 impl From<&'_ perf_event_attr> for ParseConfig {
     fn from(attr: &perf_event_attr) -> Self {
         Self {
-            sample_type: Sample::new(attr.sample_type),
+            sample_type: SampleType::new(attr.sample_type),
             sample_id_all: attr.sample_id_all() != 0,
         }
     }
@@ -418,29 +406,29 @@ impl Parse for SampleId {
         }
 
         let mut sample = Self::default();
-        if config.sample_type.contains(Sample::TID) {
+        if config.sample_type.contains(SampleType::TID) {
             sample.pid = Some(buf.get_u32_ne());
             sample.tid = Some(buf.get_u32_ne());
         }
 
-        if config.sample_type.contains(Sample::TIME) {
+        if config.sample_type.contains(SampleType::TIME) {
             sample.time = Some(buf.get_u64_ne());
         }
 
-        if config.sample_type.contains(Sample::ID) {
+        if config.sample_type.contains(SampleType::ID) {
             sample.id = Some(buf.get_u64_ne());
         }
 
-        if config.sample_type.contains(Sample::STREAM_ID) {
+        if config.sample_type.contains(SampleType::STREAM_ID) {
             sample.stream_id = Some(buf.get_u64_ne());
         }
 
-        if config.sample_type.contains(Sample::CPU) {
+        if config.sample_type.contains(SampleType::CPU) {
             sample.cpu = Some(buf.get_u32_ne());
             let _ = buf.get_u32_ne(); // res
         }
 
-        if config.sample_type.contains(Sample::IDENTIFIER) {
+        if config.sample_type.contains(SampleType::IDENTIFIER) {
             sample.id = Some(buf.get_u64_ne());
         }
 
