@@ -19,135 +19,56 @@ use std::fmt;
 mod mmap;
 
 pub use self::mmap::Mmap;
+pub use self::sample_def::Sample;
 
-bitflags::bitflags! {
-    /// Specifies which fields to include in the sample.
-    ///
-    /// These fields will be recorded in the [`Sampler`] output buffer.
-    ///
-    /// [`Sampler`]: crate::Sampler
-    #[derive(Default)]
-    pub struct Sample : u64 {
-        /// Record the instruction pointer.
-        const IP = bindings::PERF_SAMPLE_IP;
+// Need a module here to avoid the allow applying to everything.
+#[allow(missing_docs)]
+mod sample_def {
+    use super::*;
 
-        /// Record the process and thread IDs.
-        const TID = bindings::PERF_SAMPLE_TID;
-
-        /// Record a timestamp.
-        const TIME = bindings::PERF_SAMPLE_TIME;
-
-        /// Record an address, if applicable.
-        const ADDR = bindings::PERF_SAMPLE_ADDR;
-
-        /// Record counter values for all events in a group, not just the
-        /// group leader.
-        const READ = bindings::PERF_SAMPLE_READ;
-
-        /// Record a unique ID for the opened event's group leader.
-        const CALLCHAIN = bindings::PERF_SAMPLE_CALLCHAIN;
-
-        /// Record CPU number.
-        const ID = bindings::PERF_SAMPLE_ID;
-
-        /// Record the callchain (stack backtrace).
-        const CPU = bindings::PERF_SAMPLE_CPU;
-
-        /// Record the current sampling period.
-        const PERIOD = bindings::PERF_SAMPLE_PERIOD;
-
-        /// Record a unique ID for the opened event. Unlike [`ID`] an actual ID
-        /// is returned, not the group leader.
+    bitflags::bitflags! {
+        /// Specifies which fields to include in the sample.
         ///
-        /// This ID is the same as the one returned by [`Counter::id`]
+        /// These fields will be recorded in the [`Sampler`] output buffer. See the
+        /// [manpage] for documentation on what they mean.
         ///
-        /// [`ID`]: Self::ID
-        /// [`Counter::id`]: crate::Counter::id
-        const STREAM_ID = bindings::PERF_SAMPLE_STREAM_ID;
+        /// [`Sampler`]: crate::Sampler
+        /// [manpage]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
+        #[derive(Default)]
+        pub struct Sample : u64 {
+            const IP = bindings::PERF_SAMPLE_IP;
+            const TID = bindings::PERF_SAMPLE_TID;
+            const TIME = bindings::PERF_SAMPLE_TIME;
+            const ADDR = bindings::PERF_SAMPLE_ADDR;
+            const READ = bindings::PERF_SAMPLE_READ;
+            const CALLCHAIN = bindings::PERF_SAMPLE_CALLCHAIN;
+            const ID = bindings::PERF_SAMPLE_ID;
+            const CPU = bindings::PERF_SAMPLE_CPU;
+            const PERIOD = bindings::PERF_SAMPLE_PERIOD;
+            const STREAM_ID = bindings::PERF_SAMPLE_STREAM_ID;
+            const RAW = bindings::PERF_SAMPLE_RAW;
+            const BRANCH_STACK = bindings::PERF_SAMPLE_BRANCH_STACK;
+            const REGS_USER = bindings::PERF_SAMPLE_REGS_USER;
+            const STACK_USER = bindings::PERF_SAMPLE_STACK_USER;
+            const WEIGHT = bindings::PERF_SAMPLE_WEIGHT;
+            const DATA_SRC = bindings::PERF_SAMPLE_DATA_SRC;
+            const IDENTIFIER = bindings::PERF_SAMPLE_IDENTIFIER;
+            const TRANSACTION = bindings::PERF_SAMPLE_TRANSACTION;
+            const REGS_INTR = bindings::PERF_SAMPLE_REGS_INTR;
+            const PHYS_ADDR = bindings::PERF_SAMPLE_PHYS_ADDR;
+            const CGROUP = bindings::PERF_SAMPLE_CGROUP;
 
-        /// Record additional data, if applicable. Usually returned by
-        /// tracepoint events.
-        const RAW = bindings::PERF_SAMPLE_RAW;
+            // Don't clobber unknown flags when constructing the bitflag struct.
+            #[doc(hidden)]
+            const _ALLOW_ALL_FLAGS = !0;
+        }
+    }
 
-        /// Provides a record of recent branches, as provided by CPU branch
-        /// sampling hardware (such as Intel Last Branch Record). Not all
-        /// hardware supports this feature.
-        ///
-        /// Available since Linux 3.4.
-        const BRANCH_STACK = bindings::PERF_SAMPLE_BRANCH_STACK;
-
-        /// Record the current user-level CPU register state (the values in the
-        /// process before the kernel was called).
-        ///
-        /// Available since Linux 3.7.
-        const REGS_USER = bindings::PERF_SAMPLE_REGS_USER;
-
-        /// Record the user level stack, allowing stack unwinding.
-        ///
-        /// Available since Linux 3.7.
-        const STACK_USER = bindings::PERF_SAMPLE_STACK_USER;
-
-        /// Record a hardware provided weight value that expresses how costly
-        /// the sampled event was. This allows the hardware to highlight
-        /// expensive events in a profile.
-        ///
-        /// Available since Linux 3.10.
-        const WEIGHT = bindings::PERF_SAMPLE_WEIGHT;
-
-        /// Record the data source: where in the memory hierarchy the data
-        /// associated with the sampled instruction came from. This is
-        /// available only if the underlying hardware supports this feature.
-        ///
-        /// Available since Linux 3.10.
-        const DATA_SRC = bindings::PERF_SAMPLE_DATA_SRC;
-
-        /// Places the [`ID`] value in a fixed position in the record, either
-        /// at the beginning (for sample events) or at the end (if a non-sample
-        /// event).
-        ///
-        /// This was necessary because a sample stream may have records from
-        /// various different event sources with different `sample_type`
-        /// settings. Parsing the event stream properly was not possible
-        /// because the format of the record was needed to find the `SAMPLE_ID`,
-        /// but the format could not be found without knowing what event the
-        /// sample belonged to (causing a circular dependency).
-        ///
-        /// The `IDENTIFIER` setting makes the event stream always parsable by
-        /// putting `ID` in a fixed location, even though it means having
-        /// duplicate `ID` fields in records.
-        const IDENTIFIER = bindings::PERF_SAMPLE_IDENTIFIER;
-
-        /// Record reasons for transactional memory abort events (for example,
-        /// from Intel TSX transactional memory support).
-        ///
-        /// The `precise_ip` setting must be greater than 0 and a transactional
-        /// memory abort must be measured or no values will be recorded. Also
-        /// note that some perf_event measurements, such as sampled cycle
-        /// counting, may cause extraneous aborts (by causing an interrupt
-        /// during a transaction).
-        const TRANSACTION = bindings::PERF_SAMPLE_TRANSACTION;
-
-        /// Record a subset of the current CPU register state as specified by
-        /// `sample_regs_intr`. Unlike [`REGS_USER`] the register values will
-        /// return kernel register state if the overflow happened while kernel
-        /// code was running. If the CPU supports hardware sampling of register
-        /// state (e.e. PEBS on Intel x86) and `precise_ip` is set higher than
-        /// zero then the register values returned are those captured by the
-        /// hardware at the time of the sampled instruction's retirement.
-        ///
-        /// [`REGS_USER`]: Self::REGS_USER
-        const REGS_INTR = bindings::PERF_SAMPLE_REGS_INTR;
-
-        /// Record the physical address of data like in [`Sample::ADDR`].
-        const PHYS_ADDR = bindings::PERF_SAMPLE_PHYS_ADDR;
-
-        /// Record the perf_event cgroup ID of the process. This corresponds
-        /// to the `id` field of the `CGROUP` event.
-        const CGROUP = bindings::PERF_SAMPLE_CGROUP;
-
-        // Don't clobber unknown flags when constructing the bitflag struct.
-        #[doc(hidden)]
-        const _ALLOW_ALL_FLAGS = !0;
+    impl Sample {
+        /// Create a sample from the underlying bits.
+        pub const fn new(bits: u64) -> Self {
+            Self { bits }
+        }
     }
 }
 
@@ -336,13 +257,6 @@ pub(crate) struct ParseConfig {
 impl RecordMiscFlags {
     /// Create a set of flags from the underlying bits.
     pub const fn new(bits: u16) -> Self {
-        Self { bits }
-    }
-}
-
-impl Sample {
-    /// Create a sample from the underlying bits.
-    pub const fn new(bits: u64) -> Self {
         Self { bits }
     }
 }
