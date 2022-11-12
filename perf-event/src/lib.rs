@@ -158,11 +158,8 @@ pub struct Counter {
 /// that allows for reading events emitted by the kernel. It supports all the
 /// same operations as a [`Counter`] along with the ability to read events.
 pub struct Sampler {
-    // Rust drops in order of declaration. To ensure that the memory map is
-    // deleted before we close the descriptor it needs to be declared before
-    // counter.
-    mmap: memmap2::MmapRaw,
     counter: Counter,
+    mmap: memmap2::MmapRaw,
     attrs: sys::bindings::perf_event_attr,
 }
 
