@@ -111,40 +111,34 @@ impl Event {
 #[repr(u32)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Hardware {
-    /// Total cycles.  Be wary of what happens during CPU frequency scaling.
+    /// Total cycles.
     CPU_CYCLES = bindings::PERF_COUNT_HW_CPU_CYCLES,
 
-    /// Retired instructions. Be careful, these can be affected by various
-    /// issues, most notably hardware interrupt counts.
+    /// Retired instructions.
     INSTRUCTIONS = bindings::PERF_COUNT_HW_INSTRUCTIONS,
 
-    /// Cache accesses. Usually this indicates Last Level Cache accesses but
-    /// this may vary depending on your CPU. This may include prefetches and
-    /// coherency messages; again this depends on the design of your CPU.
+    /// Cache accesses.
     CACHE_REFERENCES = bindings::PERF_COUNT_HW_CACHE_REFERENCES,
 
-    /// Cache misses. Usually this indicates Last Level Cache misses; this is
-    /// intended to be used in conjunction with the
-    /// PERF_COUNT_HW_CACHE_REFERENCES event to calculate cache miss rates.
+    /// Cache misses.
     CACHE_MISSES = bindings::PERF_COUNT_HW_CACHE_MISSES,
 
-    /// Retired branch instructions. Prior to Linux 2.6.35, this used the wrong
-    /// event on AMD processors.
+    /// Retired branch instructions.
     BRANCH_INSTRUCTIONS = bindings::PERF_COUNT_HW_BRANCH_INSTRUCTIONS,
 
     /// Mispredicted branch instructions.
     BRANCH_MISSES = bindings::PERF_COUNT_HW_BRANCH_MISSES,
 
-    /// Bus cycles, which can be different from total cycles.
+    /// Bus cycles.
     BUS_CYCLES = bindings::PERF_COUNT_HW_BUS_CYCLES,
 
-    /// Stalled cycles during issue. (since Linux 3.0)
+    /// Stalled cycles during issue.
     STALLED_CYCLES_FRONTEND = bindings::PERF_COUNT_HW_STALLED_CYCLES_FRONTEND,
 
-    /// Stalled cycles during retirement. (since Linux 3.0)
+    /// Stalled cycles during retirement.
     STALLED_CYCLES_BACKEND = bindings::PERF_COUNT_HW_STALLED_CYCLES_BACKEND,
 
-    /// Total cycles; not affected by CPU frequency scaling. (since Linux 3.3)
+    /// Total cycles, independent of frequency scaling.
     REF_CPU_CYCLES = bindings::PERF_COUNT_HW_REF_CPU_CYCLES,
 }
 
@@ -163,46 +157,37 @@ impl From<Hardware> for Event {
 #[repr(u32)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Software {
-    /// This reports the CPU clock, a high-resolution per-CPU timer.
+    /// High-resolution per-CPU timer.
     CPU_CLOCK = bindings::PERF_COUNT_SW_CPU_CLOCK,
 
-    /// This reports a clock count specific to the task that is running.
+    /// Per-task clock count.
     TASK_CLOCK = bindings::PERF_COUNT_SW_TASK_CLOCK,
 
-    /// This reports the number of page faults.
+    /// Page faults.
     PAGE_FAULTS = bindings::PERF_COUNT_SW_PAGE_FAULTS,
 
-    /// This counts context switches. Until Linux 2.6.34, these were all
-    /// reported as user-space events, after that they are reported as happening
-    /// in the kernel.
+    /// Context switches.
     CONTEXT_SWITCHES = bindings::PERF_COUNT_SW_CONTEXT_SWITCHES,
 
-    /// This reports the number of times the process has migrated to a new CPU.
+    /// Process migration to another CPU.
     CPU_MIGRATIONS = bindings::PERF_COUNT_SW_CPU_MIGRATIONS,
 
-    /// This counts the number of minor page faults. These did not require disk
-    /// I/O to handle.
+    /// Minor page faults: resolved without needing I/O.
     PAGE_FAULTS_MIN = bindings::PERF_COUNT_SW_PAGE_FAULTS_MIN,
 
-    /// This counts the number of major page faults. These required disk I/O to
-    /// handle.
+    /// Major page faults: I/O was required to resolve these.
     PAGE_FAULTS_MAJ = bindings::PERF_COUNT_SW_PAGE_FAULTS_MAJ,
 
-    /// (since Linux 2.6.33) This counts the number of alignment faults. These
-    /// happen when unaligned memory accesses happen; the kernel can handle
-    /// these but it reduces performance. This happens only on some
-    /// architectures (never on x86).
+    /// Alignment faults that required kernel intervention.
+    ///
+    /// This is only generated on some CPUs, and never on x86_64 or
+    /// ARM.
     ALIGNMENT_FAULTS = bindings::PERF_COUNT_SW_ALIGNMENT_FAULTS,
 
-    /// (since Linux 2.6.33) This counts the number of emulation faults. The
-    /// kernel sometimes traps on unimplemented instructions and emulates them
-    /// for user space. This can negatively impact performance.
+    /// Instruction emulation faults.
     EMULATION_FAULTS = bindings::PERF_COUNT_SW_EMULATION_FAULTS,
 
-    /// (since Linux 3.12) This is a placeholder event that counts nothing.
-    /// Informational sample record types such as mmap or comm must be
-    /// associated with an active event. This dummy event allows gathering such
-    /// records without requiring a counting event.
+    /// Placeholder, for collecting informational sample records.
     DUMMY = bindings::PERF_COUNT_SW_DUMMY,
 }
 
@@ -283,25 +268,25 @@ impl Cache {
 #[repr(u32)]
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum WhichCache {
-    /// for measuring Level 1 Data Cache
+    /// Level 1 data cache.
     L1D = bindings::PERF_COUNT_HW_CACHE_L1D,
 
-    /// for measuring Level 1 Instruction Cache
+    /// Level 1 instruction cache.
     L1I = bindings::PERF_COUNT_HW_CACHE_L1I,
 
-    /// for measuring Last-Level Cache
+    /// Last-level cache.
     LL = bindings::PERF_COUNT_HW_CACHE_LL,
 
-    /// for measuring the Data TLB
+    /// Data translation lookaside buffer (virtual address translation).
     DTLB = bindings::PERF_COUNT_HW_CACHE_DTLB,
 
-    /// for measuring the Instruction TLB
+    /// Instruction translation lookaside buffer (virtual address translation).
     ITLB = bindings::PERF_COUNT_HW_CACHE_ITLB,
 
-    /// for measuring the branch prediction unit
+    /// Branch prediction.
     BPU = bindings::PERF_COUNT_HW_CACHE_BPU,
 
-    /// (since Linux 3.1) for measuring local memory accesses
+    /// Memory accesses that stay local to the originating NUMA node.
     NODE = bindings::PERF_COUNT_HW_CACHE_NODE,
 }
 
@@ -341,10 +326,10 @@ pub enum CacheOp {
 /// [man]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum CacheResult {
-    /// to measure accesses
+    /// Cache was accessed.
     ACCESS = bindings::PERF_COUNT_HW_CACHE_RESULT_ACCESS,
 
-    /// to measure misses
+    /// Cache access was a miss.
     MISS = bindings::PERF_COUNT_HW_CACHE_RESULT_MISS,
 }
 
