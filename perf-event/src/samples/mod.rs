@@ -29,7 +29,7 @@ mod bitflags_defs {
     bitflags::bitflags! {
         /// Specifies which fields to include in the sample.
         ///
-        /// These fields will be recorded in the [`Sampler`] output buffer. See the
+        /// These values correspond to `PERF_SAMPLE_x` values. See the
         /// [manpage] for documentation on what they mean.
         ///
         /// [`Sampler`]: crate::Sampler

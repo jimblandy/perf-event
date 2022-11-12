@@ -6,29 +6,18 @@ use super::{Parse, ParseBuf, ParseConfig, RecordEvent};
 
 /// MMAP events record memory mappings.
 /// 
-/// See the [manpage] for more documentation here.
+/// This struct corresponds to `PERF_RECORD_MMAP`. See the [manpage] for more
+/// documentation here.
 ///
 /// [manpage]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
 #[derive(Clone, Debug)]
+#[allow(missing_docs)]
 pub struct Mmap {
-    /// The process ID.
     pub pid: u32,
-
-    /// The thread ID.
     pub tid: u32,
-
-    /// The address of the memory mapping.
     pub addr: u64,
-
-    /// The length of the memory mapping.
     pub len: u64,
-
-    /// The page offset of the memory mapping.
     pub pgoff: u64,
-
-    /// A string describing the backing of the memory mapping.
-    ///
-    /// For mappings of files this will be a file path.
     pub filename: OsString,
 }
 
