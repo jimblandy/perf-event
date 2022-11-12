@@ -91,7 +91,7 @@ mod bitflags_defs {
             /// process ID contained within the sample.
             const SWITCH_OUT = bindings::PERF_RECORD_MISC_SWITCH_OUT as _;
 
-            /// Indicates that the contents of [`Sample::ip`] points to the
+            /// Indicates that the contents of `Sample::ip` points to the
             /// exact instruction that generated the event.
             const EXACT_IP = bindings::PERF_RECORD_MISC_EXACT_IP as _;
 
