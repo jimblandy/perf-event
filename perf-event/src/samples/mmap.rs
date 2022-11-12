@@ -5,7 +5,7 @@ use std::os::unix::prelude::OsStringExt;
 use super::{Parse, ParseBuf, ParseConfig, RecordEvent};
 
 /// MMAP events record memory mappings.
-/// 
+///
 /// This struct corresponds to `PERF_RECORD_MMAP`. See the [manpage] for more
 /// documentation here.
 ///

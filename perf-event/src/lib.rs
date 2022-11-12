@@ -710,7 +710,7 @@ impl<'a> Builder<'a> {
     ///     .build_sampler(8192)?;
     /// # Ok::<_, std::io::Error>(())
     /// ```
-    /// 
+    ///
     /// [manpage]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
     pub fn sample(mut self, sample: SampleType) -> Self {
         self.attrs.sample_type |= sample.bits();
@@ -718,7 +718,7 @@ impl<'a> Builder<'a> {
     }
 
     /// Enable the generation of [`Mmap`] records.
-    /// 
+    ///
     /// [`Mmap`] records are emitted when the process/thread that is being
     /// observed creates a new executable memory mapping.
     ///
@@ -743,12 +743,12 @@ impl<'a> Builder<'a> {
 
     /// Set how many samples will be written before the kernel sends an
     /// overflow notification.
-    /// 
+    ///
     /// Note only one of [`wakeup_watermark`] and `wakeup_events` can be
     /// configured.
-    /// 
+    ///
     /// Some caveats apply, see the [manpage] for the full documentation.
-    /// 
+    ///
     /// [manpage]: https://man7.org/linux/man-pages/man2/perf_event_open.2.html
     /// [`wakeup_watermark`]: Self::wakeup_watermark
     pub fn wakeup_events(mut self, events: usize) -> Self {
@@ -759,7 +759,7 @@ impl<'a> Builder<'a> {
 
     /// Construct a [`Sampler`] according to the specifications made on this
     /// `Builder`.
-    /// 
+    ///
     /// Requires that you specify a buffer size for the ring buffer. This will
     /// be rounded up to the next power-of-two multiple of the page size.
     ///     

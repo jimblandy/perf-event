@@ -18,7 +18,7 @@ use std::fmt;
 
 mod mmap;
 
-pub use self::bitflags_defs::{SampleType, RecordMiscFlags};
+pub use self::bitflags_defs::{RecordMiscFlags, SampleType};
 pub use self::mmap::Mmap;
 
 // Need a module here to avoid the allow applying to everything.
@@ -76,7 +76,7 @@ mod bitflags_defs {
         #[derive(Default)]
         pub struct RecordMiscFlags : u16 {
             /// The first few bytes of these flags actually contain an enum value.
-            /// 
+            ///
             /// Use [`cpumode`](Self::cpumode) to access them.
             const CPUMODE_MASK = bindings::PERF_RECORD_MISC_CPUMODE_MASK as _;
 
@@ -209,13 +209,13 @@ pub struct SampleId {
     pub time: Option<u64>,
 
     /// An ID which uniquely identifies the counter.
-    /// 
+    ///
     /// If the counter that generated this event was a member of a group, then
     /// this will be the ID of the group leader instead.
     pub id: Option<u64>,
 
     /// An ID which uniquely identifies the counter.
-    /// 
+    ///
     /// If the counter that generated this event is a member of a group, then
     /// this will still be the member of the counter and not the group leader.
     pub stream_id: Option<u64>,
@@ -235,7 +235,7 @@ pub enum RecordEvent {
     Mmap(Mmap),
 
     /// An event was generated but `perf-event` was not able to parse it.
-    /// 
+    ///
     /// Instead, the bytes making up the event are available here.
     Unknown(Vec<u8>),
 }
