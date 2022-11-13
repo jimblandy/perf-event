@@ -801,122 +801,133 @@ impl<'a> Builder<'a> {
     }
 }
 
-impl Counter {
-    /// Return this counter's kernel-assigned unique id.
-    ///
-    /// This can be useful when iterating over [`Counts`].
-    ///
-    /// [`Counts`]: struct.Counts.html
-    pub fn id(&self) -> u64 {
-        self.id
-    }
+macro_rules! counter_impl {
+    // Note: when adding new methods here make sure to use $self in the
+    //       parameter list and $counter in the method implementation.
+    ($name:ident, $self:ident, $counter:expr) => {
+        impl $name {
+            /// Return this counter's kernel-assigned unique id.
+            ///
+            /// This can be useful when iterating over [`Counts`].
+            ///
+            /// [`Counts`]: struct.Counts.html
+            pub fn id(&$self) -> u64 {
+                $counter.id
+            }
 
-    /// Allow this `Counter` to begin counting its designated event.
-    ///
-    /// This does not affect whatever value the `Counter` had previously; new
-    /// events add to the current count. To clear a `Counter`, use the
-    /// [`reset`] method.
-    ///
-    /// Note that `Group` also has an [`enable`] method, which enables all
-    /// its member `Counter`s as a single atomic operation.
-    ///
-    /// [`reset`]: #method.reset
-    /// [`enable`]: struct.Group.html#method.enable
-    pub fn enable(&mut self) -> io::Result<()> {
-        check_errno_syscall(|| unsafe { sys::ioctls::ENABLE(self.file.as_raw_fd(), 0) }).map(|_| ())
-    }
+            /// Allow this `Counter` to begin counting its designated event.
+            ///
+            /// This does not affect whatever value the `Counter` had previously; new
+            /// events add to the current count. To clear a `Counter`, use the
+            /// [`reset`] method.
+            ///
+            /// Note that `Group` also has an [`enable`] method, which enables all
+            /// its member `Counter`s as a single atomic operation.
+            ///
+            /// [`reset`]: #method.reset
+            /// [`enable`]: struct.Group.html#method.enable
+            pub fn enable(&mut $self) -> io::Result<()> {
+                check_errno_syscall(|| unsafe { sys::ioctls::ENABLE($counter.as_raw_fd(), 0) }).map(|_| ())
+            }
 
-    /// Make this `Counter` stop counting its designated event. Its count is
-    /// unaffected.
-    ///
-    /// Note that `Group` also has a [`disable`] method, which disables all
-    /// its member `Counter`s as a single atomic operation.
-    ///
-    /// [`disable`]: struct.Group.html#method.disable
-    pub fn disable(&mut self) -> io::Result<()> {
-        check_errno_syscall(|| unsafe { sys::ioctls::DISABLE(self.file.as_raw_fd(), 0) })
-            .map(|_| ())
-    }
+            /// Make this `Counter` stop counting its designated event. Its count is
+            /// unaffected.
+            ///
+            /// Note that `Group` also has a [`disable`] method, which disables all
+            /// its member `Counter`s as a single atomic operation.
+            ///
+            /// [`disable`]: struct.Group.html#method.disable
+            pub fn disable(&mut $self) -> io::Result<()> {
+                check_errno_syscall(|| unsafe { sys::ioctls::DISABLE($counter.as_raw_fd(), 0) })
+                    .map(|_| ())
+            }
 
-    /// Reset the value of this `Counter` to zero.
-    ///
-    /// Note that `Group` also has a [`reset`] method, which resets all
-    /// its member `Counter`s as a single atomic operation.
-    ///
-    /// [`reset`]: struct.Group.html#method.reset
-    pub fn reset(&mut self) -> io::Result<()> {
-        check_errno_syscall(|| unsafe { sys::ioctls::RESET(self.file.as_raw_fd(), 0) }).map(|_| ())
-    }
+            /// Reset the value of this `Counter` to zero.
+            ///
+            /// Note that `Group` also has a [`reset`] method, which resets all
+            /// its member `Counter`s as a single atomic operation.
+            ///
+            /// [`reset`]: struct.Group.html#method.reset
+            pub fn reset(&mut $self) -> io::Result<()> {
+                check_errno_syscall(|| unsafe { sys::ioctls::RESET($counter.as_raw_fd(), 0) }).map(|_| ())
+            }
 
-    /// Return this `Counter`'s current value as a `u64`.
-    ///
-    /// Consider using the [`read_count_and_time`] method instead of this one. Some
-    /// counters are implemented in hardware, and the processor can support only
-    /// a certain number running at a time. If more counters are requested than
-    /// the hardware can support, the kernel timeshares them on the hardware.
-    /// This method gives you no indication whether this has happened;
-    /// `read_count_and_time` does.
-    ///
-    /// Note that `Group` also has a [`read`] method, which reads all
-    /// its member `Counter`s' values at once.
-    ///
-    /// [`read`]: Group::read
-    /// [`read_count_and_time`]: Counter::read_count_and_time
-    pub fn read(&mut self) -> io::Result<u64> {
-        Ok(self.read_count_and_time()?.count)
-    }
+            /// Return this `Counter`'s current value as a `u64`.
+            ///
+            /// Consider using the [`read_count_and_time`] method instead of this one. Some
+            /// counters are implemented in hardware, and the processor can support only
+            /// a certain number running at a time. If more counters are requested than
+            /// the hardware can support, the kernel timeshares them on the hardware.
+            /// This method gives you no indication whether this has happened;
+            /// `read_count_and_time` does.
+            ///
+            /// Note that `Group` also has a [`read`] method, which reads all
+            /// its member `Counter`s' values at once.
+            ///
+            /// [`read`]: Group::read
+            /// [`read_count_and_time`]: Counter::read_count_and_time
+            pub fn read(&mut $self) -> io::Result<u64> {
+                Ok($counter.read_count_and_time()?.count)
+            }
 
-    /// Return this `Counter`'s current value and timesharing data.
-    ///
-    /// Some counters are implemented in hardware, and the processor can run
-    /// only a fixed number of them at a time. If more counters are requested
-    /// than the hardware can support, the kernel timeshares them on the
-    /// hardware.
-    ///
-    /// This method returns a [`CountAndTime`] struct, whose `count` field holds
-    /// the counter's value, and whose `time_enabled` and `time_running` fields
-    /// indicate how long you had enabled the counter, and how long the counter
-    /// was actually scheduled on the processor. This lets you detect whether
-    /// the counter was timeshared, and adjust your use accordingly. Times
-    /// are reported in nanoseconds.
-    ///
-    ///     # use perf_event::Builder;
-    ///     # fn main() -> std::io::Result<()> {
-    ///     # let mut counter = Builder::new().build()?;
-    ///     let cat = counter.read_count_and_time()?;
-    ///     if cat.time_running == 0 {
-    ///         println!("No data collected.");
-    ///     } else if cat.time_running < cat.time_enabled {
-    ///         // Note: this way of scaling is accurate, but `u128` division
-    ///         // is usually implemented in software, which may be slow.
-    ///         println!("{} instructions (estimated)",
-    ///                  (cat.count as u128 *
-    ///                   cat.time_enabled as u128 / cat.time_running as u128) as u64);
-    ///     } else {
-    ///         println!("{} instructions", cat.count);
-    ///     }
-    ///     # Ok(()) }
-    ///
-    /// Note that `Group` also has a [`read`] method, which reads all
-    /// its member `Counter`s' values at once.
-    ///
-    /// [`read`]: Group::read
-    pub fn read_count_and_time(&mut self) -> io::Result<CountAndTime> {
-        let mut buf = [0_u64; 3];
-        self.file.read_exact(u64::slice_as_bytes_mut(&mut buf))?;
+            /// Return this `Counter`'s current value and timesharing data.
+            ///
+            /// Some counters are implemented in hardware, and the processor can run
+            /// only a fixed number of them at a time. If more counters are requested
+            /// than the hardware can support, the kernel timeshares them on the
+            /// hardware.
+            ///
+            /// This method returns a [`CountAndTime`] struct, whose `count` field holds
+            /// the counter's value, and whose `time_enabled` and `time_running` fields
+            /// indicate how long you had enabled the counter, and how long the counter
+            /// was actually scheduled on the processor. This lets you detect whether
+            /// the counter was timeshared, and adjust your use accordingly. Times
+            /// are reported in nanoseconds.
+            ///
+            ///     # use perf_event::Builder;
+            ///     # fn main() -> std::io::Result<()> {
+            ///     # let mut counter = Builder::new().build()?;
+            ///     let cat = counter.read_count_and_time()?;
+            ///     if cat.time_running == 0 {
+            ///         println!("No data collected.");
+            ///     } else if cat.time_running < cat.time_enabled {
+            ///         // Note: this way of scaling is accurate, but `u128` division
+            ///         // is usually implemented in software, which may be slow.
+            ///         println!("{} instructions (estimated)",
+            ///                  (cat.count as u128 *
+            ///                   cat.time_enabled as u128 / cat.time_running as u128) as u64);
+            ///     } else {
+            ///         println!("{} instructions", cat.count);
+            ///     }
+            ///     # Ok(()) }
+            ///
+            /// Note that `Group` also has a [`read`] method, which reads all
+            /// its member `Counter`s' values at once.
+            ///
+            /// [`read`]: Group::read
+            pub fn read_count_and_time(&mut $self) -> io::Result<CountAndTime> {
+                let mut buf = [0_u64; 3];
+                $counter.file.read_exact(u64::slice_as_bytes_mut(&mut buf))?;
 
-        let cat = CountAndTime {
-            count: buf[0],
-            time_enabled: buf[1],
-            time_running: buf[2],
-        };
+                let cat = CountAndTime {
+                    count: buf[0],
+                    time_enabled: buf[1],
+                    time_running: buf[2],
+                };
 
-        // Does the kernel ever return nonsense?
-        assert!(cat.time_running <= cat.time_enabled);
+                // Does the kernel ever return nonsense?
+                assert!(cat.time_running <= cat.time_enabled);
 
-        Ok(cat)
-    }
+                Ok(cat)
+            }
+        }
+    };
 }
+
+counter_impl!(Counter, self, self);
+counter_impl!(Sampler, self, self.counter);
+
+impl Counter {}
 
 impl std::fmt::Debug for Counter {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -942,8 +953,18 @@ impl IntoRawFd for Counter {
 }
 
 impl Sampler {
-    /// Read the next record from the ring buffer. This method does not block.
-    /// If you want blocking behaviour, use [`next_blocking`] instead.
+    /// Convert this sampler back into a counter.
+    ///
+    /// This is a one-way conversion, once you have the counter this crate
+    /// provides no way to open the kernel ring buffer again.
+    pub fn into_inner(self) -> Counter {
+        self.counter
+    }
+
+    /// Read the next record from the ring buffer.
+    ///
+    /// This method does not block. If you want blocking behaviour, use
+    /// [`next_blocking`] instead.
     ///
     /// It is possible to get readiness notifications for when events are
     /// present in the ring buffer (e.g. for async code). See the documentation
@@ -1087,16 +1108,14 @@ impl Sampler {
     }
 }
 
-impl std::ops::Deref for Sampler {
-    type Target = Counter;
-
-    fn deref(&self) -> &Self::Target {
+impl std::convert::AsRef<Counter> for Sampler {
+    fn as_ref(&self) -> &Counter {
         &self.counter
     }
 }
 
-impl std::ops::DerefMut for Sampler {
-    fn deref_mut(&mut self) -> &mut Self::Target {
+impl std::convert::AsMut<Counter> for Sampler {
+    fn as_mut(&mut self) -> &mut Counter {
         &mut self.counter
     }
 }
