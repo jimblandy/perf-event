@@ -702,11 +702,11 @@ impl<'a> Builder<'a> {
     /// thread ID, and timestamp whenever the underlying event triggers a
     /// sampling.
     /// ```
-    /// # use perf_event::{Builder, Sample};
+    /// # use perf_event::{Builder, samples::SampleType};
     /// let mut sampler = Builder::new()
-    ///     .sample(Sample::IP)
-    ///     .sample(Sample::TID)
-    ///     .sample(Sample::TIME)
+    ///     .sample(SampleType::IP)
+    ///     .sample(SampleType::TID)
+    ///     .sample(SampleType::TIME)
     ///     .build_sampler(8192)?;
     /// # Ok::<_, std::io::Error>(())
     /// ```
