@@ -55,6 +55,9 @@ pub enum Event {
 
     #[allow(missing_docs)]
     Breakpoint(Breakpoint),
+
+    #[allow(missing_docs)]
+    Raw(Raw),
 }
 
 impl Event {
@@ -91,6 +94,10 @@ impl Event {
                         attr.__bindgen_anon_4.bp_len = std::mem::size_of::<libc::c_long>() as _;
                     }
                 }
+            }
+            Event::Raw(raw) => {
+                attr.type_ = bindings::PERF_TYPE_RAW;
+                attr.config = raw.config;
             }
         }
     }
@@ -254,6 +261,19 @@ impl From<Cache> for Event {
 impl Cache {
     fn as_config(&self) -> u64 {
         self.which as u64 | ((self.operation as u64) << 8) | ((self.result as u64) << 16)
+    }
+}
+
+/// A Raw event
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct Raw {
+    /// Raw config of the event
+    pub config: u64,
+}
+
+impl From<Raw> for Event {
+    fn from(raw: Raw) -> Event {
+        Event::Raw(raw)
     }
 }
 
