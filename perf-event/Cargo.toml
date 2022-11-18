@@ -30,3 +30,6 @@ memoffset = "0.7.1"
 [dependencies.perf-event-open-sys]
 path = "../perf-event-open-sys"
 version = "4.0"
+
+[dev-dependencies]
+nix = { version = "0.25", features = ["process", "feature"] }
