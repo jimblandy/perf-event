@@ -1086,7 +1086,10 @@ impl Sampler {
                 Ok(0) => return None,
                 // The sampler was tracking a single other process and that
                 // process has exited.
-                Ok(_) if pollfd.revents & libc::POLLHUP != 0 => return None,
+                //
+                // However, there may still be events in the ring buffer in this case so
+                // we still need to check.
+                Ok(_) if pollfd.revents & libc::POLLHUP != 0 => return self.next(),
                 // Must be POLLIN, there should be an event ready.
                 Ok(_) => continue,
                 Err(e) => match e.raw_os_error() {
