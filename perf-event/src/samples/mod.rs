@@ -26,7 +26,7 @@ pub use self::mmap::Mmap;
 mod bitflags_defs {
     use super::*;
 
-    bitflags::bitflags! {
+    bitflags! {
         /// Specifies which fields to include in the sample.
         ///
         /// These values correspond to `PERF_SAMPLE_x` values. See the
