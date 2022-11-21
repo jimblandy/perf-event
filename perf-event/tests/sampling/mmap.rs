@@ -32,7 +32,9 @@ fn record_executable_mmap() {
 
     sampler.disable().expect("Failed to disable sampler");
 
-    let record = sampler.next().expect("Sampler did not record any events");
+    let record = sampler
+        .next_record()
+        .expect("Sampler did not record any events");
     let record = match record.event {
         RecordEvent::Mmap(mmap) => mmap,
         _ => panic!("expected a MMAP record, got {:?} instead", record.ty),

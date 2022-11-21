@@ -972,7 +972,7 @@ impl Sampler {
     ///
     /// [`next_blocking`]: Self::next_blocking
     /// [man]: https://man7.org/linux/man-pages/man2/perf_event_open.2.html
-    pub fn next(&mut self) -> Option<samples::Record> {
+    pub fn next_record(&mut self) -> Option<samples::Record> {
         use crate::samples::{ParseBuf, ParseConfig, Record};
         use bytes::Buf;
         use memoffset::raw_field;
@@ -1063,7 +1063,7 @@ impl Sampler {
         let deadline = timeout.map(|timeout| Instant::now() + timeout);
 
         loop {
-            if let Some(record) = self.next() {
+            if let Some(record) = self.next_record() {
                 return Some(record);
             }
 
@@ -1089,7 +1089,7 @@ impl Sampler {
                 //
                 // However, there may still be events in the ring buffer in this case so
                 // we still need to check.
-                Ok(_) if pollfd.revents & libc::POLLHUP != 0 => return self.next(),
+                Ok(_) if pollfd.revents & libc::POLLHUP != 0 => return self.next_record(),
                 // Must be POLLIN, there should be an event ready.
                 Ok(_) => continue,
                 Err(e) => match e.raw_os_error() {
