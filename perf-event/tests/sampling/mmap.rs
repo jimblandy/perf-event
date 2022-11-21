@@ -41,7 +41,7 @@ fn record_executable_mmap() {
     eprintln!("record: {:#?}", record);
 
     assert_eq!(Hex(record.addr), Hex(mmap.as_ptr() as usize as _));
-    assert_eq!(Hex(record.len), Hex(mmap.len() as _));
-    assert_eq!(Hex(record.pid), Hex(nix::unistd::getpid().as_raw() as _));
-    assert_eq!(Hex(record.tid), Hex(nix::unistd::gettid().as_raw() as _));
+    assert_eq!(record.len, mmap.len() as _);
+    assert_eq!(record.pid, nix::unistd::getpid().as_raw() as _);
+    assert_eq!(record.tid, nix::unistd::gettid().as_raw() as _);
 }
