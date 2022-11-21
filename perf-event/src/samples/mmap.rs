@@ -1,6 +1,6 @@
 use bytes::Buf;
 use std::ffi::OsString;
-use std::os::unix::prelude::OsStringExt;
+use std::os::unix::ffi::OsStringExt;
 
 use super::{Parse, ParseBuf, ParseConfig, RecordEvent};
 
