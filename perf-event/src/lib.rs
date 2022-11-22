@@ -1464,7 +1464,7 @@ unsafe fn atomic_load(ptr: *const u64, order: Ordering) -> u64 {
     (*(ptr as *const AtomicU64)).load(order)
 }
 
-/// A [`Buf`] that can be either a single byte slice or two disjoint byte
+/// A `Buf` that can be either a single byte slice or two disjoint byte
 /// slices.
 #[allow(dead_code)]
 #[derive(Copy, Clone)]
