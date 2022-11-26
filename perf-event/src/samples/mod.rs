@@ -294,7 +294,7 @@ impl Record {
 
 impl SampleId {
     fn expected_size(config: &ParseConfig) -> usize {
-        if config.sample_id_all {
+        if !config.sample_id_all {
             return 0;
         }
 
@@ -401,7 +401,7 @@ pub(crate) trait Parse {
 
 impl Parse for SampleId {
     fn parse<B: Buf>(config: &ParseConfig, buf: &mut B) -> Self {
-        if config.sample_id_all {
+        if !config.sample_id_all {
             return Self::default();
         }
 
@@ -475,3 +475,65 @@ pub(crate) trait ParseBuf: Buf {
 }
 
 impl<B: Buf> ParseBuf for B {}
+
+#[cfg(test)]
+mod tests {
+    use crate::Builder;
+
+    use super::*;
+
+    #[test]
+    fn sample_id_expected_size_empty_with_flags() {
+        let builder = Builder::new()
+            .sample(SampleType::CPU)
+            .sample(SampleType::TID);
+        let config = ParseConfig::from(builder.attrs);
+
+        // sample_id_all not specified so size should be 0
+        assert_eq!(SampleId::expected_size(&config), 0);
+    }
+
+    #[test]
+    fn sample_id_parse_empty_with_flags() {
+        let builder = Builder::new()
+            .sample(SampleType::CPU)
+            .sample(SampleType::TID);
+        let config = ParseConfig::from(builder.attrs);
+        let mut buf: &[u8] = &[];
+
+        // sample_id_all not specified so nothing should be parsed
+        let sample_id = SampleId::parse(&config, &mut buf);
+
+        assert_eq!(sample_id.cpu, None);
+        assert_eq!(sample_id.tid, None);
+        assert_eq!(sample_id.pid, None);
+    }
+
+    #[test]
+    #[cfg_attr(target_endian = "big", ignore = "requires a little-endian target")]
+    fn sample_id_all_parse_full_with_flags() {
+        let builder = Builder::new()
+            .sample(SampleType::CPU)
+            .sample(SampleType::TIME);
+        let mut config = ParseConfig::from(builder.attrs);
+        // Don't have a method for setting this on the builder yet so do it
+        // directly here.
+        config.sample_id_all = true;
+
+        #[rustfmt::skip]
+        let mut buf: &[u8] = &[
+            0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+        ];
+
+        let sample_id = SampleId::parse(&config, &mut buf);
+
+        assert_eq!(buf.len(), 0);
+
+        assert_eq!(sample_id.time, Some(1));
+        assert_eq!(sample_id.cpu, Some(2));
+        assert_eq!(sample_id.pid, None);
+        assert_eq!(sample_id.tid, None);
+        assert_eq!(sample_id.id, None);
+    }
+}
