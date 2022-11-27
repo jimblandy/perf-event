@@ -58,6 +58,12 @@ mod bitflags_defs {
             const PHYS_ADDR = bindings::PERF_SAMPLE_PHYS_ADDR;
             const CGROUP = bindings::PERF_SAMPLE_CGROUP;
 
+            // The following are present in perf_event.h but not yet documented
+            // in the manpage.
+            const DATA_PAGE_SIZE = bindings::PERF_SAMPLE_DATA_PAGE_SIZE;
+            const CODE_PAGE_SIZE = bindings::PERF_SAMPLE_CODE_PAGE_SIZE;
+            const WEIGHT_STRUCT = bindings::PERF_SAMPLE_WEIGHT_STRUCT;
+
             // Don't clobber unknown flags when constructing the bitflag struct.
             #[doc(hidden)]
             const _ALLOW_ALL_FLAGS = !0;
