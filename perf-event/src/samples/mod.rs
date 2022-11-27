@@ -196,7 +196,7 @@ pub struct Record {
 /// If `sample_id_all` is set when creating the [`Sampler`][crate::Sampler]
 /// instance then this struct will contain selected fields related to where
 /// and when an event took place.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Default)]
 #[non_exhaustive]
 pub struct SampleId {
     /// The process ID of the process which generated the event.
@@ -308,6 +308,49 @@ impl SampleId {
         ];
 
         configs.iter().copied().filter(|&x| x).count() * std::mem::size_of::<u64>()
+    }
+}
+
+impl fmt::Debug for SampleId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut dbg = f.debug_struct("SampleId");
+        let mut fieldcnt = 0;
+
+        if let Some(pid) = &self.pid {
+            dbg.field("pid", pid);
+            fieldcnt += 1;
+        }
+
+        if let Some(tid) = &self.tid {
+            dbg.field("tid", tid);
+            fieldcnt += 1;
+        }
+
+        if let Some(time) = &self.time {
+            dbg.field("time", time);
+            fieldcnt += 1;
+        }
+
+        if let Some(id) = &self.id {
+            dbg.field("id", id);
+            fieldcnt += 1;
+        }
+
+        if let Some(stream_id) = &self.stream_id {
+            dbg.field("stream_id", stream_id);
+            fieldcnt += 1;
+        }
+
+        if let Some(cpu) = &self.cpu {
+            dbg.field("cpu", cpu);
+            fieldcnt += 1;
+        }
+
+        if fieldcnt == 6 {
+            dbg.finish()
+        } else {
+            dbg.finish_non_exhaustive()
+        }
     }
 }
 
