@@ -56,6 +56,7 @@ mod bitflags_defs {
             const TRANSACTION = bindings::PERF_SAMPLE_TRANSACTION;
             const REGS_INTR = bindings::PERF_SAMPLE_REGS_INTR;
             const PHYS_ADDR = bindings::PERF_SAMPLE_PHYS_ADDR;
+            const AUX = bindings::PERF_SAMPLE_AUX;
             const CGROUP = bindings::PERF_SAMPLE_CGROUP;
 
             // The following are present in perf_event.h but not yet documented
