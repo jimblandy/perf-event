@@ -98,6 +98,8 @@ impl Event {
             Event::Raw(raw) => {
                 attr.type_ = bindings::PERF_TYPE_RAW;
                 attr.config = raw.config;
+                attr.__bindgen_anon_3.config1 = raw.config1;
+                attr.__bindgen_anon_4.config2 = raw.config2;
             }
         }
     }
@@ -269,6 +271,39 @@ impl Cache {
 pub struct Raw {
     /// Raw config of the event
     pub config: u64,
+    /// Raw config1 of the event
+    pub config1: u64,
+    /// Raw config2 of the event
+    pub config2: u64,
+}
+
+impl Raw {
+    /// Create a new Raw event
+    pub fn new() -> Self {
+        Raw {
+            config: 0,
+            config1: 0,
+            config2: 0,
+        }
+    }
+
+    /// Set config
+    pub fn config(mut self, config: u64) -> Self {
+        self.config = config;
+        self
+    }
+
+    /// Set config1
+    pub fn config1(mut self, config1: u64) -> Self {
+        self.config1 = config1;
+        self
+    }
+
+    /// Set config2
+    pub fn config2(mut self, config2: u64) -> Self {
+        self.config2 = config2;
+        self
+    }
 }
 
 impl From<Raw> for Event {
