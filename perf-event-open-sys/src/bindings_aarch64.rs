@@ -819,7 +819,9 @@ pub const PERF_BR_SYSCALL: _bindgen_ty_1 = 7;
 pub const PERF_BR_SYSRET: _bindgen_ty_1 = 8;
 pub const PERF_BR_COND_CALL: _bindgen_ty_1 = 9;
 pub const PERF_BR_COND_RET: _bindgen_ty_1 = 10;
-pub const PERF_BR_MAX: _bindgen_ty_1 = 11;
+pub const PERF_BR_ERET: _bindgen_ty_1 = 11;
+pub const PERF_BR_IRQ: _bindgen_ty_1 = 12;
+pub const PERF_BR_MAX: _bindgen_ty_1 = 13;
 pub type _bindgen_ty_1 = ::std::os::raw::c_uint;
 pub const PERF_SAMPLE_REGS_ABI_NONE: perf_sample_regs_abi = 0;
 pub const PERF_SAMPLE_REGS_ABI_32: perf_sample_regs_abi = 1;
@@ -921,6 +923,11 @@ impl Default for perf_event_attr__bindgen_ty_1 {
         }
     }
 }
+impl ::std::fmt::Debug for perf_event_attr__bindgen_ty_1 {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        write!(f, "perf_event_attr__bindgen_ty_1 {{ union }}")
+    }
+}
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub union perf_event_attr__bindgen_ty_2 {
@@ -970,6 +977,11 @@ impl Default for perf_event_attr__bindgen_ty_2 {
             ::std::ptr::write_bytes(s.as_mut_ptr(), 0, 1);
             s.assume_init()
         }
+    }
+}
+impl ::std::fmt::Debug for perf_event_attr__bindgen_ty_2 {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        write!(f, "perf_event_attr__bindgen_ty_2 {{ union }}")
     }
 }
 #[repr(C)]
@@ -1045,6 +1057,11 @@ impl Default for perf_event_attr__bindgen_ty_3 {
         }
     }
 }
+impl ::std::fmt::Debug for perf_event_attr__bindgen_ty_3 {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        write!(f, "perf_event_attr__bindgen_ty_3 {{ union }}")
+    }
+}
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub union perf_event_attr__bindgen_ty_4 {
@@ -1116,6 +1133,11 @@ impl Default for perf_event_attr__bindgen_ty_4 {
             ::std::ptr::write_bytes(s.as_mut_ptr(), 0, 1);
             s.assume_init()
         }
+    }
+}
+impl ::std::fmt::Debug for perf_event_attr__bindgen_ty_4 {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        write!(f, "perf_event_attr__bindgen_ty_4 {{ union }}")
     }
 }
 #[test]
@@ -1310,6 +1332,11 @@ impl Default for perf_event_attr {
             ::std::ptr::write_bytes(s.as_mut_ptr(), 0, 1);
             s.assume_init()
         }
+    }
+}
+impl ::std::fmt::Debug for perf_event_attr {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        write ! (f , "perf_event_attr {{ type: {:?}, size: {:?}, config: {:?}, __bindgen_anon_1: {:?}, sample_type: {:?}, read_format: {:?}, disabled : {:?}, inherit : {:?}, pinned : {:?}, exclusive : {:?}, exclude_user : {:?}, exclude_kernel : {:?}, exclude_hv : {:?}, exclude_idle : {:?}, mmap : {:?}, comm : {:?}, freq : {:?}, inherit_stat : {:?}, enable_on_exec : {:?}, task : {:?}, watermark : {:?}, precise_ip : {:?}, mmap_data : {:?}, sample_id_all : {:?}, exclude_host : {:?}, exclude_guest : {:?}, exclude_callchain_kernel : {:?}, exclude_callchain_user : {:?}, mmap2 : {:?}, comm_exec : {:?}, use_clockid : {:?}, context_switch : {:?}, write_backward : {:?}, namespaces : {:?}, ksymbol : {:?}, bpf_event : {:?}, aux_output : {:?}, cgroup : {:?}, text_poke : {:?}, build_id : {:?}, inherit_thread : {:?}, remove_on_exec : {:?}, sigtrap : {:?}, __reserved_1 : {:?}, __bindgen_anon_2: {:?}, bp_type: {:?}, __bindgen_anon_3: {:?}, __bindgen_anon_4: {:?}, branch_sample_type: {:?}, sample_regs_user: {:?}, sample_stack_user: {:?}, clockid: {:?}, sample_regs_intr: {:?}, aux_watermark: {:?}, sample_max_stack: {:?}, __reserved_2: {:?}, aux_sample_size: {:?}, __reserved_3: {:?}, sig_data: {:?} }}" , self . type_ , self . size , self . config , self . __bindgen_anon_1 , self . sample_type , self . read_format , self . disabled () , self . inherit () , self . pinned () , self . exclusive () , self . exclude_user () , self . exclude_kernel () , self . exclude_hv () , self . exclude_idle () , self . mmap () , self . comm () , self . freq () , self . inherit_stat () , self . enable_on_exec () , self . task () , self . watermark () , self . precise_ip () , self . mmap_data () , self . sample_id_all () , self . exclude_host () , self . exclude_guest () , self . exclude_callchain_kernel () , self . exclude_callchain_user () , self . mmap2 () , self . comm_exec () , self . use_clockid () , self . context_switch () , self . write_backward () , self . namespaces () , self . ksymbol () , self . bpf_event () , self . aux_output () , self . cgroup () , self . text_poke () , self . build_id () , self . inherit_thread () , self . remove_on_exec () , self . sigtrap () , self . __reserved_1 () , self . __bindgen_anon_2 , self . bp_type , self . __bindgen_anon_3 , self . __bindgen_anon_4 , self . branch_sample_type , self . sample_regs_user , self . sample_stack_user , self . clockid , self . sample_regs_intr , self . aux_watermark , self . sample_max_stack , self . __reserved_2 , self . aux_sample_size , self . __reserved_3 , self . sig_data)
     }
 }
 impl perf_event_attr {
@@ -2205,6 +2232,11 @@ impl Default for perf_event_mmap_page__bindgen_ty_1 {
         }
     }
 }
+impl ::std::fmt::Debug for perf_event_mmap_page__bindgen_ty_1 {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        write!(f, "perf_event_mmap_page__bindgen_ty_1 {{ union }}")
+    }
+}
 #[test]
 fn bindgen_test_layout_perf_event_mmap_page() {
     const UNINIT: ::std::mem::MaybeUninit<perf_event_mmap_page> = ::std::mem::MaybeUninit::uninit();
@@ -2477,6 +2509,11 @@ impl Default for perf_event_mmap_page {
             ::std::ptr::write_bytes(s.as_mut_ptr(), 0, 1);
             s.assume_init()
         }
+    }
+}
+impl ::std::fmt::Debug for perf_event_mmap_page {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        write ! (f , "perf_event_mmap_page {{ version: {:?}, compat_version: {:?}, lock: {:?}, index: {:?}, offset: {:?}, time_enabled: {:?}, time_running: {:?}, __bindgen_anon_1: {:?}, pmc_width: {:?}, time_shift: {:?}, time_mult: {:?}, time_offset: {:?}, time_zero: {:?}, size: {:?}, __reserved_1: {:?}, time_cycles: {:?}, time_mask: {:?}, __reserved: {:?}, data_head: {:?}, data_tail: {:?}, data_offset: {:?}, data_size: {:?}, aux_head: {:?}, aux_tail: {:?}, aux_offset: {:?}, aux_size: {:?} }}" , self . version , self . compat_version , self . lock , self . index , self . offset , self . time_enabled , self . time_running , self . __bindgen_anon_1 , self . pmc_width , self . time_shift , self . time_mult , self . time_offset , self . time_zero , self . size , self . __reserved_1 , self . time_cycles , self . time_mask , self . __reserved , self . data_head , self . data_tail , self . data_offset , self . data_size , self . aux_head , self . aux_tail , self . aux_offset , self . aux_size)
     }
 }
 #[repr(C)]
@@ -2866,6 +2903,11 @@ impl Default for perf_mem_data_src {
         }
     }
 }
+impl ::std::fmt::Debug for perf_mem_data_src {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        write!(f, "perf_mem_data_src {{ union }}")
+    }
+}
 #[repr(C)]
 #[derive(Debug, Default, Copy, Clone)]
 pub struct perf_branch_entry {
@@ -3123,6 +3165,11 @@ impl Default for perf_sample_weight {
             ::std::ptr::write_bytes(s.as_mut_ptr(), 0, 1);
             s.assume_init()
         }
+    }
+}
+impl ::std::fmt::Debug for perf_sample_weight {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        write!(f, "perf_sample_weight {{ union }}")
     }
 }
 pub const HW_BREAKPOINT_LEN_1: _bindgen_ty_4 = 1;
