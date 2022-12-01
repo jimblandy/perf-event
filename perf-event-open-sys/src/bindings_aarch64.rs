@@ -843,7 +843,8 @@ pub const PERF_FORMAT_TOTAL_TIME_ENABLED: perf_event_read_format = 1;
 pub const PERF_FORMAT_TOTAL_TIME_RUNNING: perf_event_read_format = 2;
 pub const PERF_FORMAT_ID: perf_event_read_format = 4;
 pub const PERF_FORMAT_GROUP: perf_event_read_format = 8;
-pub const PERF_FORMAT_MAX: perf_event_read_format = 16;
+pub const PERF_FORMAT_LOST: perf_event_read_format = 16;
+pub const PERF_FORMAT_MAX: perf_event_read_format = 32;
 pub type perf_event_read_format = ::std::os::raw::c_uint;
 #[repr(C)]
 #[derive(Copy, Clone)]
