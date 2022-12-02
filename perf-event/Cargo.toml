@@ -32,4 +32,4 @@ path = "../perf-event-open-sys"
 version = "4.0"
 
 [dev-dependencies]
-nix = { version = "0.25", features = ["process", "feature"] }
+nix = { version = "0.26.1", features = ["process", "feature"] }
