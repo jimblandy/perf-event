@@ -74,6 +74,10 @@
 //! - x86_64: `kernel-headers-5.19.4-200.fc36.x86_64` (`PERF_ATTR_SIZE_VER7`)
 //! - aarch64: `kernel-headers-5.18.4-201.fc36.aarch64` (`PERF_ATTR_SIZE_VER7`)
 //!
+//! RISC-V binding is generated from the Linux kernel headers pacakged by Arch Linux:
+//!
+//! - riscv64: linux-headers 6.0.9.arch1-1 riscv64
+//!
 //! As explained above, bugs aside, it is not necessary to use the version of
 //! these structures that matches the kernel you want to run under, so it should
 //! always be acceptable to use the latest version of this crate, even if you
@@ -184,6 +188,10 @@ pub mod bindings;
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[path = "bindings_x86_64.rs"]
+pub mod bindings;
+
+#[cfg(any(target_arch = "riscv64"))]
+#[path = "bindings_riscv64.rs"]
 pub mod bindings;
 
 // Provide actual callable code only on Linux/Android. See "Using perf
