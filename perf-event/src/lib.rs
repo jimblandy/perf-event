@@ -612,6 +612,12 @@ impl<'a> Builder<'a> {
         self
     }
 
+    /// Enable on exec. If this isn't called, the Counter must be enabled by calling [`enable`].
+    pub fn enable_on_exec(mut self) -> Builder<'a> {
+        self.attrs.set_enable_on_exec(1);
+        self
+    }
+
     /// Place the counter in the given [`Group`]. Groups allow a set of counters
     /// to be enabled, disabled, or read as a single atomic operation, so that
     /// the counts can be usefully compared.
@@ -631,7 +637,9 @@ impl<'a> Builder<'a> {
     /// `Builder`.
     ///
     /// A freshly built `Counter` is disabled. To begin counting events, you
-    /// must call [`enable`] on the `Counter` or the `Group` to which it belongs.
+    /// must call [`enable`] on the `Counter` or the `Group` to which it belongs,
+    /// unless you use [`enable_on_exec`], in which case this counter will
+    /// automatically enable once its target execs.
     ///
     /// If the `Builder` requests features that the running kernel does not
     /// support, it returns `Err(e)` where `e.kind() == ErrorKind::Other` and
