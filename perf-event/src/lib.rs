@@ -488,6 +488,12 @@ impl<'a> Builder<'a> {
         self
     }
 
+    /// Exclude user code.
+    pub fn exclude_user(mut self) -> Builder<'a> {
+        self.attrs.set_exclude_user(1);
+        self
+    }
+
     /// Include hypervisor code.
     pub fn include_hv(mut self) -> Builder<'a> {
         self.attrs.set_exclude_hv(0);
