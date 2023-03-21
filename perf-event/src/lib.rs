@@ -81,9 +81,13 @@ use std::os::raw::{c_int, c_uint, c_ulong};
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 
 pub mod events;
+mod sampler;
 
 #[cfg(feature = "hooks")]
 pub mod hooks;
+
+pub use crate::bitflags::Sample;
+pub use crate::sampler::{Record, Sampler};
 
 // When the `"hooks"` feature is not enabled, call directly into
 // `perf-event-open-sys`.
@@ -432,6 +436,63 @@ pub struct CountAndTime {
     pub time_running: u64,
 }
 
+#[allow(missing_docs)]
+mod bitflags {
+    use crate::sys::bindings;
+    use bitflags::bitflags;
+
+    bitflags! {
+        /// Specifies which fields to include in the sample.
+        ///
+        /// These values correspond to `PERF_SAMPLE_x` values. See the
+        /// [manpage] for documentation on what they mean.
+        ///
+        /// [manpage]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
+        #[derive(Default)]
+        pub struct Sample : u64 {
+            const IP = bindings::PERF_SAMPLE_IP;
+            const TID = bindings::PERF_SAMPLE_TID;
+            const TIME = bindings::PERF_SAMPLE_TIME;
+            const ADDR = bindings::PERF_SAMPLE_ADDR;
+            const READ = bindings::PERF_SAMPLE_READ;
+            const CALLCHAIN = bindings::PERF_SAMPLE_CALLCHAIN;
+            const ID = bindings::PERF_SAMPLE_ID;
+            const CPU = bindings::PERF_SAMPLE_CPU;
+            const PERIOD = bindings::PERF_SAMPLE_PERIOD;
+            const STREAM_ID = bindings::PERF_SAMPLE_STREAM_ID;
+            const RAW = bindings::PERF_SAMPLE_RAW;
+            const BRANCH_STACK = bindings::PERF_SAMPLE_BRANCH_STACK;
+            const REGS_USER = bindings::PERF_SAMPLE_REGS_USER;
+            const STACK_USER = bindings::PERF_SAMPLE_STACK_USER;
+            const WEIGHT = bindings::PERF_SAMPLE_WEIGHT;
+            const DATA_SRC = bindings::PERF_SAMPLE_DATA_SRC;
+            const IDENTIFIER = bindings::PERF_SAMPLE_IDENTIFIER;
+            const TRANSACTION = bindings::PERF_SAMPLE_TRANSACTION;
+            const REGS_INTR = bindings::PERF_SAMPLE_REGS_INTR;
+            const PHYS_ADDR = bindings::PERF_SAMPLE_PHYS_ADDR;
+            const AUX = bindings::PERF_SAMPLE_AUX;
+            const CGROUP = bindings::PERF_SAMPLE_CGROUP;
+
+            // The following are present in perf_event.h but not yet documented
+            // in the manpage.
+            const DATA_PAGE_SIZE = bindings::PERF_SAMPLE_DATA_PAGE_SIZE;
+            const CODE_PAGE_SIZE = bindings::PERF_SAMPLE_CODE_PAGE_SIZE;
+            const WEIGHT_STRUCT = bindings::PERF_SAMPLE_WEIGHT_STRUCT;
+
+            // Don't clobber unknown flags when constructing the bitflag struct.
+            #[doc(hidden)]
+            const _ALLOW_ALL_FLAGS = !0;
+        }
+    }
+
+    impl Sample {
+        /// Create a sample from the underlying bits.
+        pub const fn new(bits: u64) -> Self {
+            Self { bits }
+        }
+    }
+}
+
 impl<'a> EventPid<'a> {
     // Return the `pid` arg and the `flags` bits representing `self`.
     fn as_args(&self) -> (pid_t, u32) {
@@ -673,120 +734,237 @@ impl<'a> Builder<'a> {
     }
 }
 
+impl<'a> Builder<'a> {
+    /// Indicate additional values to include in the generated sample events.
+    ///
+    /// Note that this method is additive and does not remove previously added
+    /// sample types. See the documentation of [`Sample`] or the [manpage] for
+    /// what's available to be collected.
+    ///
+    /// # Example
+    /// Here we build a sampler that grabs the instruction pointer, process ID,
+    /// thread ID, and timestamp whenever the underlying event triggers a
+    /// sampling.
+    /// ```
+    /// # use perf_event::{Builder, Sample};
+    /// let mut sampler = Builder::new()
+    ///     .sample(Sample::IP)
+    ///     .sample(Sample::TID)
+    ///     .sample(Sample::TIME)
+    ///     .build()?
+    ///     .sampled(8192)?;
+    /// # Ok::<_, std::io::Error>(())
+    /// ```
+    ///
+    /// [manpage]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
+    pub fn sample(mut self, sample: Sample) -> Self {
+        self.attrs.sample_type |= sample.bits();
+        self
+    }
+
+    /// Enable the generation of MMAP records.
+    ///
+    /// MMAP records are emitted when the process/thread that is being
+    /// observed creates a new executable memory mapping.
+    pub fn mmap(mut self, mmap: bool) -> Self {
+        self.attrs.set_mmap(mmap.into());
+        self
+    }
+
+    /// Set how many bytes will be written before the kernel sends an overflow
+    /// notification.
+    ///
+    /// Note only one of `wakeup_watermark` and [`wakeup_events`] can be
+    /// configured.
+    ///
+    /// [`wakeup_events`]: Self::wakeup_events
+    pub fn wakeup_watermark(mut self, watermark: usize) -> Self {
+        self.attrs.set_watermark(1);
+        self.attrs.__bindgen_anon_2.wakeup_watermark = watermark as _;
+        self
+    }
+
+    /// Set how many samples will be written before the kernel sends an
+    /// overflow notification.
+    ///
+    /// Note only one of [`wakeup_watermark`] and `wakeup_events` can be
+    /// configured.
+    ///
+    /// Some caveats apply, see the [manpage] for the full documentation.
+    ///
+    /// [manpage]: https://man7.org/linux/man-pages/man2/perf_event_open.2.html
+    /// [`wakeup_watermark`]: Self::wakeup_watermark
+    pub fn wakeup_events(mut self, events: usize) -> Self {
+        self.attrs.set_watermark(0);
+        self.attrs.__bindgen_anon_2.wakeup_events = events as _;
+        self
+    }
+}
+
+macro_rules! counter_impl {
+    // Note: when adding new methods here make sure to use $self in the
+    //       parameter list and $counter in the method implementation.
+    ($name:ident, $self:ident, $counter:expr) => {
+        impl $name {
+            /// Return this counter's kernel-assigned unique id.
+            ///
+            /// This can be useful when iterating over [`Counts`].
+            ///
+            /// [`Counts`]: struct.Counts.html
+            pub fn id(&$self) -> u64 {
+                $counter.id
+            }
+
+            /// Allow this `Counter` to begin counting its designated event.
+            ///
+            /// This does not affect whatever value the `Counter` had previously; new
+            /// events add to the current count. To clear a `Counter`, use the
+            /// [`reset`] method.
+            ///
+            /// Note that `Group` also has an [`enable`] method, which enables all
+            /// its member `Counter`s as a single atomic operation.
+            ///
+            /// [`reset`]: #method.reset
+            /// [`enable`]: struct.Group.html#method.enable
+            pub fn enable(&mut $self) -> io::Result<()> {
+                check_errno_syscall(|| unsafe { sys::ioctls::ENABLE($counter.as_raw_fd(), 0) }).map(|_| ())
+            }
+
+            /// Make this `Counter` stop counting its designated event. Its count is
+            /// unaffected.
+            ///
+            /// Note that `Group` also has a [`disable`] method, which disables all
+            /// its member `Counter`s as a single atomic operation.
+            ///
+            /// [`disable`]: struct.Group.html#method.disable
+            pub fn disable(&mut $self) -> io::Result<()> {
+                check_errno_syscall(|| unsafe { sys::ioctls::DISABLE($counter.as_raw_fd(), 0) })
+                    .map(|_| ())
+            }
+
+            /// Reset the value of this `Counter` to zero.
+            ///
+            /// Note that `Group` also has a [`reset`] method, which resets all
+            /// its member `Counter`s as a single atomic operation.
+            ///
+            /// [`reset`]: struct.Group.html#method.reset
+            pub fn reset(&mut $self) -> io::Result<()> {
+                check_errno_syscall(|| unsafe { sys::ioctls::RESET($counter.as_raw_fd(), 0) }).map(|_| ())
+            }
+
+            /// Return this `Counter`'s current value as a `u64`.
+            ///
+            /// Consider using the [`read_count_and_time`] method instead of this one. Some
+            /// counters are implemented in hardware, and the processor can support only
+            /// a certain number running at a time. If more counters are requested than
+            /// the hardware can support, the kernel timeshares them on the hardware.
+            /// This method gives you no indication whether this has happened;
+            /// `read_count_and_time` does.
+            ///
+            /// Note that `Group` also has a [`read`] method, which reads all
+            /// its member `Counter`s' values at once.
+            ///
+            /// [`read`]: Group::read
+            /// [`read_count_and_time`]: Counter::read_count_and_time
+            pub fn read(&mut $self) -> io::Result<u64> {
+                Ok($counter.read_count_and_time()?.count)
+            }
+
+            /// Return this `Counter`'s current value and timesharing data.
+            ///
+            /// Some counters are implemented in hardware, and the processor can run
+            /// only a fixed number of them at a time. If more counters are requested
+            /// than the hardware can support, the kernel timeshares them on the
+            /// hardware.
+            ///
+            /// This method returns a [`CountAndTime`] struct, whose `count` field holds
+            /// the counter's value, and whose `time_enabled` and `time_running` fields
+            /// indicate how long you had enabled the counter, and how long the counter
+            /// was actually scheduled on the processor. This lets you detect whether
+            /// the counter was timeshared, and adjust your use accordingly. Times
+            /// are reported in nanoseconds.
+            ///
+            ///     # use perf_event::Builder;
+            ///     # fn main() -> std::io::Result<()> {
+            ///     # let mut counter = Builder::new().build()?;
+            ///     let cat = counter.read_count_and_time()?;
+            ///     if cat.time_running == 0 {
+            ///         println!("No data collected.");
+            ///     } else if cat.time_running < cat.time_enabled {
+            ///         // Note: this way of scaling is accurate, but `u128` division
+            ///         // is usually implemented in software, which may be slow.
+            ///         println!("{} instructions (estimated)",
+            ///                  (cat.count as u128 *
+            ///                   cat.time_enabled as u128 / cat.time_running as u128) as u64);
+            ///     } else {
+            ///         println!("{} instructions", cat.count);
+            ///     }
+            ///     # Ok(()) }
+            ///
+            /// Note that `Group` also has a [`read`] method, which reads all
+            /// its member `Counter`s' values at once.
+            ///
+            /// [`read`]: Group::read
+            pub fn read_count_and_time(&mut $self) -> io::Result<CountAndTime> {
+                let mut buf = [0_u64; 3];
+                $counter.file.read_exact(u64::slice_as_bytes_mut(&mut buf))?;
+
+                let cat = CountAndTime {
+                    count: buf[0],
+                    time_enabled: buf[1],
+                    time_running: buf[2],
+                };
+
+                // Does the kernel ever return nonsense?
+                assert!(cat.time_running <= cat.time_enabled);
+
+                Ok(cat)
+            }
+        }
+    };
+}
+
+counter_impl!(Counter, self, self);
+counter_impl!(Sampler, self, self.counter);
+
 impl Counter {
-    /// Return this counter's kernel-assigned unique id.
+    /// Map a buffer for samples from this counter, returning a [`Sampler`]
+    /// that can be used to access them.
     ///
-    /// This can be useful when iterating over [`Counts`].
+    /// There are some restrictions on the size of the mapped buffer. To
+    /// accomodate this `map_len` will always be rounded up to the next
+    /// power-of-two multiple of the system page size. There will always
+    /// be at least two pages allocated for the ring buffer: one for the
+    /// control data structures, and one for actual data.
     ///
-    /// [`Counts`]: struct.Counts.html
-    pub fn id(&self) -> u64 {
-        self.id
-    }
+    /// # Example
+    /// This example shows creating a sample to record mmap events within the
+    /// current process. If you do this early enough, you can then track what
+    /// libraries your process is loading.
+    /// ```
+    /// use perf_event::Builder;
+    /// use perf_event::events::Software;
+    ///
+    /// let mut sampler = Builder::new()
+    ///     .kind(Software::DUMMY)
+    ///     .mmap(true)
+    ///     .build()?
+    ///     .sampled(128)?;
+    /// # std::io::Result::Ok(())
+    /// ```
+    pub fn sampled(self, map_len: usize) -> io::Result<Sampler> {
+        let pagesize =
+            check_errno_syscall(|| unsafe { libc::sysconf(libc::_SC_PAGESIZE) })? as usize;
 
-    /// Allow this `Counter` to begin counting its designated event.
-    ///
-    /// This does not affect whatever value the `Counter` had previously; new
-    /// events add to the current count. To clear a `Counter`, use the
-    /// [`reset`] method.
-    ///
-    /// Note that `Group` also has an [`enable`] method, which enables all
-    /// its member `Counter`s as a single atomic operation.
-    ///
-    /// [`reset`]: #method.reset
-    /// [`enable`]: struct.Group.html#method.enable
-    pub fn enable(&mut self) -> io::Result<()> {
-        check_errno_syscall(|| unsafe { sys::ioctls::ENABLE(self.file.as_raw_fd(), 0) }).map(|_| ())
-    }
+        let len = pagesize
+            + map_len
+                .checked_next_power_of_two()
+                .unwrap_or((usize::MAX >> 1) + 1)
+                .max(pagesize);
 
-    /// Make this `Counter` stop counting its designated event. Its count is
-    /// unaffected.
-    ///
-    /// Note that `Group` also has a [`disable`] method, which disables all
-    /// its member `Counter`s as a single atomic operation.
-    ///
-    /// [`disable`]: struct.Group.html#method.disable
-    pub fn disable(&mut self) -> io::Result<()> {
-        check_errno_syscall(|| unsafe { sys::ioctls::DISABLE(self.file.as_raw_fd(), 0) })
-            .map(|_| ())
-    }
+        let mmap = memmap2::MmapOptions::new().len(len).map_raw(&self.file)?;
 
-    /// Reset the value of this `Counter` to zero.
-    ///
-    /// Note that `Group` also has a [`reset`] method, which resets all
-    /// its member `Counter`s as a single atomic operation.
-    ///
-    /// [`reset`]: struct.Group.html#method.reset
-    pub fn reset(&mut self) -> io::Result<()> {
-        check_errno_syscall(|| unsafe { sys::ioctls::RESET(self.file.as_raw_fd(), 0) }).map(|_| ())
-    }
-
-    /// Return this `Counter`'s current value as a `u64`.
-    ///
-    /// Consider using the [`read_count_and_time`] method instead of this one. Some
-    /// counters are implemented in hardware, and the processor can support only
-    /// a certain number running at a time. If more counters are requested than
-    /// the hardware can support, the kernel timeshares them on the hardware.
-    /// This method gives you no indication whether this has happened;
-    /// `read_count_and_time` does.
-    ///
-    /// Note that `Group` also has a [`read`] method, which reads all
-    /// its member `Counter`s' values at once.
-    ///
-    /// [`read`]: Group::read
-    /// [`read_count_and_time`]: Counter::read_count_and_time
-    pub fn read(&mut self) -> io::Result<u64> {
-        Ok(self.read_count_and_time()?.count)
-    }
-
-    /// Return this `Counter`'s current value and timesharing data.
-    ///
-    /// Some counters are implemented in hardware, and the processor can run
-    /// only a fixed number of them at a time. If more counters are requested
-    /// than the hardware can support, the kernel timeshares them on the
-    /// hardware.
-    ///
-    /// This method returns a [`CountAndTime`] struct, whose `count` field holds
-    /// the counter's value, and whose `time_enabled` and `time_running` fields
-    /// indicate how long you had enabled the counter, and how long the counter
-    /// was actually scheduled on the processor. This lets you detect whether
-    /// the counter was timeshared, and adjust your use accordingly. Times
-    /// are reported in nanoseconds.
-    ///
-    ///     # use perf_event::Builder;
-    ///     # fn main() -> std::io::Result<()> {
-    ///     # let mut counter = Builder::new().build()?;
-    ///     let cat = counter.read_count_and_time()?;
-    ///     if cat.time_running == 0 {
-    ///         println!("No data collected.");
-    ///     } else if cat.time_running < cat.time_enabled {
-    ///         // Note: this way of scaling is accurate, but `u128` division
-    ///         // is usually implemented in software, which may be slow.
-    ///         println!("{} instructions (estimated)",
-    ///                  (cat.count as u128 *
-    ///                   cat.time_enabled as u128 / cat.time_running as u128) as u64);
-    ///     } else {
-    ///         println!("{} instructions", cat.count);
-    ///     }
-    ///     # Ok(()) }
-    ///
-    /// Note that `Group` also has a [`read`] method, which reads all
-    /// its member `Counter`s' values at once.
-    ///
-    /// [`read`]: Group::read
-    pub fn read_count_and_time(&mut self) -> io::Result<CountAndTime> {
-        let mut buf = [0_u64; 3];
-        self.file.read_exact(u64::slice_as_bytes_mut(&mut buf))?;
-
-        let cat = CountAndTime {
-            count: buf[0],
-            time_enabled: buf[1],
-            time_running: buf[2],
-        };
-
-        // Does the kernel ever return nonsense?
-        assert!(cat.time_running <= cat.time_enabled);
-
-        Ok(cat)
+        Ok(Sampler::new(self, mmap))
     }
 }
 
