@@ -30,7 +30,7 @@ cd $(dirname $0)
 # names.
 #
 # As an example, the command for riscv64 would look like this:
-# 
+#
 #    gen_bindings riscv64gc riscv riscv64
 #
 # Updating the linux kernel version
@@ -97,8 +97,7 @@ function gen_bindings {
         -nostdlibinc                            \
         -isystem "$target/$arch/include"
 
-    cat                             \
-        src/bindings_header.rs      \
+    cat src/bindings_header.rs      \
         "$bindings"                 \
         > "src/bindings_$arch.rs"
 }
