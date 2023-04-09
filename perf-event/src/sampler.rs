@@ -82,7 +82,6 @@ impl Sampler {
     /// [`next_blocking`]: Self::next_blocking
     /// [man]: https://man7.org/linux/man-pages/man2/perf_event_open.2.html
     pub fn next_record(&mut self) -> Option<Record> {
-        use memoffset::raw_field;
         use std::{mem, ptr, slice};
 
         let page = self.page();
@@ -91,19 +90,14 @@ impl Sampler {
         // - page points to a valid instance of perf_event_mmap_page.
         // - data_tail is only written by the user side so it is safe to do a
         //   non-atomic read here.
-        let tail = unsafe { ptr::read(raw_field!(page, perf_event_mmap_page, data_tail)) };
+        let tail = unsafe { ptr::read(ptr::addr_of!((*page).data_tail)) };
         // ATOMICS:
         // - The acquire load here syncronizes with the release store in the
         //   kernel and ensures that all the data written to the ring buffer
         //   before data_head is visible to this thread.
         // SAFETY:
         // - page points to a valid instance of perf_event_mmap_page.
-        let head = unsafe {
-            atomic_load(
-                raw_field!(page, perf_event_mmap_page, data_head),
-                Ordering::Acquire,
-            )
-        };
+        let head = unsafe { atomic_load(ptr::addr_of!((*page).data_head), Ordering::Acquire) };
 
         if tail == head {
             return None;
@@ -113,8 +107,8 @@ impl Sampler {
         // - page points to a valid instance of perf_event_mmap_page.
         // - neither of these fields are written to except before the map is
         //   created so reading from them non-atomically is safe.
-        let data_size = unsafe { ptr::read(raw_field!(page, perf_event_mmap_page, data_size)) };
-        let data_offset = unsafe { ptr::read(raw_field!(page, perf_event_mmap_page, data_offset)) };
+        let data_size = unsafe { ptr::read(ptr::addr_of!((*page).data_size)) };
+        let data_offset = unsafe { ptr::read(ptr::addr_of!((*page).data_offset)) };
 
         let mod_tail = (tail % data_size) as usize;
         let mod_head = (head % data_size) as usize;
@@ -312,7 +306,6 @@ impl<'s> Record<'s> {
 
 impl<'s> Drop for Record<'s> {
     fn drop(&mut self) {
-        use memoffset::raw_field;
         use std::ptr;
 
         unsafe {
@@ -320,7 +313,7 @@ impl<'s> Drop for Record<'s> {
             // - page points to a valid instance of perf_event_mmap_page
             // - data_tail is only written on our side so it is safe to do a
             //   non-atomic read here.
-            let tail = ptr::read(raw_field!(self.page, perf_event_mmap_page, data_tail));
+            let tail = ptr::read(ptr::addr_of!((*self.page).data_tail));
 
             // ATOMICS:
             // - The release store here prevents the compiler from re-ordering
@@ -328,7 +321,7 @@ impl<'s> Drop for Record<'s> {
             // SAFETY:
             // - page points to a valid instance of perf_event_mmap_page
             atomic_store(
-                raw_field!(self.page, perf_event_mmap_page, data_tail),
+                ptr::addr_of!((*self.page).data_tail),
                 tail + (self.header.size as u64),
                 Ordering::Release,
             );
