@@ -448,7 +448,7 @@ mod bitflags {
         /// [manpage] for documentation on what they mean.
         ///
         /// [manpage]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
-        #[derive(Default)]
+        #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default)]
         pub struct Sample : u64 {
             const IP = bindings::PERF_SAMPLE_IP as _;
             const TID = bindings::PERF_SAMPLE_TID as _;
@@ -478,17 +478,6 @@ mod bitflags {
             const DATA_PAGE_SIZE = bindings::PERF_SAMPLE_DATA_PAGE_SIZE as _;
             const CODE_PAGE_SIZE = bindings::PERF_SAMPLE_CODE_PAGE_SIZE as _;
             const WEIGHT_STRUCT = bindings::PERF_SAMPLE_WEIGHT_STRUCT as _;
-
-            // Don't clobber unknown flags when constructing the bitflag struct.
-            #[doc(hidden)]
-            const _ALLOW_ALL_FLAGS = !0;
-        }
-    }
-
-    impl Sample {
-        /// Create a sample from the underlying bits.
-        pub const fn new(bits: u64) -> Self {
-            Self { bits }
         }
     }
 }
