@@ -1,10 +1,12 @@
 use std::borrow::Cow;
-use std::os::fd::{AsRawFd, IntoRawFd, RawFd};
+use std::io::{self, Read};
+use std::os::unix::io::{AsRawFd, IntoRawFd, RawFd};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
+use crate::counter::counter_impl;
 use crate::sys::bindings::{perf_event_header, perf_event_mmap_page};
-use crate::{check_errno_syscall, Counter};
+use crate::{check_errno_syscall, sys, CountAndTime, Counter};
 
 /// A sampled perf event.
 ///
@@ -222,6 +224,8 @@ impl Sampler {
         self.mmap.as_ptr() as *const _
     }
 }
+
+counter_impl!(Sampler, self, self.counter);
 
 impl std::convert::AsRef<Counter> for Sampler {
     fn as_ref(&self) -> &Counter {
