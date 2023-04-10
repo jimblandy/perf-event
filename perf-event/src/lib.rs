@@ -86,7 +86,7 @@ mod sampler;
 #[cfg(feature = "hooks")]
 pub mod hooks;
 
-pub use crate::bitflags::Sample;
+pub use crate::bitflags::SampleFlag;
 pub use crate::sampler::{Record, Sampler};
 
 // When the `"hooks"` feature is not enabled, call directly into
@@ -449,7 +449,7 @@ mod bitflags {
         ///
         /// [manpage]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
         #[derive(Default)]
-        pub struct Sample : u64 {
+        pub struct SampleFlag : u64 {
             const IP = bindings::PERF_SAMPLE_IP;
             const TID = bindings::PERF_SAMPLE_TID;
             const TIME = bindings::PERF_SAMPLE_TIME;
@@ -485,7 +485,7 @@ mod bitflags {
         }
     }
 
-    impl Sample {
+    impl SampleFlag {
         /// Create a sample from the underlying bits.
         pub const fn new(bits: u64) -> Self {
             Self { bits }
@@ -746,18 +746,18 @@ impl<'a> Builder<'a> {
     /// thread ID, and timestamp whenever the underlying event triggers a
     /// sampling.
     /// ```
-    /// # use perf_event::{Builder, Sample};
+    /// # use perf_event::{Builder, SampleFlag};
     /// let mut sampler = Builder::new()
-    ///     .sample(Sample::IP)
-    ///     .sample(Sample::TID)
-    ///     .sample(Sample::TIME)
+    ///     .sample(SampleFlag::IP)
+    ///     .sample(SampleFlag::TID)
+    ///     .sample(SampleFlag::TIME)
     ///     .build()?
     ///     .sampled(8192)?;
     /// # Ok::<_, std::io::Error>(())
     /// ```
     ///
     /// [manpage]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
-    pub fn sample(mut self, sample: Sample) -> Self {
+    pub fn sample(mut self, sample: SampleFlag) -> Self {
         self.attrs.sample_type |= sample.bits();
         self
     }
