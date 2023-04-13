@@ -11,9 +11,8 @@ fn main() -> std::io::Result<()> {
         .parse()
         .expect("Usage: insns-for-pid PID");
 
-    let mut insns = Builder::new()
+    let mut insns = Builder::new(Hardware::BRANCH_INSTRUCTIONS)
         .observe_pid(pid)
-        .kind(Hardware::BRANCH_INSTRUCTIONS)
         .build()?;
 
     // Count instructions in PID for five seconds.

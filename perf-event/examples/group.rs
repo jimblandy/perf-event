@@ -13,15 +13,13 @@ fn main() -> std::io::Result<()> {
     };
 
     let mut group = Group::new()?;
-    let access_counter = Builder::new().group(&mut group).kind(ACCESS).build()?;
-    let miss_counter = Builder::new().group(&mut group).kind(MISS).build()?;
-    let branches = Builder::new()
+    let access_counter = Builder::new(ACCESS).group(&mut group).build()?;
+    let miss_counter = Builder::new(MISS).group(&mut group).build()?;
+    let branches = Builder::new(Hardware::BRANCH_INSTRUCTIONS)
         .group(&mut group)
-        .kind(Hardware::BRANCH_INSTRUCTIONS)
         .build()?;
-    let missed_branches = Builder::new()
+    let missed_branches = Builder::new(Hardware::BRANCH_MISSES)
         .group(&mut group)
-        .kind(Hardware::BRANCH_MISSES)
         .build()?;
 
     // Note that if you add more counters than you actually have hardware for,

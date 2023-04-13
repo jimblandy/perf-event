@@ -22,27 +22,29 @@ use crate::{check_errno_syscall, sys, Counter};
 /// For example, the following program computes the average number of cycles
 /// used per instruction retired for a call to `println!`:
 ///
-///     # fn main() -> std::io::Result<()> {
-///     use perf_event::{Builder, Group};
-///     use perf_event::events::Hardware;
+/// ```
+/// # fn main() -> std::io::Result<()> {
+/// use perf_event::{Builder, Group};
+/// use perf_event::events::Hardware;
 ///
-///     let mut group = Group::new()?;
-///     let cycles = Builder::new().group(&mut group).kind(Hardware::CPU_CYCLES).build()?;
-///     let insns = Builder::new().group(&mut group).kind(Hardware::INSTRUCTIONS).build()?;
+/// let mut group = Group::new()?;
+/// let cycles = Builder::new(Hardware::CPU_CYCLES).group(&mut group).build()?;
+/// let insns = Builder::new(Hardware::INSTRUCTIONS).group(&mut group).build()?;
 ///
-///     let vec = (0..=51).collect::<Vec<_>>();
+/// let vec = (0..=51).collect::<Vec<_>>();
 ///
-///     group.enable()?;
-///     println!("{:?}", vec);
-///     group.disable()?;
+/// group.enable()?;
+/// println!("{:?}", vec);
+/// group.disable()?;
 ///
-///     let counts = group.read()?;
-///     println!("cycles / instructions: {} / {} ({:.2} cpi)",
-///              counts[&cycles],
-///              counts[&insns],
-///              (counts[&cycles] as f64 / counts[&insns] as f64));
-///     # Ok(()) }
-///
+/// let counts = group.read()?;
+/// println!("cycles / instructions: {} / {} ({:.2} cpi)",
+///          counts[&cycles],
+///          counts[&insns],
+///          (counts[&cycles] as f64 / counts[&insns] as f64));
+/// # Ok(())
+/// # }
+/// ```
 /// The lifetimes of `Counter`s and `Group`s are independent: placing a
 /// `Counter` in a `Group` does not take ownership of the `Counter`, nor must
 /// the `Counter`s in a group outlive the `Group`. If a `Counter` is dropped, it
@@ -277,27 +279,33 @@ impl IntoRawFd for Group {
 /// This is the type returned by calling [`read`] on a [`Group`].
 /// You can index it with a reference to a specific `Counter`:
 ///
-///     # fn main() -> std::io::Result<()> {
-///     # use perf_event::{Builder, Group};
-///     # let mut group = Group::new()?;
-///     # let cycles = Builder::new().group(&mut group).build()?;
-///     # let insns = Builder::new().group(&mut group).build()?;
-///     let counts = group.read()?;
-///     println!("cycles / instructions: {} / {} ({:.2} cpi)",
-///              counts[&cycles],
-///              counts[&insns],
-///              (counts[&cycles] as f64 / counts[&insns] as f64));
-///     # Ok(()) }
+/// ```
+/// # fn main() -> std::io::Result<()> {
+/// # use perf_event::{Builder, Group};
+/// # use perf_event::events::Software;
+/// # let mut group = Group::new()?;
+/// # let cycles = Builder::new(Software::DUMMY).group(&mut group).build()?;
+/// # let insns = Builder::new(Software::DUMMY).group(&mut group).build()?;
+/// let counts = group.read()?;
+/// println!("cycles / instructions: {} / {} ({:.2} cpi)",
+///          counts[&cycles],
+///          counts[&insns],
+///          (counts[&cycles] as f64 / counts[&insns] as f64));
+/// # Ok(()) }
+/// ```
 ///
 /// Or you can iterate over the results it contains:
 ///
-///     # fn main() -> std::io::Result<()> {
-///     # use perf_event::Group;
-///     # let counts = Group::new()?.read()?;
-///     for (id, value) in &counts {
-///         println!("Counter id {} has value {}", id, value);
-///     }
-///     # Ok(()) }
+/// ```
+/// # fn main() -> std::io::Result<()> {
+/// # use perf_event::Group;
+/// # let counts = Group::new()?.read()?;
+/// for (id, value) in &counts {
+///     println!("Counter id {} has value {}", id, value);
+/// }
+/// # Ok(())
+/// # }
+/// ```
 ///
 /// The `id` values produced by this iteration are internal identifiers assigned
 /// by the kernel. You can use the [`Counter::id`] method to find a
@@ -308,23 +316,27 @@ impl IntoRawFd for Group {
 /// was actually running versus the entire time it was enabled using the
 /// `time_enabled` and `time_running` methods:
 ///
-///     # fn main() -> std::io::Result<()> {
-///     # use perf_event::{Builder, Group};
-///     # let mut group = Group::new()?;
-///     # let insns = Builder::new().group(&mut group).build()?;
-///     # let counts = group.read()?;
-///     let scale = counts.time_enabled() as f64 /
-///                 counts.time_running() as f64;
-///     for (id, value) in &counts {
-///         print!("Counter id {} has value {}",
-///                id, (*value as f64 * scale) as u64);
-///         if scale > 1.0 {
-///             print!(" (estimated)");
-///         }
-///         println!();
+/// ```
+/// # fn main() -> std::io::Result<()> {
+/// # use perf_event::{Builder, Group};
+/// # use perf_event::events::Software;
+/// # let mut group = Group::new()?;
+/// # let insns = Builder::new(Software::DUMMY).group(&mut group).build()?;
+/// # let counts = group.read()?;
+/// let scale = counts.time_enabled() as f64 /
+///             counts.time_running() as f64;
+/// for (id, value) in &counts {
+///     print!("Counter id {} has value {}",
+///            id, (*value as f64 * scale) as u64);
+///     if scale > 1.0 {
+///         print!(" (estimated)");
 ///     }
+///     println!();
+/// }
 ///
-///     # Ok(()) }
+/// # Ok(())
+/// # }
+/// ```
 ///
 /// [`read`]: Group::read
 pub struct Counts {
@@ -411,13 +423,16 @@ impl Counts {
     ///
     /// If you know that `member` is in the group, you can simply index:
     ///
-    ///     # fn main() -> std::io::Result<()> {
-    ///     # use perf_event::{Builder, Group};
-    ///     # let mut group = Group::new()?;
-    ///     # let cycle_counter = Builder::new().group(&mut group).build()?;
-    ///     # let counts = group.read()?;
-    ///     let cycles = counts[&cycle_counter];
-    ///     # Ok(()) }
+    /// ```
+    /// # fn main() -> std::io::Result<()> {
+    /// # use perf_event::{Builder, Group};
+    /// # use perf_event::events::Software;
+    /// # let mut group = Group::new()?;
+    /// # let cycle_counter = Builder::new(Software::DUMMY).group(&mut group).build()?;
+    /// # let counts = group.read()?;
+    /// let cycles = counts[&cycle_counter];
+    /// # Ok(()) }
+    /// ```
     pub fn get(&self, member: &Counter) -> Option<&u64> {
         self.into_iter()
             .find(|&(id, _)| id == member.id)
@@ -426,14 +441,17 @@ impl Counts {
 
     /// Return an iterator over the counts in `self`.
     ///
-    ///     # fn main() -> std::io::Result<()> {
-    ///     # use perf_event::Group;
-    ///     # let counts = Group::new()?.read()?;
-    ///     for (id, value) in &counts {
-    ///         println!("Counter id {} has value {}", id, value);
-    ///     }
-    ///     # Ok(()) }
-    ///
+    /// ```
+    /// # fn main() -> std::io::Result<()> {
+    /// # use perf_event::Group;
+    /// # use perf_event::events::Software;
+    /// # let counts = Group::new()?.read()?;
+    /// for (id, value) in &counts {
+    ///     println!("Counter id {} has value {}", id, value);
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
     /// Each item is a pair `(id, &value)`, where `id` is the number assigned to
     /// the counter by the kernel (see `Counter::id`), and `value` is that
     /// counter's value.

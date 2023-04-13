@@ -30,8 +30,7 @@ fn record_executable_mmap() {
         .expect("Unable to get page size")
         .expect("No page size returned") as usize;
 
-    let mut sampler = Builder::new()
-        .kind(Software::DUMMY)
+    let mut sampler = Builder::new(Software::DUMMY)
         .mmap(true)
         .build()
         .expect("Failed to build counter")

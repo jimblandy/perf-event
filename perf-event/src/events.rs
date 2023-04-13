@@ -35,65 +35,18 @@
 use bitflags::bitflags;
 use perf_event_open_sys::bindings;
 
-/// Any sort of event. This is a sum of the [`Hardware`],
-/// [`Software`], and [`Cache`] types, which all implement
-/// `Into<Event>`.
-///
-/// [`Hardware`]: enum.Hardware.html
-/// [`Software`]: enum.Software.html
-/// [`Cache`]: struct.Cache.html
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum Event {
-    #[allow(missing_docs)]
-    Hardware(Hardware),
-
-    #[allow(missing_docs)]
-    Software(Software),
-
-    #[allow(missing_docs)]
-    Cache(Cache),
-
-    #[allow(missing_docs)]
-    Breakpoint(Breakpoint),
-}
-
-impl Event {
-    pub(crate) fn update_attrs(self, attr: &mut bindings::perf_event_attr) {
-        match self {
-            Event::Hardware(hw) => {
-                attr.type_ = bindings::PERF_TYPE_HARDWARE;
-                attr.config = hw as _;
-            }
-            Event::Software(sw) => {
-                attr.type_ = bindings::PERF_TYPE_SOFTWARE;
-                attr.config = sw as _;
-            }
-            Event::Cache(cache) => {
-                attr.type_ = bindings::PERF_TYPE_HW_CACHE;
-                attr.config = cache.as_config();
-            }
-            Event::Breakpoint(bp) => {
-                attr.type_ = bindings::PERF_TYPE_BREAKPOINT;
-                // Clear config in case it was set by a previous call to update_attrs
-                attr.config = 0;
-
-                match bp {
-                    Breakpoint::Data { access, addr, len } => {
-                        attr.bp_type = access.bits();
-                        attr.__bindgen_anon_3.bp_addr = addr;
-                        attr.__bindgen_anon_4.bp_len = len;
-                    }
-                    Breakpoint::Code { addr } => {
-                        attr.bp_type = bindings::HW_BREAKPOINT_X;
-                        attr.__bindgen_anon_3.bp_addr = addr;
-                        // According to the perf_event_open man page, execute breakpoints
-                        // should set len to sizeof(long).
-                        attr.__bindgen_anon_4.bp_len = std::mem::size_of::<libc::c_long>() as _;
-                    }
-                }
-            }
-        }
-    }
+/// An event that we can monitor or count.
+pub trait Event {
+    /// Update the [`perf_event_attr`] struct so that it will record the
+    /// requested event.
+    ///
+    /// The field that need to be set in order to configure the kernel to
+    /// collect various events can vary by quite a bit so this crate avoids
+    /// putting any restrictions here by just passing the whole
+    /// [`perf_event_attr`] struct.
+    ///
+    /// [`perf_event_attr`]: bindings::perf_event_attr
+    fn update_attrs(self, attr: &mut bindings::perf_event_attr);
 }
 
 /// Hardware counters.
@@ -142,9 +95,10 @@ pub enum Hardware {
     REF_CPU_CYCLES = bindings::PERF_COUNT_HW_REF_CPU_CYCLES,
 }
 
-impl From<Hardware> for Event {
-    fn from(hw: Hardware) -> Event {
-        Event::Hardware(hw)
+impl Event for Hardware {
+    fn update_attrs(self, attr: &mut bindings::perf_event_attr) {
+        attr.type_ = bindings::PERF_TYPE_HARDWARE;
+        attr.config = self as _;
     }
 }
 
@@ -191,9 +145,10 @@ pub enum Software {
     DUMMY = bindings::PERF_COUNT_SW_DUMMY,
 }
 
-impl From<Software> for Event {
-    fn from(hw: Software) -> Event {
-        Event::Software(hw)
+impl Event for Software {
+    fn update_attrs(self, attr: &mut bindings::perf_event_attr) {
+        attr.type_ = bindings::PERF_TYPE_SOFTWARE;
+        attr.config = self as _;
     }
 }
 
@@ -210,25 +165,27 @@ impl From<Software> for Event {
 ///
 /// For example, to measure the L1 data cache's miss rate:
 ///
-///     # use perf_event::{Builder, Group};
-///     # use perf_event::events::{Cache, CacheOp, CacheResult, Hardware, WhichCache};
-///     # fn main() -> std::io::Result<()> {
-///     // A `Cache` value representing L1 data cache read accesses.
-///     const ACCESS: Cache = Cache {
-///         which: WhichCache::L1D,
-///         operation: CacheOp::READ,
-///         result: CacheResult::ACCESS,
-///     };
+/// ```
+/// # use perf_event::{Builder, Group};
+/// # use perf_event::events::{Cache, CacheOp, CacheResult, Hardware, WhichCache};
+/// # fn main() -> std::io::Result<()> {
+/// // A `Cache` value representing L1 data cache read accesses.
+/// const ACCESS: Cache = Cache {
+///     which: WhichCache::L1D,
+///     operation: CacheOp::READ,
+///     result: CacheResult::ACCESS,
+/// };
 ///
-///     // A `Cache` value representing L1 data cache read misses.
-///     const MISS: Cache = Cache { result: CacheResult::MISS, ..ACCESS };
+/// // A `Cache` value representing L1 data cache read misses.
+/// const MISS: Cache = Cache { result: CacheResult::MISS, ..ACCESS };
 ///
-///     // Construct a `Group` containing the two new counters, from which we
-///     // can get counts over matching periods of time.
-///     let mut group = Group::new()?;
-///     let access_counter = Builder::new().group(&mut group).kind(ACCESS).build()?;
-///     let miss_counter = Builder::new().group(&mut group).kind(MISS).build()?;
-///     # Ok(()) }
+/// // Construct a `Group` containing the two new counters, from which we
+/// // can get counts over matching periods of time.
+/// let mut group = Group::new()?;
+/// let access_counter = Builder::new(ACCESS).group(&mut group).build()?;
+/// let miss_counter = Builder::new(MISS).group(&mut group).build()?;
+/// # Ok(()) }
+/// ```
 ///
 /// [`which`]: enum.WhichCache.html
 /// [`operation`]: enum.CacheOp.html
@@ -245,15 +202,16 @@ pub struct Cache {
     pub result: CacheResult,
 }
 
-impl From<Cache> for Event {
-    fn from(hw: Cache) -> Event {
-        Event::Cache(hw)
-    }
-}
-
 impl Cache {
     fn as_config(&self) -> u64 {
         self.which as u64 | ((self.operation as u64) << 8) | ((self.result as u64) << 16)
+    }
+}
+
+impl Event for Cache {
+    fn update_attrs(self, attr: &mut bindings::perf_event_attr) {
+        attr.type_ = bindings::PERF_TYPE_HW_CACHE;
+        attr.config = self.as_config()
     }
 }
 
@@ -373,8 +331,7 @@ bitflags! {
 /// }
 ///
 /// let fnptr = do_some_things as fn() as usize;
-/// let mut counter = Builder::new()
-///     .kind(Breakpoint::execute(fnptr as u64))
+/// let mut counter = Builder::new(Breakpoint::execute(fnptr as u64))
 ///     .build()?;
 /// counter.enable()?;
 ///
@@ -384,7 +341,7 @@ bitflags! {
 ///
 /// counter.disable()?;
 /// assert_eq!(counter.read()?, 500);
-/// # Ok::<(), std::io::Error>(())
+/// # std::io::Result::Ok(())
 /// ```
 ///
 /// # Data Breakpoint
@@ -396,15 +353,14 @@ bitflags! {
 /// #
 /// let mut data: Vec<u64> = (0..1024).rev().collect();
 ///
-/// let mut counter = Builder::new()
-///     .kind(Breakpoint::read_write(&data[20] as *const _ as usize as u64, 8))
-///     .build()?;
+/// let breakpoint = Breakpoint::read_write(&data[20] as *const _ as usize as u64, 8);
+/// let mut counter = Builder::new(breakpoint).build()?;
 /// counter.enable()?;
 /// data.sort();
 /// counter.disable()?;
 ///
 /// println!("Position 20 accessed {} times", counter.read()?);
-/// # Ok::<(), std::io::Error>(())
+/// # std::io::Result::Ok(())
 /// ```
 ///
 /// # Usage Notes
@@ -490,8 +446,24 @@ impl Breakpoint {
     }
 }
 
-impl From<Breakpoint> for Event {
-    fn from(bp: Breakpoint) -> Self {
-        Event::Breakpoint(bp)
+impl Event for Breakpoint {
+    fn update_attrs(self, attr: &mut bindings::perf_event_attr) {
+        attr.type_ = bindings::PERF_TYPE_BREAKPOINT;
+        attr.config = 0;
+
+        match self {
+            Self::Data { access, addr, len } => {
+                attr.bp_type = access.bits();
+                attr.__bindgen_anon_3.bp_addr = addr;
+                attr.__bindgen_anon_4.bp_len = len;
+            }
+            Self::Code { addr } => {
+                attr.bp_type = bindings::HW_BREAKPOINT_X;
+                attr.__bindgen_anon_3.bp_addr = addr;
+                // According to the perf_event_open man page, execute breakpoints
+                // should set len to sizeof(long).
+                attr.__bindgen_anon_4.bp_len = std::mem::size_of::<libc::c_long>() as _;
+            }
+        }
     }
 }

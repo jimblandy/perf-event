@@ -3,13 +3,11 @@ fn main() -> std::io::Result<()> {
     use perf_event::{Builder, Group};
 
     let mut group = Group::new()?;
-    let cycles = Builder::new()
+    let cycles = Builder::new(Hardware::CPU_CYCLES)
         .group(&mut group)
-        .kind(Hardware::CPU_CYCLES)
         .build()?;
-    let insns = Builder::new()
+    let insns = Builder::new(Hardware::INSTRUCTIONS)
         .group(&mut group)
-        .kind(Hardware::INSTRUCTIONS)
         .build()?;
 
     let vec = (0..=51).collect::<Vec<_>>();

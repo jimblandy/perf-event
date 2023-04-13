@@ -4,7 +4,7 @@ use std::os::unix::io::{AsRawFd, FromRawFd};
 
 use libc::pid_t;
 
-use crate::events::{self, Event};
+use crate::events::Event;
 use crate::sys::bindings::perf_event_attr;
 use crate::{check_errno_syscall, sys, Counter, Group, SampleFlag};
 
@@ -20,32 +20,40 @@ use crate::{check_errno_syscall, sys, Counter, Group, SampleFlag};
 /// For example, if you want a `Counter` for instructions retired by the current
 /// process, those are `Builder`'s defaults, so you need only write:
 ///
-///     # use perf_event::Builder;
-///     # fn main() -> std::io::Result<()> {
-///     let mut insns = Builder::new().build()?;
-///     # Ok(()) }
+/// ```
+/// # use perf_event::Builder;
+/// # use perf_event::events::Hardware;
+/// #
+/// let mut insns = Builder::new(Hardware::INSTRUCTIONS).build()?;
+/// # std::io::Result::Ok(())
+/// ```
 ///
 /// The [`kind`] method lets you specify what sort of event you want to
 /// count. So if you'd rather count branch instructions:
 ///
-///     # use perf_event::Builder;
-///     # use perf_event::events::Hardware;
-///     # fn main() -> std::io::Result<()> {
-///     let mut insns = Builder::new()
-///         .kind(Hardware::BRANCH_INSTRUCTIONS)
-///         .build()?;
-///     # Ok(()) }
+/// ```
+/// # use perf_event::Builder;
+/// # use perf_event::events::Hardware;
+/// #
+/// let mut insns = Builder::new(Hardware::BRANCH_INSTRUCTIONS)
+///     .build()?;
+/// #
+/// # std::io::Result::Ok(())
+/// ```
 ///
 /// The [`group`] method lets you gather individual counters into `Group`
 /// that can be enabled or disabled atomically:
 ///
-///     # use perf_event::{Builder, Group};
-///     # use perf_event::events::Hardware;
-///     # fn main() -> std::io::Result<()> {
-///     let mut group = Group::new()?;
-///     let cycles = Builder::new().group(&mut group).kind(Hardware::CPU_CYCLES).build()?;
-///     let insns = Builder::new().group(&mut group).kind(Hardware::INSTRUCTIONS).build()?;
-///     # Ok(()) }
+/// ```
+/// # use perf_event::{Builder, Group};
+/// # use perf_event::events::Hardware;
+/// #
+/// let mut group = Group::new()?;
+/// let cycles = Builder::new(Hardware::CPU_CYCLES).group(&mut group).build()?;
+/// let insns = Builder::new(Hardware::INSTRUCTIONS).group(&mut group).build()?;
+/// #
+/// # std::io::Result::Ok(())
+/// ```
 ///
 /// Other methods let you select:
 ///
@@ -96,40 +104,32 @@ impl<'a> EventPid<'a> {
     }
 }
 
-impl<'a> Default for Builder<'a> {
-    fn default() -> Builder<'a> {
-        let mut attrs = perf_event_attr {
-            // Setting `size` accurately will not prevent the code from working
-            // on older kernels. The module comments for `perf_event_open_sys`
-            // explain why in far too much detail.
-            size: std::mem::size_of::<perf_event_attr>() as u32,
-            ..perf_event_attr::default()
-        };
+impl<'a> Builder<'a> {
+    /// Return a new `Builder`, with all parameters set to their defaults.
+    ///
+    /// Return a new `Builder` for the specified event.
+    pub fn new(event: impl Event) -> Builder<'a> {
+        let mut attrs = perf_event_attr::default();
 
+        // Do the update_attrs bit before we set any of the default state so
+        // that user code can't break configuration we really care about.
+        event.update_attrs(&mut attrs);
+
+        // Setting `size` accurately will not prevent the code from working
+        // on older kernels. The module comments for `perf_event_open_sys`
+        // explain why in far too much detail.
+        attrs.size = std::mem::size_of::<perf_event_attr>() as u32;
         attrs.set_disabled(1);
-        attrs.set_exclude_kernel(1); // don't count time in kernel
-        attrs.set_exclude_hv(1); // don't count time in hypervisor
 
-        // Request data for `time_enabled` and `time_running`.
-        attrs.read_format |= sys::bindings::PERF_FORMAT_TOTAL_TIME_ENABLED as u64
+        attrs.read_format = sys::bindings::PERF_FORMAT_TOTAL_TIME_ENABLED as u64
             | sys::bindings::PERF_FORMAT_TOTAL_TIME_RUNNING as u64;
 
-        let kind = Event::Hardware(events::Hardware::INSTRUCTIONS);
-        kind.update_attrs(&mut attrs);
-
-        Builder {
+        Self {
             attrs,
             who: EventPid::ThisProcess,
             cpu: None,
             group: None,
         }
-    }
-}
-
-impl<'a> Builder<'a> {
-    /// Return a new `Builder`, with all parameters set to their defaults.
-    pub fn new() -> Builder<'a> {
-        Builder::default()
     }
 
     /// Include kernel code.
@@ -229,41 +229,6 @@ impl<'a> Builder<'a> {
         self
     }
 
-    /// Count events of the given kind. This accepts an [`Event`] value,
-    /// or any type that can be converted to one, so you can pass [`Hardware`],
-    /// [`Software`] and [`Cache`] values directly.
-    ///
-    /// The default is to count retired instructions, or
-    /// `Hardware::INSTRUCTIONS` events.
-    ///
-    /// For example, to count level 1 data cache references and misses, pass the
-    /// appropriate `events::Cache` values:
-    ///
-    ///     # fn main() -> std::io::Result<()> {
-    ///     use perf_event::{Builder, Group};
-    ///     use perf_event::events::{Cache, CacheOp, CacheResult, WhichCache};
-    ///
-    ///     const ACCESS: Cache = Cache {
-    ///         which: WhichCache::L1D,
-    ///         operation: CacheOp::READ,
-    ///         result: CacheResult::ACCESS,
-    ///     };
-    ///     const MISS: Cache = Cache { result: CacheResult::MISS, ..ACCESS };
-    ///
-    ///     let mut group = Group::new()?;
-    ///     let access_counter = Builder::new().group(&mut group).kind(ACCESS).build()?;
-    ///     let miss_counter = Builder::new().group(&mut group).kind(MISS).build()?;
-    ///     # Ok(()) }
-    ///
-    /// [`Hardware`]: events::Hardware
-    /// [`Software`]: events::Software
-    /// [`Cache`]: events::Cache
-    pub fn kind<K: Into<Event>>(mut self, kind: K) -> Builder<'a> {
-        let kind = kind.into();
-        kind.update_attrs(&mut self.attrs);
-        self
-    }
-
     /// Place the counter in the given [`Group`]. Groups allow a set of counters
     /// to be enabled, disabled, or read as a single atomic operation, so that
     /// the counts can be usefully compared.
@@ -338,7 +303,8 @@ impl<'a> Builder<'a> {
     /// sampling.
     /// ```
     /// # use perf_event::{Builder, SampleFlag};
-    /// let mut sampler = Builder::new()
+    /// # use perf_event::events::Hardware;
+    /// let mut sampler = Builder::new(Hardware::INSTRUCTIONS)
     ///     .sample(SampleFlag::IP)
     ///     .sample(SampleFlag::TID)
     ///     .sample(SampleFlag::TIME)

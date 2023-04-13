@@ -7,29 +7,31 @@
 //! For example, to compare the number of clock cycles elapsed with the number
 //! of instructions completed during one call to `println!`:
 //!
-//!     use perf_event::{Builder, Group};
-//!     use perf_event::events::Hardware;
+//! ```
+//! use perf_event::{Builder, Group};
+//! use perf_event::events::Hardware;
 //!
-//!     fn main() -> std::io::Result<()> {
-//!         // A `Group` lets us enable and disable several counters atomically.
-//!         let mut group = Group::new()?;
-//!         let cycles = Builder::new().group(&mut group).kind(Hardware::CPU_CYCLES).build()?;
-//!         let insns = Builder::new().group(&mut group).kind(Hardware::INSTRUCTIONS).build()?;
+//! # fn main() -> std::io::Result<()> {
+//! // A `Group` lets us enable and disable several counters atomically.
+//! let mut group = Group::new()?;
+//! let cycles = Builder::new(Hardware::CPU_CYCLES).group(&mut group).build()?;
+//! let insns = Builder::new(Hardware::INSTRUCTIONS).group(&mut group).build()?;
 //!
-//!         let vec = (0..=51).collect::<Vec<_>>();
+//! let vec = (0..=51).collect::<Vec<_>>();
 //!
-//!         group.enable()?;
-//!         println!("{:?}", vec);
-//!         group.disable()?;
+//! group.enable()?;
+//! println!("{:?}", vec);
+//! group.disable()?;
 //!
-//!         let counts = group.read()?;
-//!         println!("cycles / instructions: {} / {} ({:.2} cpi)",
-//!                  counts[&cycles],
-//!                  counts[&insns],
-//!                  (counts[&cycles] as f64 / counts[&insns] as f64));
+//! let counts = group.read()?;
+//! println!("cycles / instructions: {} / {} ({:.2} cpi)",
+//!          counts[&cycles],
+//!          counts[&insns],
+//!          (counts[&cycles] as f64 / counts[&insns] as f64));
 //!
-//!         Ok(())
-//!     }
+//! Ok(())
+//! # }
+//!```
 //!
 //! This crate is built on top of the Linux [`perf_event_open`][man] system
 //! call; that documentation has the authoritative explanations of exactly what
@@ -161,7 +163,7 @@ where
 
 #[test]
 fn simple_build() {
-    Builder::new()
+    Builder::new(crate::events::Software::DUMMY)
         .build()
         .expect("Couldn't build default Counter");
 }
@@ -170,10 +172,10 @@ fn simple_build() {
 #[cfg(target_os = "linux")]
 fn test_error_code_is_correct() {
     // This configuration should always result in EINVAL
-    let builder = Builder::new()
-        // CPU_CLOCK is literally always supported so we don't have to worry
-        // about test failures when in VMs.
-        .kind(events::Software::CPU_CLOCK)
+
+    // CPU_CLOCK is literally always supported so we don't have to worry
+    // about test failures when in VMs.
+    let builder = Builder::new(events::Software::CPU_CLOCK)
         // There should _hopefully_ never be a system with this many CPUs.
         .one_cpu(i32::MAX as usize);
 

@@ -16,21 +16,21 @@ use crate::{check_errno_syscall, sys, CountAndTime, Sampler};
 /// For example, this counts the number of instructions retired (completed)
 /// during a call to `println!`.
 ///
-///     use perf_event::Builder;
+/// ```
+/// use perf_event::Builder;
+/// use perf_event::events::Hardware;
 ///
-///     fn main() -> std::io::Result<()> {
-///         let mut counter = Builder::new().build()?;
+/// let mut counter = Builder::new(Hardware::INSTRUCTIONS).build()?;
 ///
-///         let vec = (0..=51).collect::<Vec<_>>();
+/// let vec = (0..=51).collect::<Vec<_>>();
 ///
-///         counter.enable()?;
-///         println!("{:?}", vec);
-///         counter.disable()?;
+/// counter.enable()?;
+/// println!("{:?}", vec);
+/// counter.disable()?;
 ///
-///         println!("{} instructions retired", counter.read()?);
-///
-///         Ok(())
-///     }
+/// println!("{} instructions retired", counter.read()?);
+/// # std::io::Result::Ok(())
+/// ```
 ///
 /// It is often useful to count several different quantities over the same
 /// period of time. For example, if you want to measure the average number of
@@ -74,8 +74,7 @@ impl Counter {
     /// use perf_event::Builder;
     /// use perf_event::events::Software;
     ///
-    /// let mut sampler = Builder::new()
-    ///     .kind(Software::DUMMY)
+    /// let mut sampler = Builder::new(Software::DUMMY)
     ///     .mmap(true)
     ///     .build()?
     ///     .sampled(128)?;
@@ -180,22 +179,25 @@ macro_rules! counter_impl {
             /// the counter was timeshared, and adjust your use accordingly. Times
             /// are reported in nanoseconds.
             ///
-            ///     # use perf_event::Builder;
-            ///     # fn main() -> std::io::Result<()> {
-            ///     # let mut counter = Builder::new().build()?;
-            ///     let cat = counter.read_count_and_time()?;
-            ///     if cat.time_running == 0 {
-            ///         println!("No data collected.");
-            ///     } else if cat.time_running < cat.time_enabled {
-            ///         // Note: this way of scaling is accurate, but `u128` division
-            ///         // is usually implemented in software, which may be slow.
-            ///         println!("{} instructions (estimated)",
-            ///                  (cat.count as u128 *
-            ///                   cat.time_enabled as u128 / cat.time_running as u128) as u64);
-            ///     } else {
-            ///         println!("{} instructions", cat.count);
-            ///     }
-            ///     # Ok(()) }
+            /// ```
+            /// # use perf_event::Builder;
+            /// # use perf_event::events::Software;
+            /// #
+            /// # let mut counter = Builder::new(Software::DUMMY).build()?;
+            /// let cat = counter.read_count_and_time()?;
+            /// if cat.time_running == 0 {
+            ///     println!("No data collected.");
+            /// } else if cat.time_running < cat.time_enabled {
+            ///     // Note: this way of scaling is accurate, but `u128` division
+            ///     // is usually implemented in software, which may be slow.
+            ///     println!("{} instructions (estimated)",
+            ///              (cat.count as u128 *
+            ///               cat.time_enabled as u128 / cat.time_running as u128) as u64);
+            /// } else {
+            ///     println!("{} instructions", cat.count);
+            /// }
+            /// # std::io::Result::Ok(())
+            /// ```
             ///
             /// Note that `Group` also has a [`read`] method, which reads all
             /// its member `Counter`s' values at once.
