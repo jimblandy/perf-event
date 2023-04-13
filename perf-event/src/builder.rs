@@ -58,13 +58,14 @@ use crate::{check_errno_syscall, sys, Counter, SampleFlag};
 /// [`enable`]: Counter::enable
 /// [`Group`]: crate::Group
 /// [`Group::add`]: crate::Group::add
+#[derive(Clone, Debug)]
 pub struct Builder<'a> {
     attrs: perf_event_attr,
     who: EventPid<'a>,
     cpu: Option<usize>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 enum EventPid<'a> {
     /// Monitor the calling process.
     ThisProcess,
@@ -119,19 +120,19 @@ impl<'a> Builder<'a> {
     }
 
     /// Include kernel code.
-    pub fn include_kernel(mut self) -> Self {
+    pub fn include_kernel(&mut self) -> &mut Self {
         self.attrs.set_exclude_kernel(0);
         self
     }
 
     /// Include hypervisor code.
-    pub fn include_hv(mut self) -> Self {
+    pub fn include_hv(&mut self) -> &mut Self {
         self.attrs.set_exclude_hv(0);
         self
     }
 
     /// Observe the calling process. (This is the default.)
-    pub fn observe_self(mut self) -> Self {
+    pub fn observe_self(&mut self) -> &mut Self {
         self.who = EventPid::ThisProcess;
         self
     }
@@ -140,7 +141,7 @@ impl<'a> Builder<'a> {
     /// [`CAP_SYS_PTRACE`][man-capabilities] capabilities.
     ///
     /// [man-capabilities]: http://man7.org/linux/man-pages/man7/capabilities.7.html
-    pub fn observe_pid(mut self, pid: pid_t) -> Self {
+    pub fn observe_pid(&mut self, pid: pid_t) -> &mut Self {
         self.who = EventPid::Other(pid);
         self
     }
@@ -160,7 +161,7 @@ impl<'a> Builder<'a> {
     /// [`build`]: Builder::build
     /// [`one_cpu`]: Builder::one_cpu
     /// [cap]: http://man7.org/linux/man-pages/man7/capabilities.7.html
-    pub fn any_pid(mut self) -> Self {
+    pub fn any_pid(&mut self) -> &mut Self {
         self.who = EventPid::Any;
         self
     }
@@ -170,13 +171,13 @@ impl<'a> Builder<'a> {
     /// in the cgroupfs filesystem.
     ///
     /// [man-cgroups]: http://man7.org/linux/man-pages/man7/cgroups.7.html
-    pub fn observe_cgroup(mut self, cgroup: &'a File) -> Self {
+    pub fn observe_cgroup(&mut self, cgroup: &'a File) -> &mut Self {
         self.who = EventPid::CGroup(cgroup);
         self
     }
 
     /// Observe only code running on the given CPU core.
-    pub fn one_cpu(mut self, cpu: usize) -> Self {
+    pub fn one_cpu(&mut self, cpu: usize) -> &mut Self {
         self.cpu = Some(cpu);
         self
     }
@@ -193,7 +194,7 @@ impl<'a> Builder<'a> {
     /// [`observe_self`]: Builder::observe_self
     /// [`observe_pid`]: Builder::observe_pid
     /// [`observe_cgroup`]: Builder::observe_cgroup
-    pub fn any_cpu(mut self) -> Self {
+    pub fn any_cpu(&mut self) -> &mut Self {
         self.cpu = None;
         self
     }
@@ -209,7 +210,7 @@ impl<'a> Builder<'a> {
     /// This flag cannot be set if the counter belongs to a `Group`. Doing so
     /// will result in an error when the counter is built. This is a kernel
     /// limitation.
-    pub fn inherit(mut self, inherit: bool) -> Self {
+    pub fn inherit(&mut self, inherit: bool) -> &mut Self {
         let flag = if inherit { 1 } else { 0 };
         self.attrs.set_inherit(flag);
         self
@@ -290,7 +291,7 @@ impl<'a> Builder<'a> {
     ///
     /// [`SampleFlag`]: crate::SampleFlag
     /// [manpage]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
-    pub fn sample(mut self, sample: SampleFlag) -> Self {
+    pub fn sample(&mut self, sample: SampleFlag) -> &mut Self {
         self.attrs.sample_type |= sample.bits();
         self
     }
@@ -299,7 +300,7 @@ impl<'a> Builder<'a> {
     ///
     /// MMAP records are emitted when the process/thread that is being
     /// observed creates a new executable memory mapping.
-    pub fn mmap(mut self, mmap: bool) -> Self {
+    pub fn mmap(&mut self, mmap: bool) -> &mut Self {
         self.attrs.set_mmap(mmap.into());
         self
     }
@@ -311,7 +312,7 @@ impl<'a> Builder<'a> {
     /// configured.
     ///
     /// [`wakeup_events`]: Self::wakeup_events
-    pub fn wakeup_watermark(mut self, watermark: usize) -> Self {
+    pub fn wakeup_watermark(&mut self, watermark: usize) -> &mut Self {
         self.attrs.set_watermark(1);
         self.attrs.__bindgen_anon_2.wakeup_watermark = watermark as _;
         self
@@ -327,7 +328,7 @@ impl<'a> Builder<'a> {
     ///
     /// [manpage]: https://man7.org/linux/man-pages/man2/perf_event_open.2.html
     /// [`wakeup_watermark`]: Self::wakeup_watermark
-    pub fn wakeup_events(mut self, events: usize) -> Self {
+    pub fn wakeup_events(&mut self, events: usize) -> &mut Self {
         self.attrs.set_watermark(0);
         self.attrs.__bindgen_anon_2.wakeup_events = events as _;
         self

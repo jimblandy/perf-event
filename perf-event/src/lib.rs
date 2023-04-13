@@ -177,7 +177,8 @@ fn test_error_code_is_correct() {
     // about test failures when in VMs.
     let builder = Builder::new(events::Software::CPU_CLOCK)
         // There should _hopefully_ never be a system with this many CPUs.
-        .one_cpu(i32::MAX as usize);
+        .one_cpu(i32::MAX as usize)
+        .clone();
 
     match builder.build() {
         Ok(_) => panic!("counter construction was not supposed to succeed"),
