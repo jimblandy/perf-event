@@ -14,8 +14,8 @@
 //! # fn main() -> std::io::Result<()> {
 //! // A `Group` lets us enable and disable several counters atomically.
 //! let mut group = Group::new()?;
-//! let cycles = Builder::new(Hardware::CPU_CYCLES).group(&mut group).build()?;
-//! let insns = Builder::new(Hardware::INSTRUCTIONS).group(&mut group).build()?;
+//! let cycles = group.add(&Builder::new(Hardware::CPU_CYCLES))?;
+//! let insns = group.add(&Builder::new(Hardware::INSTRUCTIONS))?;
 //!
 //! let vec = (0..=51).collect::<Vec<_>>();
 //!

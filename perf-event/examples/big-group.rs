@@ -13,20 +13,12 @@ fn main() -> std::io::Result<()> {
     };
 
     let mut group = Group::new()?;
-    let access_counter = Builder::new(ACCESS).group(&mut group).build()?;
-    let miss_counter = Builder::new(MISS).group(&mut group).build()?;
-    let branches = Builder::new(Hardware::BRANCH_INSTRUCTIONS)
-        .group(&mut group)
-        .build()?;
-    let missed_branches = Builder::new(Hardware::BRANCH_MISSES)
-        .group(&mut group)
-        .build()?;
-    let insns = Builder::new(Hardware::INSTRUCTIONS)
-        .group(&mut group)
-        .build()?;
-    let cycles = Builder::new(Hardware::CPU_CYCLES)
-        .group(&mut group)
-        .build()?;
+    let access_counter = group.add(&Builder::new(ACCESS))?;
+    let miss_counter = group.add(&Builder::new(MISS))?;
+    let branches = group.add(&Builder::new(Hardware::BRANCH_INSTRUCTIONS))?;
+    let missed_branches = group.add(&Builder::new(Hardware::BRANCH_MISSES))?;
+    let insns = group.add(&Builder::new(Hardware::INSTRUCTIONS))?;
+    let cycles = group.add(&Builder::new(Hardware::CPU_CYCLES))?;
 
     // Note that if you add more counters than you actually have hardware for,
     // the kernel will time-slice them, which means you may get no coverage for

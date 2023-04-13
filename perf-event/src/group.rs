@@ -4,7 +4,7 @@ use std::io::{self, Read};
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 
 use crate::sys::bindings::perf_event_attr;
-use crate::{check_errno_syscall, sys, Counter};
+use crate::{check_errno_syscall, sys, Builder, Counter};
 
 /// A group of counters that can be managed as a unit.
 ///
@@ -14,22 +14,21 @@ use crate::{check_errno_syscall, sys, Counter};
 /// operations are only meaningful on counters that cover exactly the same
 /// period of execution.
 ///
-/// A `Counter` is placed in a group when it is created, by calling the
-/// `Builder`'s [`group`] method. A `Group`'s [`read`] method returns values
-/// of all its member counters at once as a [`Counts`] value, which can be
-/// indexed by `Counter` to retrieve a specific value.
+/// A `Counter` is placed in a group when it is created via the [`Group::add`]
+/// method. A `Group`'s [`read`] method returns values of all its member
+/// counters at once as a [`Counts`] value, which can be indexed by `Counter`
+/// to retrieve a specific value.
 ///
 /// For example, the following program computes the average number of cycles
 /// used per instruction retired for a call to `println!`:
 ///
 /// ```
-/// # fn main() -> std::io::Result<()> {
 /// use perf_event::{Builder, Group};
 /// use perf_event::events::Hardware;
 ///
 /// let mut group = Group::new()?;
-/// let cycles = Builder::new(Hardware::CPU_CYCLES).group(&mut group).build()?;
-/// let insns = Builder::new(Hardware::INSTRUCTIONS).group(&mut group).build()?;
+/// let cycles = group.add(&Builder::new(Hardware::CPU_CYCLES))?;
+/// let insns = group.add(&Builder::new(Hardware::INSTRUCTIONS))?;
 ///
 /// let vec = (0..=51).collect::<Vec<_>>();
 ///
@@ -42,8 +41,7 @@ use crate::{check_errno_syscall, sys, Counter};
 ///          counts[&cycles],
 ///          counts[&insns],
 ///          (counts[&cycles] as f64 / counts[&insns] as f64));
-/// # Ok(())
-/// # }
+/// # std::io::Result::Ok(())
 /// ```
 /// The lifetimes of `Counter`s and `Group`s are independent: placing a
 /// `Counter` in a `Group` does not take ownership of the `Counter`, nor must
@@ -167,6 +165,27 @@ impl Group {
         })
     }
 
+    /// Construct a new counter as a part of this group.
+    ///
+    /// # Example
+    /// ```
+    /// use perf_event::{Builder, Group};
+    /// use perf_event::events::Hardware;
+    ///
+    /// let mut group = Group::new()?;
+    /// let counter = group.add(
+    ///     &Builder::new(Hardware::INSTRUCTIONS)
+    ///         .any_cpu()
+    /// );
+    /// #
+    /// # std::io::Result::Ok(())
+    /// ```
+    pub fn add(&mut self, builder: &Builder) -> io::Result<Counter> {
+        let counter = builder.build_with_group(Some(self.as_raw_fd()))?;
+        self.max_members += 1;
+        Ok(counter)
+    }
+
     /// Allow all `Counter`s in this `Group` to begin counting their designated
     /// events, as a single atomic operation.
     ///
@@ -280,18 +299,18 @@ impl IntoRawFd for Group {
 /// You can index it with a reference to a specific `Counter`:
 ///
 /// ```
-/// # fn main() -> std::io::Result<()> {
-/// # use perf_event::{Builder, Group};
-/// # use perf_event::events::Software;
-/// # let mut group = Group::new()?;
-/// # let cycles = Builder::new(Software::DUMMY).group(&mut group).build()?;
-/// # let insns = Builder::new(Software::DUMMY).group(&mut group).build()?;
+/// use perf_event::{Builder, Group};
+/// use perf_event::events::Hardware;
+///
+/// let mut group = Group::new()?;
+/// let cycles = group.add(&Builder::new(Hardware::CPU_CYCLES))?;
+/// let insns = group.add(&Builder::new(Hardware::INSTRUCTIONS))?;
 /// let counts = group.read()?;
 /// println!("cycles / instructions: {} / {} ({:.2} cpi)",
 ///          counts[&cycles],
 ///          counts[&insns],
 ///          (counts[&cycles] as f64 / counts[&insns] as f64));
-/// # Ok(()) }
+/// # std::io::Result::Ok(())
 /// ```
 ///
 /// Or you can iterate over the results it contains:
@@ -321,7 +340,7 @@ impl IntoRawFd for Group {
 /// # use perf_event::{Builder, Group};
 /// # use perf_event::events::Software;
 /// # let mut group = Group::new()?;
-/// # let insns = Builder::new(Software::DUMMY).group(&mut group).build()?;
+/// # let insns = group.add(&Builder::new(Software::DUMMY))?;
 /// # let counts = group.read()?;
 /// let scale = counts.time_enabled() as f64 /
 ///             counts.time_running() as f64;
@@ -424,14 +443,14 @@ impl Counts {
     /// If you know that `member` is in the group, you can simply index:
     ///
     /// ```
-    /// # fn main() -> std::io::Result<()> {
-    /// # use perf_event::{Builder, Group};
-    /// # use perf_event::events::Software;
-    /// # let mut group = Group::new()?;
-    /// # let cycle_counter = Builder::new(Software::DUMMY).group(&mut group).build()?;
-    /// # let counts = group.read()?;
+    /// use perf_event::{Builder, Group};
+    /// use perf_event::events::Hardware;
+    ///
+    /// let mut group = Group::new()?;
+    /// let cycle_counter = group.add(&Builder::new(Hardware::CPU_CYCLES))?;
+    /// let counts = group.read()?;
     /// let cycles = counts[&cycle_counter];
-    /// # Ok(()) }
+    /// # std::io::Result::Ok(())
     /// ```
     pub fn get(&self, member: &Counter) -> Option<&u64> {
         self.into_iter()

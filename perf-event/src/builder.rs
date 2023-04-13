@@ -1,12 +1,12 @@
 use std::fs::File;
 use std::os::raw::{c_int, c_ulong};
-use std::os::unix::io::{AsRawFd, FromRawFd};
+use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
 
 use libc::pid_t;
 
 use crate::events::Event;
 use crate::sys::bindings::perf_event_attr;
-use crate::{check_errno_syscall, sys, Counter, Group, SampleFlag};
+use crate::{check_errno_syscall, sys, Counter, SampleFlag};
 
 /// A builder for [`Counter`]s.
 ///
@@ -28,29 +28,17 @@ use crate::{check_errno_syscall, sys, Counter, Group, SampleFlag};
 /// # std::io::Result::Ok(())
 /// ```
 ///
-/// The [`kind`] method lets you specify what sort of event you want to
-/// count. So if you'd rather count branch instructions:
-///
-/// ```
-/// # use perf_event::Builder;
-/// # use perf_event::events::Hardware;
-/// #
-/// let mut insns = Builder::new(Hardware::BRANCH_INSTRUCTIONS)
-///     .build()?;
-/// #
-/// # std::io::Result::Ok(())
-/// ```
-///
-/// The [`group`] method lets you gather individual counters into `Group`
-/// that can be enabled or disabled atomically:
+/// If you would like to gather individual counters into a [`Group`] you can
+/// use the [`Group::add`] method. A [`Group`] allows you to enable or disable
+/// all the grouped counters atomically.
 ///
 /// ```
 /// # use perf_event::{Builder, Group};
 /// # use perf_event::events::Hardware;
 /// #
 /// let mut group = Group::new()?;
-/// let cycles = Builder::new(Hardware::CPU_CYCLES).group(&mut group).build()?;
-/// let insns = Builder::new(Hardware::INSTRUCTIONS).group(&mut group).build()?;
+/// let cycles = group.add(&Builder::new(Hardware::CPU_CYCLES))?;
+/// let insns = group.add(&Builder::new(Hardware::INSTRUCTIONS))?;
 /// #
 /// # std::io::Result::Ok(())
 /// ```
@@ -68,13 +56,12 @@ use crate::{check_errno_syscall, sys, Counter, Group, SampleFlag};
 /// perf_event_attr` type.
 ///
 /// [`enable`]: Counter::enable
-/// [`kind`]: Builder::kind
-/// [`group`]: Builder::group
+/// [`Group`]: crate::Group
+/// [`Group::add`]: crate::Group::add
 pub struct Builder<'a> {
     attrs: perf_event_attr,
     who: EventPid<'a>,
     cpu: Option<usize>,
-    group: Option<&'a mut Group>,
 }
 
 #[derive(Debug)]
@@ -108,7 +95,7 @@ impl<'a> Builder<'a> {
     /// Return a new `Builder`, with all parameters set to their defaults.
     ///
     /// Return a new `Builder` for the specified event.
-    pub fn new(event: impl Event) -> Builder<'a> {
+    pub fn new(event: impl Event) -> Self {
         let mut attrs = perf_event_attr::default();
 
         // Do the update_attrs bit before we set any of the default state so
@@ -128,24 +115,23 @@ impl<'a> Builder<'a> {
             attrs,
             who: EventPid::ThisProcess,
             cpu: None,
-            group: None,
         }
     }
 
     /// Include kernel code.
-    pub fn include_kernel(mut self) -> Builder<'a> {
+    pub fn include_kernel(mut self) -> Self {
         self.attrs.set_exclude_kernel(0);
         self
     }
 
     /// Include hypervisor code.
-    pub fn include_hv(mut self) -> Builder<'a> {
+    pub fn include_hv(mut self) -> Self {
         self.attrs.set_exclude_hv(0);
         self
     }
 
     /// Observe the calling process. (This is the default.)
-    pub fn observe_self(mut self) -> Builder<'a> {
+    pub fn observe_self(mut self) -> Self {
         self.who = EventPid::ThisProcess;
         self
     }
@@ -154,7 +140,7 @@ impl<'a> Builder<'a> {
     /// [`CAP_SYS_PTRACE`][man-capabilities] capabilities.
     ///
     /// [man-capabilities]: http://man7.org/linux/man-pages/man7/capabilities.7.html
-    pub fn observe_pid(mut self, pid: pid_t) -> Builder<'a> {
+    pub fn observe_pid(mut self, pid: pid_t) -> Self {
         self.who = EventPid::Other(pid);
         self
     }
@@ -174,7 +160,7 @@ impl<'a> Builder<'a> {
     /// [`build`]: Builder::build
     /// [`one_cpu`]: Builder::one_cpu
     /// [cap]: http://man7.org/linux/man-pages/man7/capabilities.7.html
-    pub fn any_pid(mut self) -> Builder<'a> {
+    pub fn any_pid(mut self) -> Self {
         self.who = EventPid::Any;
         self
     }
@@ -184,13 +170,13 @@ impl<'a> Builder<'a> {
     /// in the cgroupfs filesystem.
     ///
     /// [man-cgroups]: http://man7.org/linux/man-pages/man7/cgroups.7.html
-    pub fn observe_cgroup(mut self, cgroup: &'a File) -> Builder<'a> {
+    pub fn observe_cgroup(mut self, cgroup: &'a File) -> Self {
         self.who = EventPid::CGroup(cgroup);
         self
     }
 
     /// Observe only code running on the given CPU core.
-    pub fn one_cpu(mut self, cpu: usize) -> Builder<'a> {
+    pub fn one_cpu(mut self, cpu: usize) -> Self {
         self.cpu = Some(cpu);
         self
     }
@@ -207,7 +193,7 @@ impl<'a> Builder<'a> {
     /// [`observe_self`]: Builder::observe_self
     /// [`observe_pid`]: Builder::observe_pid
     /// [`observe_cgroup`]: Builder::observe_cgroup
-    pub fn any_cpu(mut self) -> Builder<'a> {
+    pub fn any_cpu(mut self) -> Self {
         self.cpu = None;
         self
     }
@@ -223,24 +209,9 @@ impl<'a> Builder<'a> {
     /// This flag cannot be set if the counter belongs to a `Group`. Doing so
     /// will result in an error when the counter is built. This is a kernel
     /// limitation.
-    pub fn inherit(mut self, inherit: bool) -> Builder<'a> {
+    pub fn inherit(mut self, inherit: bool) -> Self {
         let flag = if inherit { 1 } else { 0 };
         self.attrs.set_inherit(flag);
-        self
-    }
-
-    /// Place the counter in the given [`Group`]. Groups allow a set of counters
-    /// to be enabled, disabled, or read as a single atomic operation, so that
-    /// the counts can be usefully compared.
-    ///
-    /// [`Group`]: struct.Group.html
-    pub fn group(mut self, group: &'a mut Group) -> Builder<'a> {
-        self.group = Some(group);
-
-        // man page: "Members of a group are usually initialized with disabled
-        // set to zero."
-        self.attrs.set_disabled(0);
-
         self
     }
 
@@ -260,23 +231,27 @@ impl<'a> Builder<'a> {
     ///
     /// [`Counter`]: struct.Counter.html
     /// [`enable`]: struct.Counter.html#method.enable
-    pub fn build(mut self) -> std::io::Result<Counter> {
+    pub fn build(&self) -> std::io::Result<Counter> {
+        self.build_with_group(None)
+    }
+
+    /// Alternative to `build` but with the group explicitly provided.
+    ///
+    /// Used within [`Group::add`].
+    pub(crate) fn build_with_group(&self, group_fd: Option<RawFd>) -> std::io::Result<Counter> {
         let cpu = match self.cpu {
             Some(cpu) => cpu as c_int,
             None => -1,
         };
+
         let (pid, flags) = self.who.as_args();
-        let group_fd = match self.group {
-            Some(ref mut g) => {
-                g.max_members += 1;
-                g.as_raw_fd()
-            }
-            None => -1,
-        };
+        let group_fd = group_fd.unwrap_or(-1);
+
+        let mut attrs = self.attrs;
 
         let file = unsafe {
             File::from_raw_fd(check_errno_syscall(|| {
-                sys::perf_event_open(&mut self.attrs, pid, cpu, group_fd, flags as c_ulong)
+                sys::perf_event_open(&mut attrs, pid, cpu, group_fd, flags as c_ulong)
             })?)
         };
 
@@ -294,8 +269,8 @@ impl<'a> Builder<'a> {
     /// Indicate additional values to include in the generated sample events.
     ///
     /// Note that this method is additive and does not remove previously added
-    /// sample types. See the documentation of [`Sample`] or the [manpage] for
-    /// what's available to be collected.
+    /// sample types. See the documentation of [`SampleFlag`] or the [manpage]
+    /// for what's available to be collected.
     ///
     /// # Example
     /// Here we build a sampler that grabs the instruction pointer, process ID,
@@ -313,6 +288,7 @@ impl<'a> Builder<'a> {
     /// # Ok::<_, std::io::Error>(())
     /// ```
     ///
+    /// [`SampleFlag`]: crate::SampleFlag
     /// [manpage]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
     pub fn sample(mut self, sample: SampleFlag) -> Self {
         self.attrs.sample_type |= sample.bits();

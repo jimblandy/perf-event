@@ -182,8 +182,8 @@ impl Event for Software {
 /// // Construct a `Group` containing the two new counters, from which we
 /// // can get counts over matching periods of time.
 /// let mut group = Group::new()?;
-/// let access_counter = Builder::new(ACCESS).group(&mut group).build()?;
-/// let miss_counter = Builder::new(MISS).group(&mut group).build()?;
+/// let access_counter = group.add(&Builder::new(ACCESS))?;
+/// let miss_counter = group.add(&Builder::new(MISS))?;
 /// # Ok(()) }
 /// ```
 ///
