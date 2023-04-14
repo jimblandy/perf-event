@@ -75,14 +75,17 @@ function gen_bindings {
     make headers_install ARCH="$linux_arch" INSTALL_HDR_PATH="$target/$arch" > /dev/null
     cd "$scriptdir"
 
+    CLANG_ARGS=(
+        -target "$clang_arch-unknown-linux-gnu"
+        -nostdlibinc
+        -isystem "$target/$arch/include"
+    )
+
     # This ensures we get errors from clang instead of bindgen panicking with
     # no useful error message.
     #
     # We don't actually use the output from here though.
-    clang                                       \
-        -target "$clang_arch-unknown-linux-gnu" \
-        -nostdlibinc                            \
-        -isystem "$target/$arch/include"        \
+    clang "${CLANG_ARGS[@]}"                    \
         -E wrapper.h                            \
         -o "$target/$arch/wrapper.i"
 
@@ -93,9 +96,7 @@ function gen_bindings {
         --output "$bindings"                    \
         wrapper.h                               \
         --                                      \
-        -target "$clang_arch-unknown-linux-gnu" \
-        -nostdlibinc                            \
-        -isystem "$target/$arch/include"
+        "${CLANG_ARGS[@]}"
 
     cat src/bindings_header.rs      \
         "$bindings"                 \
