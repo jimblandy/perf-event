@@ -1,4 +1,6 @@
+use std::fmt;
 use std::fs::File;
+use std::io::ErrorKind;
 use std::os::raw::{c_int, c_ulong};
 use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
 
@@ -128,19 +130,38 @@ impl<'a> Builder<'a> {
     /// Construct a [`Counter`] according to the specifications made on this
     /// `Builder`.
     ///
-    /// A freshly built `Counter` is disabled. To begin counting events, you
-    /// must call [`enable`] on the `Counter` or the `Group` to which it belongs.
+    /// If you are trying to add this counter to a [`Group`], use
+    /// [`Group::add`] instead.
     ///
-    /// If the `Builder` requests features that the running kernel does not
-    /// support, it returns `Err(e)` where `e.kind() == ErrorKind::Other` and
-    /// `e.raw_os_error() == Some(libc::E2BIG)`.
+    /// By default, a newly built [`Counter`] is disabled. To begin counting
+    /// events, you must call [`enable`] on the [`Counter`] or the [`Group`]
+    /// to which it belongs. Alternatively, certain options (e.g.
+    /// [`enable_on_exec`]) may be used to automatically enable the [`Counter`]
+    /// once certain events occur.
     ///
-    /// Unfortunately, problems in counter configuration are detected at this
-    /// point, by the kernel, not earlier when the offending request is made on
-    /// the `Builder`. The kernel's returned errors are not always helpful.
+    /// # Errors
+    /// There are a quite a few different errors that can occur while
+    /// constructing a counter. See the [man page][0] for details on what they
+    /// mean, although the kernel errors are not always helpful.
     ///
-    /// [`Counter`]: struct.Counter.html
-    /// [`enable`]: struct.Counter.html#method.enable
+    /// If the kernel returns an `E2BIG` error indicating that it did not
+    /// support some options, then that error special cased into a
+    /// [`std::io::Error`] with kind [`ErrorKind::Unsupported`] and an internal
+    /// error of [`UnsupportedOptionsError`]. This allows you to read out the
+    /// version of the [`perf_event_attr`] struct that the kernel is expecting.
+    ///
+    /// See the docs of [`UnsupportedOptionsError`] for an example
+    /// demonstrating how to do this.
+    ///
+    /// # Panics
+    /// This method panics if `attrs.size` has been set to a value larger than
+    /// the size of the [`perf_event_attr`] struct.
+    ///
+    /// [`Group`]: crate::Group
+    /// [`Group::add`]: crate::Group::add
+    /// [`enable`]: crate::Counter::enable
+    /// [`enable_on_exec`]: Builder::enable_on_exec
+    /// [0]: https://man7.org/linux/man-pages/man2/perf_event_open.2.html
     pub fn build(&self) -> std::io::Result<Counter> {
         let mut copy = self.clone();
 
@@ -177,11 +198,20 @@ impl<'a> Builder<'a> {
 
         let mut attrs = self.attrs;
 
-        let file = unsafe {
-            File::from_raw_fd(check_errno_syscall(|| {
-                sys::perf_event_open(&mut attrs, pid, cpu, group_fd, flags as c_ulong)
-            })?)
-        };
+        let result = check_errno_syscall(|| unsafe {
+            sys::perf_event_open(&mut attrs, pid, cpu, group_fd, flags as c_ulong)
+        });
+
+        let file = match result {
+            Ok(fd) => unsafe { Ok(File::from_raw_fd(fd)) },
+            // In case of an E2BIG error we return a custom error so that users
+            // can get at the size expected by the kernel if they want to.
+            Err(e) if e.raw_os_error() == Some(libc::E2BIG) => Err(std::io::Error::new(
+                ErrorKind::Unsupported,
+                UnsupportedOptionsError::new(attrs.size),
+            )),
+            Err(e) => Err(e),
+        }?;
 
         // If we're going to be part of a Group, retrieve the ID the kernel
         // assigned us, so we can find our results in a Counts structure. Even
@@ -718,3 +748,64 @@ impl<'a> Builder<'a> {
         self
     }
 }
+
+/// Attempted to build a counter using options that the current kernel does not
+/// support.
+///
+/// This error is returned as the inner error from [`Builder::build`] or
+/// [`Group::add`] if the kernel indicates that the [`perf_event_attr`]
+/// arguments contained options that the current kernel does not support.
+///
+/// This can be used to implement feature detection and fall back to a config
+/// which uses fewer options.
+///
+/// [`Group::add`]: crate::Group::add
+///
+/// # Example
+/// ```
+/// use perf_event::{Builder, UnsupportedOptionsError};
+/// use perf_event::events::Software;
+///
+/// let mut builder = Builder::new(Software::DUMMY);
+///
+/// // The linux kernel will always return E2BIG when the size is less than
+/// // PERF_ATTR_SIZE_VER0 (64) except if it is 0. This allows us to easily
+/// // make an invalid call do figure out what size the kernel is expecting.
+/// builder.attrs_mut().size = 1;
+///
+/// let error = builder.build().unwrap_err();
+///
+/// assert_eq!(error.kind(), std::io::ErrorKind::Unsupported);
+/// assert_eq!(error.raw_os_error(), None);
+///
+/// let inner: &UnsupportedOptionsError = error
+///     .get_ref()
+///     .unwrap()
+///     .downcast_ref()
+///     .unwrap();
+///
+/// println!("The expected size was {}", inner.expected_size());
+/// ```
+#[derive(Debug)]
+pub struct UnsupportedOptionsError {
+    expected_size: u32,
+}
+
+impl UnsupportedOptionsError {
+    pub(crate) fn new(expected_size: u32) -> Self {
+        Self { expected_size }
+    }
+
+    /// The size that the kernel expected the [`perf_event_attr`] struct to be.
+    pub fn expected_size(&self) -> usize {
+        self.expected_size as _
+    }
+}
+
+impl fmt::Display for UnsupportedOptionsError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("perf_event_attr contained options not valid for the current kernel")
+    }
+}
+
+impl std::error::Error for UnsupportedOptionsError {}

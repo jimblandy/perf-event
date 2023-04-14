@@ -88,7 +88,7 @@ mod sampler;
 #[cfg(feature = "hooks")]
 pub mod hooks;
 
-pub use crate::builder::Builder;
+pub use crate::builder::{Builder, UnsupportedOptionsError};
 pub use crate::counter::Counter;
 pub use crate::flags::{Clock, SampleFlag, SampleSkid};
 pub use crate::group::{Counts, Group};
