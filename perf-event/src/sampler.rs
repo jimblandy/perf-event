@@ -268,6 +268,7 @@ impl<'s> Record<'s> {
     }
 
     /// Get the total length, in bytes, of this record.
+    #[allow(clippy::len_without_is_empty)] // Records are never empty
     pub fn len(&self) -> usize {
         self.data.len()
     }
