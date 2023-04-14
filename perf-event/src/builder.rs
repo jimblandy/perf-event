@@ -153,6 +153,13 @@ impl<'a> Builder<'a> {
         let (pid, flags) = self.who.as_args();
         let group_fd = group_fd.unwrap_or(-1);
 
+        // Enable CLOEXEC by default. This the behaviour that the rust stdlib
+        // uses for all its file descriptors.
+        //
+        // If you need to get a perf_event_open fd which does not have CLOEXEC
+        // set then you can modify the flags after the fact with fcntl(2).
+        let flags = flags | sys::bindings::PERF_FLAG_FD_CLOEXEC;
+
         let mut attrs = self.attrs;
 
         let file = unsafe {
