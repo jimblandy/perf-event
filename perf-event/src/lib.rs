@@ -89,8 +89,8 @@ mod sampler;
 pub mod hooks;
 
 pub use crate::builder::{Builder, UnsupportedOptionsError};
-pub use crate::counter::Counter;
-pub use crate::flags::{Clock, SampleFlag, SampleSkid};
+pub use crate::counter::{CountAndTime, Counter, CounterData};
+pub use crate::flags::{Clock, ReadFormat, SampleFlag, SampleSkid};
 pub use crate::group::{Counts, Group};
 pub use crate::sampler::{Record, Sampler};
 
@@ -104,41 +104,12 @@ use perf_event_open_sys as sys;
 #[cfg(feature = "hooks")]
 use hooks::sys;
 
-/// The value of a counter, along with timesharing data.
-///
-/// Some counters are implemented in hardware, and the processor can run
-/// only a fixed number of them at a time. If more counters are requested
-/// than the hardware can support, the kernel timeshares them on the
-/// hardware.
-///
-/// This struct holds the value of a counter, together with the time it was
-/// enabled, and the proportion of that for which it was actually running.
-#[repr(C)]
-pub struct CountAndTime {
-    /// The counter value.
-    ///
-    /// The meaning of this field depends on how the counter was configured when
-    /// it was built; see ['Builder'].
-    pub count: u64,
-
-    /// How long this counter was enabled by the program, in nanoseconds.
-    pub time_enabled: u64,
-
-    /// How long the kernel actually ran this counter, in nanoseconds.
-    ///
-    /// If `time_enabled == time_running`, then the counter ran for the entire
-    /// period it was enabled, without interruption. Otherwise, the counter
-    /// shared the underlying hardware with others, and you should prorate its
-    /// value accordingly.
-    pub time_running: u64,
-}
-
 /// View a slice of u64s as a byte slice.
 fn as_byte_slice_mut(slice: &mut [u64]) -> &mut [u8] {
     unsafe {
         let (head, slice, tail) = slice.align_to_mut();
-        assert!(head.is_empty());
-        assert!(tail.is_empty());
+        debug_assert!(head.is_empty());
+        debug_assert!(tail.is_empty());
 
         slice
     }

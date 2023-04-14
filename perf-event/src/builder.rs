@@ -8,7 +8,7 @@ use libc::pid_t;
 
 use crate::events::Event;
 use crate::sys::bindings::perf_event_attr;
-use crate::{check_errno_syscall, sys, Clock, Counter, SampleFlag, SampleSkid};
+use crate::{check_errno_syscall, sys, Clock, Counter, ReadFormat, SampleFlag, SampleSkid};
 
 /// A builder for [`Counter`]s.
 ///
@@ -111,20 +111,18 @@ impl<'a> Builder<'a> {
         // on older kernels. The module comments for `perf_event_open_sys`
         // explain why in far too much detail.
         attrs.size = std::mem::size_of::<perf_event_attr>() as u32;
-        attrs.set_disabled(1);
-        attrs.set_exclude_kernel(1);
-        attrs.set_exclude_hv(1);
 
-        // Note that these are only here for user code to read. They will
-        // get overwritten in Builder::build.
-        attrs.read_format = sys::bindings::PERF_FORMAT_TOTAL_TIME_ENABLED as u64
-            | sys::bindings::PERF_FORMAT_TOTAL_TIME_RUNNING as u64;
-
-        Self {
+        let mut builder = Self {
             attrs,
             who: EventPid::ThisProcess,
             cpu: None,
-        }
+        };
+
+        builder.enabled(false);
+        builder.exclude_kernel(true);
+        builder.exclude_hv(true);
+        builder.read_format(ReadFormat::TOTAL_TIME_ENABLED | ReadFormat::TOTAL_TIME_RUNNING);
+        builder
     }
 
     /// Construct a [`Counter`] according to the specifications made on this
@@ -165,9 +163,8 @@ impl<'a> Builder<'a> {
     pub fn build(&self) -> std::io::Result<Counter> {
         let mut copy = self.clone();
 
-        // Overwrite any user changes to read_format
-        copy.attrs.read_format = sys::bindings::PERF_FORMAT_TOTAL_TIME_ENABLED as u64
-            | sys::bindings::PERF_FORMAT_TOTAL_TIME_RUNNING as u64;
+        // We don't support counters that read their entire group.
+        copy.attrs.read_format &= !ReadFormat::GROUP.bits();
 
         copy.build_with_group(None)
     }
@@ -213,7 +210,7 @@ impl<'a> Builder<'a> {
             Err(e) => Err(e),
         }?;
 
-        Counter::new(file)
+        Counter::new(file, ReadFormat::from_bits_retain(attrs.read_format))
     }
 }
 
@@ -322,6 +319,20 @@ impl<'a> Builder<'a> {
     /// [manpage]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
     pub fn sample(&mut self, sample: SampleFlag) -> &mut Self {
         self.attrs.sample_type |= sample.bits();
+        self
+    }
+
+    /// Set the fields to include when reading from the counter.
+    ///
+    /// Note that this method is _not_ additive, unlike [`sample`].
+    ///
+    /// The implementation of this library will silently mask out certain flags
+    /// if they would be invalid. For example, we will not allow you to set
+    /// [`ReadFormat::GROUP`] when building a single counter.
+    ///
+    /// [`sample`]: Builder::sample
+    pub fn read_format(&mut self, read_format: ReadFormat) -> &mut Self {
+        self.attrs.read_format = read_format.bits();
         self
     }
 }

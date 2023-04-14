@@ -1,8 +1,9 @@
+use std::fmt;
 use std::fs::File;
 use std::io::{self, Read};
 use std::os::unix::io::{AsRawFd, IntoRawFd, RawFd};
 
-use crate::{check_errno_syscall, sys, CountAndTime, Sampler};
+use crate::{check_errno_syscall, sys, ReadFormat, Sampler};
 
 /// A counter for one kind of kernel or hardware event.
 ///
@@ -54,16 +55,23 @@ pub struct Counter {
 
     /// The unique id assigned to this counter by the kernel.
     id: u64,
+
+    /// The [`ReadFormat`] flags that were used to configure this `Counter`.
+    read_format: ReadFormat,
 }
 
 impl Counter {
-    pub(crate) fn new(file: File) -> std::io::Result<Self> {
+    pub(crate) fn new(file: File, read_format: ReadFormat) -> std::io::Result<Self> {
         // If we are part of a group then the id is used to find results in the
         // Counts structure. Otherwise, it's just used for debug output.
         let mut id = 0;
         check_errno_syscall(|| unsafe { sys::ioctls::ID(file.as_raw_fd(), &mut id) })?;
 
-        Ok(Self { file, id })
+        Ok(Self {
+            file,
+            id,
+            read_format,
+        })
     }
 
     /// Return this counter's kernel-assigned unique id.
@@ -113,20 +121,92 @@ impl Counter {
 
     /// Return this `Counter`'s current value as a `u64`.
     ///
-    /// Consider using the [`read_count_and_time`] method instead of this one. Some
-    /// counters are implemented in hardware, and the processor can support only
-    /// a certain number running at a time. If more counters are requested than
-    /// the hardware can support, the kernel timeshares them on the hardware.
-    /// This method gives you no indication whether this has happened;
-    /// `read_count_and_time` does.
+    /// Consider using [`read_full`] or (if read_format has the required flags)
+    /// [`read_count_and_time`] instead. There are limitations around how
+    /// many hardware counters can be on a single CPU at a time. If more
+    /// counters are requested than the hardware can support then the kernel
+    /// will timeshare them on the hardware. Looking at just the counter value
+    /// gives you no indication that this has happened.
     ///
     /// Note that `Group` also has a [`read`] method, which reads all
     /// its member `Counter`s' values at once.
     ///
     /// [`read`]: crate::Group::read
+    /// [`read_full`]: Self::read_full
     /// [`read_count_and_time`]: Self::read_count_and_time
     pub fn read(&mut self) -> io::Result<u64> {
-        Ok(self.read_count_and_time()?.count)
+        let mut data = [0u64; ReadFormat::MAX_NON_GROUP_SIZE];
+        let bytes = self.file.read(crate::as_byte_slice_mut(&mut data))?;
+
+        debug_assert!(bytes >= std::mem::size_of::<u64>());
+
+        Ok(data[0])
+    }
+
+    /// Return all data that this `Counter` is configured to provide.
+    ///
+    /// The exact fields that are returned within the [`CounterData`] struct
+    /// depend on what was specified for `read_format` when constructing this
+    /// counter. This method is the only one that gives access to all values
+    /// returned by the kernel.
+    ///
+    /// # Errors
+    /// See the [man page][man] for possible errors when reading from the
+    /// counter.
+    ///
+    /// # Example
+    /// ```
+    /// use std::time::Duration;
+    /// use perf_event::{Builder, ReadFormat};
+    /// use perf_event::events::Hardware;
+    ///
+    /// let mut counter = Builder::new(Hardware::INSTRUCTIONS)
+    ///     .read_format(ReadFormat::TOTAL_TIME_RUNNING)
+    ///     .enabled(true)
+    ///     .build()?;
+    /// // ...
+    /// let data = counter.read_full()?;
+    /// let instructions = data.count();
+    /// let time_running = Duration::from_nanos(data.time_running().unwrap());
+    /// let ips = instructions as f64 / time_running.as_secs_f64();
+    ///
+    /// println!("instructions/s: {ips}");
+    /// # std::io::Result::Ok(())
+    /// ```
+    ///
+    /// [man]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
+    pub fn read_full(&mut self) -> io::Result<CounterData> {
+        use std::mem::size_of;
+
+        debug_assert!(!self.read_format.contains(ReadFormat::GROUP));
+
+        let mut data = [0u64; ReadFormat::MAX_NON_GROUP_SIZE];
+        let bytes = self.file.read(crate::as_byte_slice_mut(&mut data))?;
+
+        // Should never happen but worth checking in debug mode.
+        debug_assert_eq!(bytes % size_of::<u64>(), 0);
+
+        let mut iter = data.iter().take(bytes / size_of::<u64>()).skip(1).copied();
+        let mut read = |flag: ReadFormat| {
+            self.read_format
+                .contains(flag)
+                .then(|| iter.next())
+                .unwrap_or(Some(0))
+                .ok_or_else(|| {
+                    io::Error::new(
+                        io::ErrorKind::Other,
+                        "read_format did not match the data returned by the kernel",
+                    )
+                })
+        };
+
+        Ok(CounterData {
+            read_format: self.read_format,
+            value: data[0],
+            time_enabled: read(ReadFormat::TOTAL_TIME_ENABLED)?,
+            time_running: read(ReadFormat::TOTAL_TIME_RUNNING)?,
+            lost: read(ReadFormat::LOST)?,
+        })
     }
 
     /// Return this `Counter`'s current value and timesharing data.
@@ -143,6 +223,12 @@ impl Counter {
     /// the counter was timeshared, and adjust your use accordingly. Times
     /// are reported in nanoseconds.
     ///
+    /// # Errors
+    /// See the [man page][man] for possible errors when reading from the
+    /// counter. This method will also return an error if `read_format` does
+    /// not include both [`TOTAL_TIME_ENABLED`] and [`TOTAL_TIME_RUNNING`].
+    ///
+    /// # Example
     /// ```
     /// # use perf_event::Builder;
     /// # use perf_event::events::Software;
@@ -167,20 +253,27 @@ impl Counter {
     /// its member `Counter`s' values at once.
     ///
     /// [`read`]: crate::Group::read
+    /// [`TOTAL_TIME_ENABLED`]: ReadFormat::TOTAL_TIME_ENABLED
+    /// [`TOTAL_TIME_RUNNING`]: ReadFormat::TOTAL_TIME_RUNNING
+    /// [man]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
     pub fn read_count_and_time(&mut self) -> io::Result<CountAndTime> {
-        let mut buf = [0_u64; 3];
-        self.file.read_exact(crate::as_byte_slice_mut(&mut buf))?;
+        let data = self.read_full()?;
 
-        let cat = CountAndTime {
-            count: buf[0],
-            time_enabled: buf[1],
-            time_running: buf[2],
-        };
-
-        // Does the kernel ever return nonsense?
-        assert!(cat.time_running <= cat.time_enabled);
-
-        Ok(cat)
+        Ok(CountAndTime {
+            count: data.count(),
+            time_enabled: data.time_enabled().ok_or_else(|| {
+                io::Error::new(
+                    io::ErrorKind::Other,
+                    "time_enabled was not enabled within read_format",
+                )
+            })?,
+            time_running: data.time_running().ok_or_else(|| {
+                io::Error::new(
+                    io::ErrorKind::Other,
+                    "time_running was not enabled within read_format",
+                )
+            })?,
+        })
     }
 
     /// Map a buffer for samples from this counter, returning a [`Sampler`]
@@ -242,5 +335,114 @@ impl AsRawFd for Counter {
 impl IntoRawFd for Counter {
     fn into_raw_fd(self) -> RawFd {
         self.file.into_raw_fd()
+    }
+}
+
+/// The value of a counter, along with timesharing data.
+///
+/// Some counters are implemented in hardware, and the processor can run
+/// only a fixed number of them at a time. If more counters are requested
+/// than the hardware can support, the kernel timeshares them on the
+/// hardware.
+///
+/// This struct holds the value of a counter, together with the time it was
+/// enabled, and the proportion of that for which it was actually running.
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct CountAndTime {
+    /// The counter value.
+    ///
+    /// The meaning of this field depends on how the counter was configured when
+    /// it was built; see ['Builder'].
+    pub count: u64,
+
+    /// How long this counter was enabled by the program, in nanoseconds.
+    pub time_enabled: u64,
+
+    /// How long the kernel actually ran this counter, in nanoseconds.
+    ///
+    /// If `time_enabled == time_running`, then the counter ran for the entire
+    /// period it was enabled, without interruption. Otherwise, the counter
+    /// shared the underlying hardware with others, and you should prorate its
+    /// value accordingly.
+    pub time_running: u64,
+}
+
+/// The data retrieved by reading from a [`Counter`].
+#[derive(Clone)]
+pub struct CounterData {
+    // If you update this struct remember to update the Debug impl as well.
+    //
+    read_format: ReadFormat,
+    value: u64,
+    time_enabled: u64,
+    time_running: u64,
+    lost: u64,
+}
+
+impl CounterData {
+    /// The counter value.
+    ///
+    /// The meaning of this field depends on how the counter was configured when
+    /// it was built; see ['Builder'].
+    pub fn count(&self) -> u64 {
+        self.value
+    }
+
+    /// How long this counter was enabled by the program, in nanoseconds.
+    ///
+    /// This will be present if [`ReadFormat::TOTAL_TIME_ENABLED`] was
+    /// specified in `read_format` when the counter was built.
+    pub fn time_enabled(&self) -> Option<u64> {
+        self.read_format
+            .contains(ReadFormat::TOTAL_TIME_ENABLED)
+            .then_some(self.time_enabled)
+    }
+
+    /// How long the kernel actually ran this counter, in nanoseconds.
+    ///
+    /// If `time_enabled == time_running` then the counter ran for the entire
+    /// period it was enabled, without interruption. Otherwise, the counter
+    /// shared the underlying hardware with others and you should adjust its
+    /// value accordingly.
+    ///
+    /// This will be present if [`ReadFormat::TOTAL_TIME_RUNNING`] was
+    /// specified in `read_format` when the counter was built.
+    pub fn time_running(&self) -> Option<u64> {
+        self.read_format
+            .contains(ReadFormat::TOTAL_TIME_RUNNING)
+            .then_some(self.time_running)
+    }
+
+    /// The number of lost samples of this event.
+    ///
+    /// This will be present if [`ReadFormat::LOST`] was specified in
+    /// `read_format` when the counter was built.
+    pub fn lost(&self) -> Option<u64> {
+        self.read_format
+            .contains(ReadFormat::LOST)
+            .then_some(self.lost)
+    }
+}
+
+impl fmt::Debug for CounterData {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut dbg = f.debug_struct("CounterData");
+
+        dbg.field("count", &self.count());
+
+        if let Some(time_enabled) = self.time_enabled() {
+            dbg.field("time_enabled", &time_enabled);
+        }
+
+        if let Some(time_running) = self.time_running() {
+            dbg.field("time_running", &time_running);
+        }
+
+        if let Some(lost) = self.lost() {
+            dbg.field("lost", &lost);
+        }
+
+        dbg.finish_non_exhaustive()
     }
 }
