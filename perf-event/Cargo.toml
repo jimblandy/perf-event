@@ -21,7 +21,7 @@ name = "perf_event"
 [features]
 # Enable syscall interception hooks for mock testing and logging.
 hooks = []
-default = ["hooks"]
+default = []
 
 [dependencies]
 bitflags = "2.1"
