@@ -110,7 +110,11 @@ impl<'a> Builder<'a> {
         // explain why in far too much detail.
         attrs.size = std::mem::size_of::<perf_event_attr>() as u32;
         attrs.set_disabled(1);
+        attrs.set_exclude_kernel(1);
+        attrs.set_exclude_hv(1);
 
+        // Note that these are only here for user code to read. They will
+        // get overwritten in Builder::build.
         attrs.read_format = sys::bindings::PERF_FORMAT_TOTAL_TIME_ENABLED as u64
             | sys::bindings::PERF_FORMAT_TOTAL_TIME_RUNNING as u64;
 
@@ -138,13 +142,24 @@ impl<'a> Builder<'a> {
     /// [`Counter`]: struct.Counter.html
     /// [`enable`]: struct.Counter.html#method.enable
     pub fn build(&self) -> std::io::Result<Counter> {
-        self.build_with_group(None)
+        let mut copy = self.clone();
+
+        // Overwrite any user changes to read_format
+        copy.attrs.read_format = sys::bindings::PERF_FORMAT_TOTAL_TIME_ENABLED as u64
+            | sys::bindings::PERF_FORMAT_TOTAL_TIME_RUNNING as u64;
+
+        copy.build_with_group(None)
     }
 
     /// Alternative to `build` but with the group explicitly provided.
     ///
     /// Used within [`Group::add`].
     pub(crate) fn build_with_group(&self, group_fd: Option<RawFd>) -> std::io::Result<Counter> {
+        // Users of this crate can modify attrs.size (e.g. to use it for feature
+        // detection) but in order for the perf_event_open call to be safe it
+        // must not exceed the size of perf_event_attr.
+        assert!(self.attrs.size <= std::mem::size_of::<perf_event_attr>() as u32);
+
         let cpu = match self.cpu {
             Some(cpu) => cpu as c_int,
             None => -1,
@@ -179,6 +194,16 @@ impl<'a> Builder<'a> {
 }
 
 impl<'a> Builder<'a> {
+    /// Directly access the [`perf_event_attr`] within this builder.
+    pub fn attrs(&self) -> &perf_event_attr {
+        &self.attrs
+    }
+
+    /// Directly access the [`perf_event_attr`] within this builder.
+    pub fn attrs_mut(&mut self) -> &mut perf_event_attr {
+        &mut self.attrs
+    }
+
     /// Observe the calling process. (This is the default.)
     pub fn observe_self(&mut self) -> &mut Self {
         self.who = EventPid::ThisProcess;
