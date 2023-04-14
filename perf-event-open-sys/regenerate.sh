@@ -2,7 +2,7 @@
 
 set -eu
 
-cd $(dirname $0)
+cd "$(dirname "$0")"
 
 # Adding a new architecture
 # =========================
@@ -61,15 +61,15 @@ if ! [ -d "$target/linux-$version" ]; then
 fi
 
 function gen_bindings {
-    arch=$1
-    linux_arch=${2:-$arch}
-    clang_arch=${3:-$arch}
+    arch="$1"
+    linux_arch="${2:-$arch}"
+    clang_arch="${3:-$arch}"
 
     bindings="$target/$arch/bindings.rs"
 
     echo "Generating $arch bindings"
 
-    rm -rf "$target/$arch"
+    rm -rf "${target:?}/$arch"
     mkdir -p "$target/$arch"
     cd "$target/linux-$version"
     make headers_install ARCH="$linux_arch" INSTALL_HDR_PATH="$target/$arch" > /dev/null
