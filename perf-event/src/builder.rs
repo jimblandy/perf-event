@@ -213,13 +213,7 @@ impl<'a> Builder<'a> {
             Err(e) => Err(e),
         }?;
 
-        // If we're going to be part of a Group, retrieve the ID the kernel
-        // assigned us, so we can find our results in a Counts structure. Even
-        // if we're not part of a group, we'll use it in `Debug` output.
-        let mut id = 0_u64;
-        check_errno_syscall(|| unsafe { sys::ioctls::ID(file.as_raw_fd(), &mut id) })?;
-
-        Ok(Counter { file, id })
+        Counter::new(file)
     }
 }
 

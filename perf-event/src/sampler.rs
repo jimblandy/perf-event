@@ -1,12 +1,11 @@
 use std::borrow::Cow;
-use std::io::{self, Read};
+use std::ops::{Deref, DerefMut};
 use std::os::unix::io::{AsRawFd, IntoRawFd, RawFd};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
-use crate::counter::counter_impl;
 use crate::sys::bindings::{perf_event_header, perf_event_mmap_page};
-use crate::{check_errno_syscall, sys, CountAndTime, Counter};
+use crate::{check_errno_syscall, Counter};
 
 /// A sampled perf event.
 ///
@@ -53,23 +52,6 @@ enum ByteBuffer<'a> {
 impl Sampler {
     pub(crate) fn new(counter: Counter, mmap: memmap2::MmapRaw) -> Self {
         Self { counter, mmap }
-    }
-
-    /// Convert this sampler back into a counter.
-    ///
-    /// This will close the ringbuffer associated with the sampler.
-    pub fn into_counter(self) -> Counter {
-        self.counter
-    }
-
-    /// Access the underlying counter for this sampler.
-    pub fn as_counter(&self) -> &Counter {
-        &self.counter
-    }
-
-    /// Mutably access the underlying counter for this sampler.
-    pub fn as_counter_mut(&mut self) -> &mut Counter {
-        &mut self.counter
     }
 
     /// Read the next record from the ring buffer.
@@ -220,12 +202,41 @@ impl Sampler {
         }
     }
 
+    /// Convert this sampler back into a counter.
+    ///
+    /// This will close the ringbuffer associated with the sampler.
+    pub fn into_counter(self) -> Counter {
+        self.counter
+    }
+
+    /// Access the underlying counter for this sampler.
+    pub fn as_counter(&self) -> &Counter {
+        &self.counter
+    }
+
+    /// Mutably access the underlying counter for this sampler.
+    pub fn as_counter_mut(&mut self) -> &mut Counter {
+        &mut self.counter
+    }
+
     fn page(&self) -> *const perf_event_mmap_page {
         self.mmap.as_ptr() as *const _
     }
 }
 
-counter_impl!(Sampler, self, self.counter);
+impl Deref for Sampler {
+    type Target = Counter;
+
+    fn deref(&self) -> &Self::Target {
+        &self.counter
+    }
+}
+
+impl DerefMut for Sampler {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.counter
+    }
+}
 
 impl std::convert::AsRef<Counter> for Sampler {
     fn as_ref(&self) -> &Counter {

@@ -454,7 +454,7 @@ impl Counts {
     /// ```
     pub fn get(&self, member: &Counter) -> Option<&u64> {
         self.into_iter()
-            .find(|&(id, _)| id == member.id)
+            .find(|&(id, _)| id == member.id())
             .map(|(_, value)| value)
     }
 
