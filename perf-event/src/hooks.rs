@@ -19,16 +19,16 @@
 //!
 //! There are three main pieces:
 //!
-//! - The [`Hooks`] trait has a method for every system call and ioctl
-//!   that the `perf_event` crate uses.
+//! - The [`Hooks`] trait has a method for every system call and ioctl that the
+//!   `perf_event` crate uses.
 //!
 //! - The [`set_thread_hooks`] function lets you provide a `Box<dyn Hooks>`
 //!   trait object whose methods the calling thread will use for all subsequent
 //!   `perf_event` operations.
 //!
-//! - The [`clear_thread_hooks`] function restores the thread's
-//!   original state, so that subsequent `perf_event` operations use
-//!   the real Linux system calls.
+//! - The [`clear_thread_hooks`] function restores the thread's original state,
+//!   so that subsequent `perf_event` operations use the real Linux system
+//!   calls.
 //!
 //! This functionality is too low-level for direct use in tests, but
 //! it does provide the means with which one can build more ergonomic
@@ -46,11 +46,17 @@
 //! The `perf_event` crate will not treat such implementation changes
 //! as breaking changes for semver purposes, despite the fact that
 //! they may break code using this module's functionality.
+
 use libc::pid_t;
 use perf_event_open_sys as real;
 use perf_event_open_sys::bindings;
 use std::cell::RefCell;
 use std::os::raw::{c_char, c_int, c_uint, c_ulong};
+
+use crate::{Counter, Group};
+
+used_in_docs!(Counter);
+used_in_docs!(Group);
 
 std::thread_local! {
     static HOOKS: RefCell<Box<dyn Hooks + 'static>> = RefCell::new(Box::new(RealHooks));
@@ -72,9 +78,6 @@ std::thread_local! {
 /// previously created [`Counter`] and [`Group`] objects, regardless
 /// of which hooks were in effect when they were created. This could
 /// make a hash of things.
-///
-/// [`Counter`]: crate::Counter
-/// [`Group`]: crate::Group
 pub unsafe fn set_thread_hooks(hooks: Box<dyn Hooks + 'static>) {
     HOOKS.with(|per_thread| {
         *per_thread.borrow_mut() = hooks;
@@ -97,9 +100,6 @@ pub unsafe fn set_thread_hooks(hooks: Box<dyn Hooks + 'static>) {
 /// which hooks were in effect when they were created. Letting values
 /// created using hooked system calls suddenly see the real kernel
 /// could make a hash of things.
-///
-/// [`Counter`]: crate::Counter
-/// [`Group`]: crate::Group
 pub unsafe fn clear_thread_hooks() {
     HOOKS.with(|per_thread| {
         *per_thread.borrow_mut() = Box::new(RealHooks);
@@ -185,17 +185,18 @@ macro_rules! expand_realhooks_impl {
     };
 }
 
-/// An implementation of the [`Hooks`] trait in terms of the real Linux system calls.
+/// An implementation of the [`Hooks`] trait in terms of the real Linux system
+/// calls.
 ///
 /// This type implements each methods of the [`Hooks`] trait by
 /// calling the underlying system call or ioctl. The following call
 /// is equivalent to calling [`clear_thread_hooks`]:
 ///
-///     # use perf_event::hooks;
-///     # use perf_event::hooks::*;
-///     unsafe {
-///         set_thread_hooks(Box::new(RealHooks));
-///     }
+/// ```
+/// # use perf_event::hooks;
+/// # use perf_event::hooks::*;
+/// unsafe { set_thread_hooks(Box::new(RealHooks)) };
+/// ```
 ///
 /// If what you want is non-intercepted access to the underlying
 /// system calls, it's probably better to just access the

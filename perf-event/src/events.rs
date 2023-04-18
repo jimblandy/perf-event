@@ -2,21 +2,21 @@
 //!
 //! There are three general categories of event:
 //!
-//! -   [`Hardware`] events are counted by the processor itself. This
-//!     includes things like clock cycles, instructions retired, and cache and
-//!     branch prediction statistics.
+//! - [`Hardware`] events are counted by the processor itself. This includes
+//!   things like clock cycles, instructions retired, and cache and branch
+//!   prediction statistics.
 //!
-//! -   [`Cache`] events, also counted by the processor, offer a more
-//!     detailed view of the processor's cache counters. You can
-//!     select which level of the cache hierarchy to observe,
-//!     discriminate between data and instruction caches, and so on.
+//! - [`Cache`] events, also counted by the processor, offer a more detailed
+//!   view of the processor's cache counters. You can select which level of the
+//!   cache hierarchy to observe, discriminate between data and instruction
+//!   caches, and so on.
 //!
-//! -   [`Software`] events are counted by the kernel. This includes things
-//!     like context switches, page faults, and so on.
+//! - [`Software`] events are counted by the kernel. This includes things like
+//!   context switches, page faults, and so on.
 //!
-//! -   [`Breakpoint`] events correspond to hardware breakpoints. They can
-//!     count read/write accesses to an address as well as execution of an
-//!     instruction address.
+//! - [`Breakpoint`] events correspond to hardware breakpoints. They can count
+//!   read/write accesses to an address as well as execution of an instruction
+//!   address.
 //!
 //! The `Event` type is just an enum with a variant for each of the above types,
 //! which all implement `Into<Event>`.
@@ -160,8 +160,7 @@ impl Event for Software {
 ///
 /// - what sort of request it's handling ([`operation`])
 ///
-/// - whether we want to count all cache accesses, or just misses
-///   ([`result`]).
+/// - whether we want to count all cache accesses, or just misses ([`result`]).
 ///
 /// For example, to measure the L1 data cache's miss rate:
 ///
@@ -177,7 +176,10 @@ impl Event for Software {
 /// };
 ///
 /// // A `Cache` value representing L1 data cache read misses.
-/// const MISS: Cache = Cache { result: CacheResult::MISS, ..ACCESS };
+/// const MISS: Cache = Cache {
+///     result: CacheResult::MISS,
+///     ..ACCESS
+/// };
 ///
 /// // Construct a `Group` containing the two new counters, from which we
 /// // can get counts over matching periods of time.
@@ -331,8 +333,7 @@ bitflags! {
 /// }
 ///
 /// let fnptr = do_some_things as fn() as usize;
-/// let mut counter = Builder::new(Breakpoint::execute(fnptr as u64))
-///     .build()?;
+/// let mut counter = Builder::new(Breakpoint::execute(fnptr as u64)).build()?;
 /// counter.enable()?;
 ///
 /// for _ in 0..500 {
@@ -369,8 +370,8 @@ bitflags! {
 ///   using a read-write breakpoint might work instead.
 ///
 /// - The valid values of len are quite limited. The [`perf_event_open`][man]
-///   manpage indicates that the only valid values for `bp_len` are 1, 2, 4,
-///   and 8.
+///   manpage indicates that the only valid values for `bp_len` are 1, 2, 4, and
+///   8.
 ///
 /// [man]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -388,9 +389,10 @@ pub enum Breakpoint {
 
         /// The length of the breakpoint being measured.
         ///
-        /// There are a limited number of valid values for this field. Basically,
-        /// the options are 1, 2, 4, and 8. Setting this field to anything else
-        /// will cause counter creation to fail with an error.
+        /// There are a limited number of valid values for this field.
+        /// Basically, the options are 1, 2, 4, and 8. Setting this
+        /// field to anything else will cause counter creation to fail
+        /// with an error.
         len: u64,
     },
 

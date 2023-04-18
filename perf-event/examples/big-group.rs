@@ -38,18 +38,21 @@ fn main() -> std::io::Result<()> {
 
     let counts = group.read()?;
 
+    let time_enabled = counts.time_enabled().unwrap();
+    let time_running = counts.time_running().unwrap();
+
     println!(
         "enabled for {}ns, actually running for {}ns",
-        counts.time_enabled(),
-        counts.time_running()
+        time_running.as_nanos(),
+        time_enabled.as_nanos()
     );
 
-    if counts.time_running() == 0 {
+    if time_running.is_zero() {
         println!("Group was never running; no results available.");
         return Ok(());
     }
 
-    if counts.time_running() < counts.time_enabled() {
+    if time_running < time_enabled {
         println!("Counts cover only a portion of the execution.");
     }
 
@@ -75,8 +78,8 @@ fn main() -> std::io::Result<()> {
     );
 
     // You can iterate over a `Counts` value:
-    for (id, value) in &counts {
-        println!("Counter id {} has value {}", id, value);
+    for entry in &counts {
+        println!("Counter id {} has value {}", entry.id(), entry.value());
     }
 
     Ok(())

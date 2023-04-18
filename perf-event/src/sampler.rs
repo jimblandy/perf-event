@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::convert::{AsMut, AsRef};
 use std::ops::{Deref, DerefMut};
 use std::os::unix::io::{AsRawFd, IntoRawFd, RawFd};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -24,8 +25,7 @@ use crate::{check_errno_syscall, Counter};
 ///
 /// [0]: https://man7.org/linux/man-pages/man2/perf_event_open.2.html
 pub struct Sampler {
-    // Used by the crate::counter_impl! macro
-    pub(crate) counter: Counter,
+    counter: Counter,
     mmap: memmap2::MmapRaw,
 }
 
@@ -33,8 +33,8 @@ pub struct Sampler {
 ///
 /// When dropped, this type will advance the tail pointer in the ringbuffer of
 /// the [`Sampler`] that it references. To avoid this, you can use
-/// [`std::mem::forget`] so the next call to `Sampler::next_record` will return
-/// the same record again.
+/// [`std::mem::forget`] so the next call to [`Sampler::next_record`] will
+/// return the same record again.
 pub struct Record<'a> {
     page: *const perf_event_mmap_page,
     header: perf_event_header,
@@ -72,13 +72,13 @@ impl Sampler {
 
         // SAFETY:
         // - page points to a valid instance of perf_event_mmap_page.
-        // - data_tail is only written by the user side so it is safe to do a
-        //   non-atomic read here.
+        // - data_tail is only written by the user side so it is safe to do a non-atomic
+        //   read here.
         let tail = unsafe { ptr::read(ptr::addr_of!((*page).data_tail)) };
         // ATOMICS:
-        // - The acquire load here syncronizes with the release store in the
-        //   kernel and ensures that all the data written to the ring buffer
-        //   before data_head is visible to this thread.
+        // - The acquire load here syncronizes with the release store in the kernel and
+        //   ensures that all the data written to the ring buffer before data_head is
+        //   visible to this thread.
         // SAFETY:
         // - page points to a valid instance of perf_event_mmap_page.
         let head = unsafe { atomic_load(ptr::addr_of!((*page).data_head), Ordering::Acquire) };
@@ -89,8 +89,8 @@ impl Sampler {
 
         // SAFETY: (for both statements)
         // - page points to a valid instance of perf_event_mmap_page.
-        // - neither of these fields are written to except before the map is
-        //   created so reading from them non-atomically is safe.
+        // - neither of these fields are written to except before the map is created so
+        //   reading from them non-atomically is safe.
         let data_size = unsafe { ptr::read(ptr::addr_of!((*page).data_size)) };
         let data_offset = unsafe { ptr::read(ptr::addr_of!((*page).data_offset)) };
 
@@ -98,8 +98,8 @@ impl Sampler {
         let mod_head = (head % data_size) as usize;
 
         // SAFETY:
-        // - perf_event_open guarantees that page.data_offset is within the
-        //   memory mapping.
+        // - perf_event_open guarantees that page.data_offset is within the memory
+        //   mapping.
         let data_start = unsafe { self.mmap.as_ptr().add(data_offset as usize) };
         // SAFETY:
         // - data_start is guaranteed to be valid for at least data_size bytes.
@@ -190,8 +190,7 @@ impl Sampler {
                     // that it doesn't make sense to make this API have a
                     // result because of them. To whit, they are:
                     // - EINVAL - the process ran out of file descriptors
-                    // - ENOMEM - the kernel couldn't allocate memory for the
-                    //            poll datastructures.
+                    // - ENOMEM - the kernel couldn't allocate memory for the poll datastructures.
                     // In this case, we panic.
                     _ => panic!(
                         "polling a perf-event fd returned an unexpected error: {}",
@@ -238,13 +237,13 @@ impl DerefMut for Sampler {
     }
 }
 
-impl std::convert::AsRef<Counter> for Sampler {
+impl AsRef<Counter> for Sampler {
     fn as_ref(&self) -> &Counter {
         &self.counter
     }
 }
 
-impl std::convert::AsMut<Counter> for Sampler {
+impl AsMut<Counter> for Sampler {
     fn as_mut(&mut self) -> &mut Counter {
         &mut self.counter
     }
@@ -327,13 +326,13 @@ impl<'s> Drop for Record<'s> {
         unsafe {
             // SAFETY:
             // - page points to a valid instance of perf_event_mmap_page
-            // - data_tail is only written on our side so it is safe to do a
-            //   non-atomic read here.
+            // - data_tail is only written on our side so it is safe to do a non-atomic read
+            //   here.
             let tail = ptr::read(ptr::addr_of!((*self.page).data_tail));
 
             // ATOMICS:
-            // - The release store here prevents the compiler from re-ordering
-            //   any reads past the store to data_tail.
+            // - The release store here prevents the compiler from re-ordering any reads
+            //   past the store to data_tail.
             // SAFETY:
             // - page points to a valid instance of perf_event_mmap_page
             atomic_store(

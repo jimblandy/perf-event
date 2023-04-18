@@ -44,8 +44,8 @@ fn main() -> std::io::Result<()> {
     );
 
     // You can iterate over a `Counts` value:
-    for (id, value) in &counts {
-        println!("Counter id {} has value {}", id, value);
+    for entry in &counts {
+        println!("Counter id {} has value {}", entry.id(), entry.value());
     }
 
     Ok(())
