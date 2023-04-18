@@ -74,6 +74,10 @@
 //! - x86_64: `kernel-headers-5.19.4-200.fc36.x86_64` (`PERF_ATTR_SIZE_VER7`)
 //! - aarch64: `kernel-headers-5.18.4-201.fc36.aarch64` (`PERF_ATTR_SIZE_VER7`)
 //!
+//! The bindings in this crate are generated from the Linux kernel headers
+//! packaged by Arch Linux as:
+//! - loongarch64: `linux-headers 6.3.arch1-8`
+//!
 //! As explained above, bugs aside, it is not necessary to use the version of
 //! these structures that matches the kernel you want to run under, so it should
 //! always be acceptable to use the latest version of this crate, even if you
@@ -184,6 +188,10 @@ pub mod bindings;
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[path = "bindings_x86_64.rs"]
+pub mod bindings;
+
+#[cfg(target_arch = "loongarch64")]
+#[path = "bindings_loongarch64.rs"]
 pub mod bindings;
 
 // Provide actual callable code only on Linux/Android. See "Using perf
