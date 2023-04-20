@@ -490,6 +490,7 @@ pub const PERF_FORMAT_MAX: perf_event_read_format = 32;
 pub type perf_event_read_format = ::std::os::raw::c_uint;
 #[repr(C)]
 #[derive(Copy, Clone)]
+#[non_exhaustive]
 pub struct perf_event_attr {
     pub type_: __u32,
     pub size: __u32,
@@ -660,6 +661,7 @@ pub union perf_event_attr__bindgen_ty_5 {
 }
 #[repr(C)]
 #[derive(Debug, Default, Copy, Clone)]
+#[non_exhaustive]
 pub struct perf_event_attr__bindgen_ty_5__bindgen_ty_1 {
     pub _bitfield_align_1: [u32; 0],
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize]>,
@@ -805,7 +807,8 @@ impl perf_event_attr__bindgen_ty_5__bindgen_ty_1 {
         }
     }
     #[inline]
-    pub fn new_bitfield_1(
+    #[allow(dead_code)]
+    pub(crate) fn new_bitfield_1(
         aux_start_paused: __u32,
         aux_pause: __u32,
         aux_resume: __u32,
@@ -2163,7 +2166,8 @@ impl perf_event_attr {
         }
     }
     #[inline]
-    pub fn new_bitfield_1(
+    #[allow(dead_code)]
+    pub(crate) fn new_bitfield_1(
         disabled: __u64,
         inherit: __u64,
         pinned: __u64,
@@ -2363,6 +2367,7 @@ impl perf_event_attr {
 }
 #[repr(C)]
 #[derive(Debug, Default)]
+#[non_exhaustive]
 pub struct perf_event_query_bpf {
     pub ids_len: __u32,
     pub prog_cnt: __u32,
@@ -2383,6 +2388,7 @@ pub const PERF_IOC_FLAG_GROUP: perf_event_ioc_flags = 1;
 pub type perf_event_ioc_flags = ::std::os::raw::c_uint;
 #[repr(C)]
 #[derive(Copy, Clone)]
+#[non_exhaustive]
 pub struct perf_event_mmap_page {
     pub version: __u32,
     pub compat_version: __u32,
@@ -2419,6 +2425,7 @@ pub union perf_event_mmap_page__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Debug, Default, Copy, Clone)]
+#[non_exhaustive]
 pub struct perf_event_mmap_page__bindgen_ty_1__bindgen_ty_1 {
     pub _bitfield_align_1: [u64; 0],
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 8usize]>,
@@ -2663,7 +2670,8 @@ impl perf_event_mmap_page__bindgen_ty_1__bindgen_ty_1 {
         }
     }
     #[inline]
-    pub fn new_bitfield_1(
+    #[allow(dead_code)]
+    pub(crate) fn new_bitfield_1(
         cap_bit0: __u64,
         cap_bit0_is_deprecated: __u64,
         cap_user_rdpmc: __u64,
@@ -2799,6 +2807,7 @@ impl ::std::fmt::Debug for perf_event_mmap_page {
 }
 #[repr(C)]
 #[derive(Debug, Default, Copy, Clone)]
+#[non_exhaustive]
 pub struct perf_event_header {
     pub type_: __u32,
     pub misc: __u16,
@@ -2817,6 +2826,7 @@ const _: () = {
 };
 #[repr(C)]
 #[derive(Debug, Default, Copy, Clone)]
+#[non_exhaustive]
 pub struct perf_ns_link_info {
     pub dev: __u64,
     pub ino: __u64,
@@ -2889,6 +2899,7 @@ pub union perf_mem_data_src {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Default, Copy, Clone)]
+#[non_exhaustive]
 pub struct perf_mem_data_src__bindgen_ty_1 {
     pub _bitfield_align_1: [u32; 0],
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 8usize]>,
@@ -3265,7 +3276,8 @@ impl perf_mem_data_src__bindgen_ty_1 {
         }
     }
     #[inline]
-    pub fn new_bitfield_1(
+    #[allow(dead_code)]
+    pub(crate) fn new_bitfield_1(
         mem_op: __u64,
         mem_lvl: __u64,
         mem_snoop: __u64,
@@ -3349,6 +3361,7 @@ impl ::std::fmt::Debug for perf_mem_data_src {
 }
 #[repr(C)]
 #[derive(Debug, Default, Copy, Clone)]
+#[non_exhaustive]
 pub struct perf_branch_entry {
     pub from: __u64,
     pub to: __u64,
@@ -3696,7 +3709,8 @@ impl perf_branch_entry {
         }
     }
     #[inline]
-    pub fn new_bitfield_1(
+    #[allow(dead_code)]
+    pub(crate) fn new_bitfield_1(
         mispred: __u64,
         predicted: __u64,
         in_tx: __u64,
@@ -3760,6 +3774,7 @@ pub union perf_sample_weight {
 }
 #[repr(C)]
 #[derive(Debug, Default, Copy, Clone)]
+#[non_exhaustive]
 pub struct perf_sample_weight__bindgen_ty_1 {
     pub var1_dw: __u32,
     pub var2_w: __u16,
