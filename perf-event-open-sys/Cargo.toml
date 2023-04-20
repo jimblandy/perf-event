@@ -1,16 +1,16 @@
 [package]
-name = "perf-event-open-sys"
+name = "perf-event-open-sys2"
 version = "4.0.0"
 description = """
 Unsafe, direct bindings for Linux's perf_event_open system call, with associated
 types and constants.
 """
 license = "MIT OR Apache-2.0"
-authors = ["Jim Blandy <jimb@red-bean.com>"]
-repository = "https://github.com/jimblandy/perf-event-open-sys.git"
+authors = ["Sean Lynch <sean@lynches.ca>", "Jim Blandy <jimb@red-bean.com>"]
+repository = "https://github.com/Phantomical/perf-event.git"
 edition = "2018"
 readme = "README.md"
-documentation = "https://docs.rs/perf-event-open-sys/"
+documentation = "https://docs.rs/perf-event-open-sys2/"
 keywords = ["linux", "perf"]
 categories = [
     "external-ffi-bindings",
@@ -18,6 +18,9 @@ categories = [
     "hardware-support",
     "os::linux-apis"
 ]
+
+[lib]
+name = "perf_event_open_sys"
 
 [dependencies]
 libc = "0.2"
