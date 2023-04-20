@@ -29,4 +29,4 @@ libc = "0.2"
 
 [dependencies.perf-event-open-sys2]
 path = "../perf-event-open-sys"
-version = "4.0"
+version = "5.0"
