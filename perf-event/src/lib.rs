@@ -100,6 +100,10 @@ mod flags;
 mod group;
 mod sampler;
 
+// Make sure the examples in the readme are tested.
+#[doc = include_str!("../README.md")]
+mod readme {}
+
 #[cfg(feature = "hooks")]
 pub mod hooks;
 
