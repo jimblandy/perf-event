@@ -89,14 +89,25 @@ function gen_bindings {
         -E wrapper.h                            \
         -o "$target/$arch/wrapper.i"
 
-    bindgen                                     \
-        --impl-debug                            \
-        --with-derive-default                   \
-        --no-prepend-enum-name                  \
+    BINDGEN_ARGS=(
+        --impl-debug
+        --with-derive-default
+        --no-prepend-enum-name
+    )
+
+    bindgen "${BINDGEN_ARGS[@]}"                \
         --output "$bindings"                    \
         wrapper.h                               \
         --                                      \
         "${CLANG_ARGS[@]}"
+
+    # Mark all structs as #[non_exhaustive] so that future versions are less
+    # likely to require a major version bump.
+    sed -i "$bindings" -e 's/\(pub struct perf_.*\)/#[non_exhaustive]\n\1/g'
+    # new_bitfield_1 methods are not backwards compatible when new fields are
+    # added. Here we disable them. Users wanting them can set them field by
+    # field if they really need it.
+    sed -i "$bindings" -e 's/\( *\)pub \(fn new_bitfield_[0-9]*\)/\1#[allow(dead_code)]\n\1pub(crate) \2/g'
 
     cat src/bindings_header.rs      \
         "$bindings"                 \
