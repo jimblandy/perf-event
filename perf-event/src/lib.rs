@@ -95,9 +95,9 @@ macro_rules! used_in_docs {
 pub mod events;
 
 mod builder;
-mod data;
 mod flags;
 mod group;
+mod group_data;
 mod sampler;
 
 // Make sure the examples in the readme are tested.
@@ -118,9 +118,9 @@ use perf_event_open_sys as sys;
 use hooks::sys;
 
 pub use crate::builder::{Builder, UnsupportedOptionsError};
-pub use crate::data::{GroupData, GroupEntry, GroupIter};
 pub use crate::flags::{Clock, ReadFormat, SampleFlag, SampleSkid};
 pub use crate::group::Group;
+pub use crate::group_data::{GroupData, GroupEntry, GroupIter};
 pub use crate::sampler::{Record, Sampler};
 
 // ... separate public exports and non-public ones
