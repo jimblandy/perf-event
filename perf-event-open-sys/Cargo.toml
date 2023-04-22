@@ -1,6 +1,6 @@
 [package]
 name = "perf-event-open-sys2"
-version = "5.0.0"
+version = "5.0.1"
 description = """
 Unsafe, direct bindings for Linux's perf_event_open system call, with associated
 types and constants.
