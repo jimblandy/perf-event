@@ -5,6 +5,7 @@
 
 // for __NR_perf_event_open
 #include <asm/unistd.h>
+#include <asm/perf_regs.h>
 
 // bindgen won't capture preprocessor macro definitions, so we have to do this.
 enum perf_event_ioctls {
