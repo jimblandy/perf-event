@@ -1,5 +1,10 @@
 # Release notes for `perf-event-open-sys`
 
+## 5.0.2
+- The `#[non_exhaustive]` annotation has now been removed from most exported
+  structs. The two exceptions where it has been left are `perf_event_attr` and
+  `perf_event_mmap_page`.
+
 ## 5.0.1
 - Bindings have now been added for the perf architectural registers.
 
