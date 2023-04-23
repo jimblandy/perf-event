@@ -103,5 +103,7 @@ function gen_bindings {
         > "src/bindings_$arch.rs"
 }
 
+echo "$version." > src/version
+
 gen_bindings x86_64
 gen_bindings aarch64 arm64
