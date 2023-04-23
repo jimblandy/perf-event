@@ -1,5 +1,20 @@
 # Release notes for `perf-event-open-sys`
 
+## 5.0.2
+- The `#[non_exhaustive]` annotation has now been removed from most exported
+  structs. The two exceptions where it has been left are `perf_event_attr` and
+  `perf_event_mmap_page`.
+
+## 5.0.1
+- Bindings have now been added for the perf architectural registers.
+
+## 5.0.0
+- Rewrote how bindings are generated to directly use the linux kernel source.
+- Regenerated the bindings from the linux 6.2.10 source tree.
+- All exported structs are now marked as `#[non_exhaustive]`
+- Several bindgen methods that posed semver-compatiblity hazards have been
+  removed.
+
 ## 4.0.0
 
 -   Regenerated `x86_64` bindings from Fedora's
