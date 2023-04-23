@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 set -eu
+set -x
 
 cd "$(dirname "$0")"
 
@@ -101,9 +102,20 @@ function gen_bindings {
         --                                      \
         "${CLANG_ARGS[@]}"
 
-    # Mark all structs as #[non_exhaustive] so that future versions are less
-    # likely to require a major version bump.
-    sed -i "$bindings" -e 's/\(pub struct perf_.*\)/#[non_exhaustive]\n\1/g'
+    # Mark some structs as #[non_exhaustive] so that future version updates
+    # are less likely to require a major version bump.
+    #
+    # We only mark some of them because marking a struct as non_exhaustive
+    # when it is really not ends up being rather annoying.
+    NON_EXHAUSTIVE_STRUCTS=(
+        'perf_event_attr.*'
+        'perf_event_mmap_page.*'
+    )
+
+    for stname in "${NON_EXHAUSTIVE_STRUCTS[@]}"; do
+        sed -i "$bindings" -e "s/\(pub struct $stname\)/#[non_exhaustive]\n\1/g"
+    done
+
     # new_bitfield_1 methods are not backwards compatible when new fields are
     # added. Here we disable them. Users wanting them can set them field by
     # field if they really need it.

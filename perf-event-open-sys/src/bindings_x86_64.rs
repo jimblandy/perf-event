@@ -2032,7 +2032,6 @@ impl perf_event_attr {
 }
 #[repr(C)]
 #[derive(Debug, Default)]
-#[non_exhaustive]
 pub struct perf_event_query_bpf {
     pub ids_len: __u32,
     pub prog_cnt: __u32,
@@ -2595,7 +2594,6 @@ impl ::std::fmt::Debug for perf_event_mmap_page {
 }
 #[repr(C)]
 #[derive(Debug, Default, Copy, Clone)]
-#[non_exhaustive]
 pub struct perf_event_header {
     pub type_: __u32,
     pub misc: __u16,
@@ -2648,7 +2646,6 @@ fn bindgen_test_layout_perf_event_header() {
 }
 #[repr(C)]
 #[derive(Debug, Default, Copy, Clone)]
-#[non_exhaustive]
 pub struct perf_ns_link_info {
     pub dev: __u64,
     pub ino: __u64,
@@ -2747,7 +2744,6 @@ pub union perf_mem_data_src {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Default, Copy, Clone)]
-#[non_exhaustive]
 pub struct perf_mem_data_src__bindgen_ty_1 {
     pub _bitfield_align_1: [u32; 0],
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 8usize]>,
@@ -2991,7 +2987,6 @@ impl ::std::fmt::Debug for perf_mem_data_src {
 }
 #[repr(C)]
 #[derive(Debug, Default, Copy, Clone)]
-#[non_exhaustive]
 pub struct perf_branch_entry {
     pub from: __u64,
     pub to: __u64,
@@ -3210,7 +3205,6 @@ pub union perf_sample_weight {
 }
 #[repr(C)]
 #[derive(Debug, Default, Copy, Clone)]
-#[non_exhaustive]
 pub struct perf_sample_weight__bindgen_ty_1 {
     pub var1_dw: __u32,
     pub var2_w: __u16,
