@@ -47,14 +47,8 @@ features are added at a steady pace. To update the generated bindings:
     actually affect the API at all, and even those that do may not require a new
     major version.
 
-    If an update adds a field to a struct, we should treat that as a breaking
-    change. As explained in the module documentation, properly written user
-    crates should not be affected, but it seems unnecessary to risk `cargo
-    update` breaking builds. When users need new functionality from the
-    bindings, they can update the major version number of this crate they
-    request.
-
--   Fix the comments in `src/lib.rs` explaining exactly which version of the
-    kernel headers you generated the bindings from.
+    You can use [`cargo-semver-checks`][semchecks] in order to verify that the
+    resulting changes are semver-compatible.
 
 [bindgen]: https://crates.io/crates/bindgen
+[semchecks]: https://github.com/obi1kenobi/cargo-semver-checks
