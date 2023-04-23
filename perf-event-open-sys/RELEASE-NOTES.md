@@ -1,5 +1,8 @@
 # Release notes for `perf-event-open-sys`
 
+## 5.0.1
+- Bindings have now been added for the perf architectural registers.
+
 ## 5.0.0
 - Rewrote how bindings are generated to directly use the linux kernel source.
 - Regenerated the bindings from the linux 6.2.10 source tree.
