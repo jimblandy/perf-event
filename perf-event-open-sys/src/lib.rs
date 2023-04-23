@@ -69,14 +69,9 @@
 //!
 //! ## Kernel versions
 //!
-//! The bindings in this crate are generated from the Linux kernel headers
-//! packaged by Fedora as:
-//! - x86_64: `kernel-headers-6.13.3-200.fc41.x86_64` (`PERF_ATTR_SIZE_VER8`)
-//! - aarch64: `kernel-headers-5.18.4-201.fc36.aarch64` (`PERF_ATTR_SIZE_VER7`)
-//!
-//! RISC-V binding is generated from the Linux kernel headers pacakged by Arch Linux:
-//!
-//! - riscv64: linux-headers 6.0.9.arch1-1 riscv64
+//! The bindings in this crate are generated from the Linux kernel headers as
+//! built by kernel version
+#![doc = include_str!("version")]
 //!
 //! As explained above, bugs aside, it is not necessary to use the version of
 //! these structures that matches the kernel you want to run under, so it should
