@@ -1,0 +1,12 @@
+
+name: cargo-sweep
+description: "Clean up unused cargo artifacts before they are cached"
+runs:
+  using: composite
+  steps:
+    - uses: swlynch99/install@cargo-sweep
+    - run: cargo sweep --stamp
+      shell: bash
+    - uses: swlynch99/action-post-run@v1
+      with:
+        run: cargo sweep --file

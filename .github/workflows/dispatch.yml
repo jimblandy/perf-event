@@ -1,0 +1,52 @@
+name: dispatch
+
+on:
+  - push
+  - pull_request
+
+jobs:
+  precheck:
+    runs-on: ubuntu-latest
+    outputs:
+      should-run-ci: ${{ steps.has-pr.outputs.result }}
+    steps:
+      - uses: actions/github-script@v6
+        id: has-pr
+        with:
+          result-encoding: string
+          script: |
+            // Run the pull_request workflow only if the base branch is in
+            // a different repository.
+            if (context.eventName == 'push')
+              return true;
+
+            let base_repo = context.payload.pull_request.base.repo.full_name;
+            let head_repo = context.payload.pull_request.head.repo.full_name;
+
+            console.log(`base: ${base_repo}`)
+            console.log(`head: ${head_repo}`)
+            
+            return base_repo != head_repo;
+
+      - name: should we run?
+        run: echo ${{ steps.has-pr.outputs.result }}
+  
+  cargo:
+    if: ${{ needs.precheck.outputs.should-run-ci == 'true' }}
+    needs: precheck
+    uses: ./.github/workflows/cargo.yml
+    secrets: inherit
+
+  clippy-upload:
+    runs-on: ubuntu-latest
+    needs: [ cargo ]
+    permissions:
+      security-events: write
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/download-artifact@v3
+      with:
+        name: clippy-sarif
+    - uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: clippy.sarif
