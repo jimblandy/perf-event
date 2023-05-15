@@ -143,6 +143,17 @@ pub enum Software {
 
     /// Placeholder, for collecting informational sample records.
     DUMMY = bindings::PERF_COUNT_SW_DUMMY,
+
+    /// Special event type for streaming data from a eBPF program.
+    ///
+    /// See the documentation of the `bpf_perf_event_output` method in the
+    /// [`bpf-helpers(7)`] manpage for details on how to use this event type.
+    ///
+    /// [`bpf-helpers(7)`]: https://man7.org/linux/man-pages/man7/bpf-helpers.7.html
+    BPF_OUTPUT = bindings::PERF_COUNT_SW_BPF_OUTPUT,
+
+    /// Context switches to a task in a different cgroup.
+    CGROUP_SWITCHES = bindings::PERF_COUNT_SW_CGROUP_SWITCHES,
 }
 
 impl Event for Software {
