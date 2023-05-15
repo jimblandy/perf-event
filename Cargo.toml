@@ -4,3 +4,8 @@ members = [
     "perf-event-open-sys",
 ]
 resolver = "2"
+
+# perf-event-data depends on perf-event-open-sys2 but we want it to use our
+# local version when doing dev work.
+[patch.crates-io]
+perf-event-open-sys2 = { path = "perf-event-open-sys"}

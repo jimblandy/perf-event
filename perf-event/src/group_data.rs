@@ -4,10 +4,9 @@ use std::time::Duration;
 
 use crate::{Builder, Counter, Group, ReadFormat};
 
-const SKIP_GROUP: ReadFormat = ReadFormat::from_bits_retain(1 << (u64::BITS - 1));
-
 used_in_docs!(Group);
 used_in_docs!(Builder);
+used_in_docs!(ReadFormat);
 
 /// A collection of counts from a group of counters.
 ///
@@ -73,25 +72,26 @@ used_in_docs!(Builder);
 /// # std::io::Result::Ok(())
 /// ```
 pub struct GroupData {
-    // Raw results from the `read`.
-    data: Vec<u64>,
-    read_format: ReadFormat,
+    pub(crate) data: crate::data::ReadGroup<'static>,
+    // We need a set of values that we can actually reference for the index implementation.
+    values: Vec<u64>,
+    should_skip: bool,
 }
 
 impl GroupData {
-    pub(crate) fn new(data: Vec<u64>, read_format: ReadFormat) -> Self {
-        Self { data, read_format }
+    pub(crate) fn new(data: crate::data::ReadGroup<'static>) -> Self {
+        let values = data.entries().map(|entry| entry.value()).collect();
+
+        Self {
+            data,
+            values,
+            should_skip: false,
+        }
     }
 
     /// Return the number of counters this `Counts` holds results for.
     pub fn len(&self) -> usize {
-        let len = self.data[0] as usize;
-
-        if self.should_skip() {
-            len - 1
-        } else {
-            len
-        }
+        self.iter().len()
     }
 
     /// Whether this `GroupData` is empty.
@@ -107,9 +107,7 @@ impl GroupData {
     /// [`TOTAL_TIME_ENABLED`]: ReadFormat::TOTAL_TIME_ENABLED
     /// [`read_format`]: Builder::read_format
     pub fn time_enabled(&self) -> Option<Duration> {
-        self.prefix_offset_of(ReadFormat::TOTAL_TIME_ENABLED)
-            .map(|idx| self.data[idx])
-            .map(Duration::from_nanos)
+        self.data.time_enabled().map(Duration::from_nanos)
     }
 
     /// The duration for which the group was scheduled on the CPU.
@@ -120,9 +118,7 @@ impl GroupData {
     /// [`TOTAL_TIME_RUNNING`]: ReadFormat::TOTAL_TIME_RUNNING
     /// [`read_format`]: Builder::read_format
     pub fn time_running(&self) -> Option<Duration> {
-        self.prefix_offset_of(ReadFormat::TOTAL_TIME_RUNNING)
-            .map(|idx| self.data[idx])
-            .map(Duration::from_nanos)
+        self.data.time_running().map(Duration::from_nanos)
     }
 
     /// Get the entry for `member` in `self`, or `None` if `member` is not
@@ -147,8 +143,7 @@ impl GroupData {
     /// # std::io::Result::Ok(())
     /// ```
     pub fn get(&self, member: &Counter) -> Option<GroupEntry> {
-        self.iter_with_group()
-            .find(|entry| entry.id() == member.id())
+        self.data.get_by_id(member.id()).map(GroupEntry)
     }
 
     /// Return an iterator over all entries in `self`.
@@ -167,40 +162,20 @@ impl GroupData {
     /// ```
     pub fn iter(&self) -> GroupIter {
         let mut iter = self.iter_with_group();
-        if self.should_skip() {
+        if self.should_skip {
             let _ = iter.next();
         }
         iter
     }
 
     fn iter_with_group(&self) -> GroupIter {
-        GroupIter::new(
-            self.read_format,
-            &self.data[self.read_format.prefix_len()..],
-        )
-    }
-
-    fn should_skip(&self) -> bool {
-        self.read_format.contains(SKIP_GROUP)
+        GroupIter(self.data.entries())
     }
 
     /// Mark that the first counter in this group is a `Group` and should not be
     /// included when iterating over this `GroupData` instance.
     pub(crate) fn skip_group(&mut self) {
-        self.read_format |= SKIP_GROUP;
-    }
-
-    fn prefix_offset_of(&self, flag: ReadFormat) -> Option<usize> {
-        debug_assert_eq!(flag.bits().count_ones(), 1);
-
-        let read_format =
-            self.read_format & (ReadFormat::TOTAL_TIME_ENABLED | ReadFormat::TOTAL_TIME_RUNNING);
-
-        if !self.read_format.contains(flag) {
-            return None;
-        }
-
-        Some((read_format.bits() & (flag.bits() - 1)).count_ones() as _)
+        self.should_skip = true;
     }
 }
 
@@ -208,16 +183,13 @@ impl std::ops::Index<&Counter> for GroupData {
     type Output = u64;
 
     fn index(&self, ctr: &Counter) -> &u64 {
-        let data = self
+        let (index, _) = self
             .iter_with_group()
-            .iter
-            .find(|data| {
-                let entry = GroupEntry::new(self.read_format, *data);
-                entry.id() == ctr.id()
-            })
+            .enumerate()
+            .find(|(_, entry)| entry.id() == ctr.id())
             .unwrap_or_else(|| panic!("group contained no counter with id {}", ctr.id()));
 
-        &data[0]
+        &self.values[index]
     }
 }
 
@@ -257,39 +229,22 @@ impl<'a> IntoIterator for &'a GroupData {
 
 /// Individual entry for a counter returned by [`Group::read`].
 #[derive(Copy, Clone)]
-pub struct GroupEntry {
-    // Note: Make sure to update the Debug impl below when adding a field here.
-    read_format: ReadFormat,
-    value: u64,
-    id: u64,
-    lost: u64,
-}
+pub struct GroupEntry(pub(crate) crate::data::GroupEntry);
 
 impl GroupEntry {
-    fn new(read_format: ReadFormat, data: &[u64]) -> Self {
-        Self {
-            read_format,
-            value: data[0],
-            id: data[1],
-            lost: data.get(2).copied().unwrap_or(0),
-        }
-    }
-
-    /// TODO
+    /// The value of the counter.
     pub fn value(&self) -> u64 {
-        self.value
+        self.0.value()
     }
 
-    /// TODO
+    /// The kernel-assigned unique id of the counter that was read.
     pub fn id(&self) -> u64 {
-        self.id
+        self.0.id().expect("group entry did not have an id")
     }
 
-    /// TODO
+    /// The number of lost samples for this event.
     pub fn lost(&self) -> Option<u64> {
-        self.read_format
-            .contains(ReadFormat::LOST)
-            .then_some(self.lost)
+        self.0.lost()
     }
 }
 
@@ -309,41 +264,25 @@ impl fmt::Debug for GroupEntry {
 
 /// Iterator over the entries contained within [`GroupData`].
 #[derive(Clone)]
-pub struct GroupIter<'a> {
-    read_format: ReadFormat,
-    iter: std::slice::ChunksExact<'a, u64>,
-}
-
-impl<'a> GroupIter<'a> {
-    fn new(read_format: ReadFormat, data: &'a [u64]) -> Self {
-        Self {
-            read_format,
-            iter: data.chunks_exact(read_format.element_len()),
-        }
-    }
-}
+pub struct GroupIter<'a>(crate::data::GroupIter<'a>);
 
 impl<'a> Iterator for GroupIter<'a> {
     type Item = GroupEntry;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.iter
-            .next()
-            .map(|chunk| GroupEntry::new(self.read_format, chunk))
+        self.0.next().map(GroupEntry)
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        self.iter.size_hint()
+        self.0.size_hint()
     }
 
     fn count(self) -> usize {
-        self.iter.count()
+        self.0.count()
     }
 
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
-        self.iter
-            .nth(n)
-            .map(|chunk| GroupEntry::new(self.read_format, chunk))
+        self.0.nth(n).map(GroupEntry)
     }
 
     fn last(mut self) -> Option<Self::Item> {
@@ -353,17 +292,18 @@ impl<'a> Iterator for GroupIter<'a> {
 
 impl<'a> DoubleEndedIterator for GroupIter<'a> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        self.iter
-            .next_back()
-            .map(|chunk| GroupEntry::new(self.read_format, chunk))
+        self.0.next_back().map(GroupEntry)
     }
 
     fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
-        self.iter
-            .nth_back(n)
-            .map(|chunk| GroupEntry::new(self.read_format, chunk))
+        self.0.nth_back(n).map(GroupEntry)
     }
 }
 
-impl<'a> ExactSizeIterator for GroupIter<'a> {}
+impl<'a> ExactSizeIterator for GroupIter<'a> {
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+}
+
 impl<'a> FusedIterator for GroupIter<'a> {}

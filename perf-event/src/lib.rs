@@ -118,10 +118,25 @@ use perf_event_open_sys as sys;
 use hooks::sys;
 
 pub use crate::builder::{Builder, UnsupportedOptionsError};
-pub use crate::flags::{Clock, ReadFormat, SampleFlag, SampleSkid};
+#[doc(inline)]
+pub use crate::data::{ReadFormat, SampleFlags as SampleFlag};
+pub use crate::flags::{Clock, SampleSkid};
 pub use crate::group::Group;
 pub use crate::group_data::{GroupData, GroupEntry, GroupIter};
 pub use crate::sampler::{Record, Sampler};
+
+/// Support for parsing data contained within `Record`s.
+///
+/// Note that this module is actually just the [`perf-event-data`][ped] crate.
+/// The documentation has been inlined here for convenience.
+// TODO: Directly linking to the crate causes an ICE in rustdoc. It is fixed in
+//       nightly but not in the latest stable.
+///
+/// [ped]: http://docs.rs/perf-event-data
+///
+/// # perf-event-data
+#[doc(inline)]
+pub use perf_event_data as data;
 
 // ... separate public exports and non-public ones
 
@@ -132,6 +147,8 @@ use std::io;
 use std::os::fd::{AsRawFd, IntoRawFd, RawFd};
 use std::time::Duration;
 
+use crate::data::endian::Native;
+use crate::data::parse::ParseConfig;
 use crate::sys::bindings::PERF_IOC_FLAG_GROUP;
 use crate::sys::ioctls;
 
@@ -178,8 +195,8 @@ pub struct Counter {
     /// The unique id assigned to this counter by the kernel.
     id: u64,
 
-    /// The [`ReadFormat`] flags that were used to configure this `Counter`.
-    read_format: ReadFormat,
+    /// The parse config used by this counter.
+    config: ParseConfig<Native>,
 
     /// If we are a `Group`, then this is the count of how many members we have.
     member_count: u32,
@@ -187,11 +204,11 @@ pub struct Counter {
 
 impl Counter {
     /// Common initialization code shared between counters and groups.
-    pub(crate) fn new_internal(file: File, read_format: ReadFormat) -> std::io::Result<Self> {
+    pub(crate) fn new_internal(file: File, config: ParseConfig<Native>) -> std::io::Result<Self> {
         let mut counter = Self {
             file,
             id: 0,
-            read_format,
+            config,
             member_count: 1,
         };
 
@@ -207,6 +224,11 @@ impl Counter {
     /// Return this counter's kernel-assigned unique id.
     pub fn id(&self) -> u64 {
         self.id
+    }
+
+    /// The [`ParseConfig`] for this `Counter`.
+    pub fn config(&self) -> &ParseConfig<Native> {
+        &self.config
     }
 
     /// Allow this `Counter` to begin counting its designated event.
@@ -492,15 +514,10 @@ impl Counter {
         }
 
         let group = self.do_read_group()?;
-        let data = group.get(self).unwrap();
+        let entry = group.get(self).unwrap();
+        let data = crate::data::ReadValue::from_group_and_entry(&group.data, &entry.0);
 
-        Ok(CounterData {
-            read_format: self.read_format.difference(ReadFormat::GROUP),
-            value: data.value(),
-            time_enabled: group.time_enabled().unwrap_or_default().as_nanos() as _,
-            time_running: group.time_running().unwrap_or_default().as_nanos() as _,
-            lost: data.lost().unwrap_or(0),
-        })
+        Ok(CounterData(data))
     }
 
     /// Read the values of all the counters in the current group.
@@ -545,24 +562,10 @@ impl Counter {
     /// ```
     pub fn read_group(&mut self) -> io::Result<GroupData> {
         if self.is_group() {
-            return self.do_read_group();
+            self.do_read_group()
+        } else {
+            Ok(GroupData::new(self.do_read_single()?.0.into()))
         }
-
-        let data = self.do_read_single()?;
-        let mut vec = Vec::with_capacity(ReadFormat::MAX_NON_GROUP_SIZE);
-        vec.push(data.count());
-
-        if let Some(time_enabled) = data.time_enabled() {
-            vec.push(time_enabled.as_nanos() as _);
-        }
-
-        if let Some(time_running) = data.time_running() {
-            vec.push(time_running.as_nanos() as _);
-        }
-
-        vec.push(self.id());
-
-        Ok(GroupData::new(vec, self.read_format | ReadFormat::GROUP))
     }
 
     /// Return this `Counter`'s current value and timesharing data.
@@ -640,18 +643,19 @@ impl Counter {
     }
 
     fn is_group(&self) -> bool {
-        self.read_format.contains(ReadFormat::GROUP)
+        self.config.read_format().contains(ReadFormat::GROUP)
     }
 
     /// Actual read implementation for when `ReadFormat::GROUP` is not set.
     fn do_read_single(&mut self) -> io::Result<CounterData> {
+        use crate::flags::ReadFormatExt;
         use std::io::Read;
         use std::mem::size_of;
 
-        debug_assert!(!self.read_format.contains(ReadFormat::GROUP));
+        debug_assert!(!self.is_group());
 
-        let mut data = [0u64; ReadFormat::MAX_NON_GROUP_SIZE];
-        let len = self.file.read(as_byte_slice_mut(&mut data))? / size_of::<u64>();
+        let mut data = [0u8; ReadFormat::MAX_NON_GROUP_SIZE * size_of::<u64>()];
+        let len = self.file.read(&mut data)?;
 
         if len == 0 {
             return Err(io::Error::new(
@@ -660,36 +664,18 @@ impl Counter {
             ));
         }
 
-        let mut iter = data.iter().take(len).skip(1).copied();
-        let mut read = |flag: ReadFormat| {
-            self.read_format
-                .contains(flag)
-                .then(|| iter.next())
-                .unwrap_or(Some(0))
-                .ok_or_else(|| {
-                    io::Error::new(
-                        io::ErrorKind::Other,
-                        "read_format did not match the data returned by the kernel",
-                    )
-                })
-        };
+        let mut parser = crate::data::parse::Parser::new(&data[..len], self.config.clone());
+        let value: crate::data::ReadValue = parser
+            .parse()
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
 
-        let time_enabled = read(ReadFormat::TOTAL_TIME_ENABLED)?;
-        let time_running = read(ReadFormat::TOTAL_TIME_RUNNING)?;
-        let _id = read(ReadFormat::ID)?;
-        let lost = read(ReadFormat::LOST)?;
-
-        Ok(CounterData {
-            read_format: self.read_format,
-            value: data[0],
-            time_enabled,
-            time_running,
-            lost,
-        })
+        Ok(CounterData(value))
     }
 
     /// Actual read implementation for when `ReadFormat::GROUP` is set.
     fn do_read_group(&mut self) -> io::Result<GroupData> {
+        use crate::data::ReadGroup;
+        use crate::flags::ReadFormatExt;
         use std::io::Read;
         use std::mem::size_of;
 
@@ -706,11 +692,12 @@ impl Counter {
         //         u64 lost;      /* if PERF_FORMAT_LOST */
         //     } values[nr];
         // };
-        let prefix_len = self.read_format.prefix_len();
-        let element_len = self.read_format.element_len();
+        let read_format = self.config.read_format();
+        let prefix_len = read_format.prefix_len();
+        let element_len = read_format.element_len();
 
         let mut elements = (self.member_count as usize).max(1);
-        let mut data = vec![0; prefix_len + elements * element_len];
+        let mut data = vec![0u8; (prefix_len + elements * element_len) * size_of::<u64>()];
 
         // Backoff loop to try and get the correct size.
         //
@@ -721,11 +708,11 @@ impl Counter {
         // The next time around self.member_count will be set to the correct
         // count and we won't need to go through this loop multiple times.
         let len = loop {
-            match self.file.read(as_byte_slice_mut(&mut data)) {
-                Ok(len) => break len / size_of::<u64>(),
+            match self.file.read(&mut data) {
+                Ok(len) => break len,
                 Err(e) if e.raw_os_error() == Some(libc::ENOSPC) => {
                     elements *= 2;
-                    data.resize(prefix_len + elements * element_len, 0);
+                    data.resize((prefix_len + elements * element_len) * size_of::<u64>(), 0);
                 }
                 Err(e) => return Err(e),
             }
@@ -739,15 +726,16 @@ impl Counter {
         }
 
         data.truncate(len);
-        elements = data[0] as usize;
+        let mut parser = crate::data::parse::Parser::new(data.as_slice(), self.config.clone());
+        let data: ReadGroup = parser
+            .parse::<ReadGroup>()
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?
+            .into_owned();
 
-        // The data returned is not in the format we expected.
-        if data.len() != prefix_len + elements * element_len {
-            return Err(io::Error::from_raw_os_error(libc::ENOSPC));
-        }
+        let data = GroupData::new(data);
 
-        let data = GroupData::new(data, self.read_format);
-        self.member_count = elements
+        self.member_count = data
+            .len()
             .try_into()
             .expect("group had more than u32::MAX elements");
 
@@ -789,15 +777,8 @@ impl fmt::Debug for Counter {
 }
 
 /// The data retrieved by reading from a [`Counter`].
-#[derive(Clone)]
-pub struct CounterData {
-    // If you update this struct remember to update the Debug impl as well.
-    read_format: ReadFormat,
-    value: u64,
-    time_enabled: u64,
-    time_running: u64,
-    lost: u64,
-}
+#[derive(Clone, Debug)]
+pub struct CounterData(crate::data::ReadValue);
 
 impl CounterData {
     /// The counter value.
@@ -805,7 +786,7 @@ impl CounterData {
     /// The meaning of this field depends on how the counter was configured when
     /// it was built; see ['Builder'].
     pub fn count(&self) -> u64 {
-        self.value
+        self.0.value()
     }
 
     /// How long this counter was enabled by the program.
@@ -813,10 +794,7 @@ impl CounterData {
     /// This will be present if [`ReadFormat::TOTAL_TIME_ENABLED`] was
     /// specified in `read_format` when the counter was built.
     pub fn time_enabled(&self) -> Option<Duration> {
-        self.read_format
-            .contains(ReadFormat::TOTAL_TIME_ENABLED)
-            .then_some(self.time_enabled)
-            .map(Duration::from_nanos)
+        self.0.time_enabled().map(Duration::from_nanos)
     }
 
     /// How long the kernel actually ran this counter.
@@ -829,10 +807,7 @@ impl CounterData {
     /// This will be present if [`ReadFormat::TOTAL_TIME_RUNNING`] was
     /// specified in `read_format` when the counter was built.
     pub fn time_running(&self) -> Option<Duration> {
-        self.read_format
-            .contains(ReadFormat::TOTAL_TIME_RUNNING)
-            .then_some(self.time_running)
-            .map(Duration::from_nanos)
+        self.0.time_running().map(Duration::from_nanos)
     }
 
     /// The number of lost samples of this event.
@@ -840,31 +815,7 @@ impl CounterData {
     /// This will be present if [`ReadFormat::LOST`] was specified in
     /// `read_format` when the counter was built.
     pub fn lost(&self) -> Option<u64> {
-        self.read_format
-            .contains(ReadFormat::LOST)
-            .then_some(self.lost)
-    }
-}
-
-impl fmt::Debug for CounterData {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut dbg = f.debug_struct("CounterData");
-
-        dbg.field("count", &self.count());
-
-        if let Some(time_enabled) = self.time_enabled() {
-            dbg.field("time_enabled", &time_enabled);
-        }
-
-        if let Some(time_running) = self.time_running() {
-            dbg.field("time_running", &time_running);
-        }
-
-        if let Some(lost) = self.lost() {
-            dbg.field("lost", &lost);
-        }
-
-        dbg.finish_non_exhaustive()
+        self.0.lost()
     }
 }
 
@@ -896,17 +847,6 @@ pub struct CountAndTime {
     /// shared the underlying hardware with others, and you should prorate its
     /// value accordingly.
     pub time_running: u64,
-}
-
-/// View a slice of u64s as a byte slice.
-fn as_byte_slice_mut(slice: &mut [u64]) -> &mut [u8] {
-    unsafe {
-        let (head, slice, tail) = slice.align_to_mut();
-        debug_assert!(head.is_empty());
-        debug_assert!(tail.is_empty());
-
-        slice
-    }
 }
 
 /// Produce an `io::Result` from an errno-style system call.

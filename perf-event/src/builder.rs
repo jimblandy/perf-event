@@ -5,6 +5,7 @@ use std::os::raw::{c_int, c_ulong};
 use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
 
 use libc::pid_t;
+use perf_event_data::parse::ParseConfig;
 
 use crate::events::Event;
 use crate::sys::bindings::perf_event_attr;
@@ -157,10 +158,7 @@ impl<'a> Builder<'a> {
     /// [`enable_on_exec`]: Builder::enable_on_exec
     /// [0]: https://man7.org/linux/man-pages/man2/perf_event_open.2.html
     pub fn build(&self) -> std::io::Result<Counter> {
-        Counter::new_internal(
-            self.build_impl(None)?,
-            ReadFormat::from_bits_retain(self.attrs.read_format),
-        )
+        Counter::new_internal(self.build_impl(None)?, ParseConfig::from(self.attrs))
     }
 
     /// Construct a [`Counter`] as part of a group.
@@ -213,7 +211,7 @@ impl<'a> Builder<'a> {
             .checked_add(1)
             .expect("cannot add more than u32::MAX elements to a group");
 
-        Counter::new_internal(file, ReadFormat::from_bits_retain(self.attrs.read_format))
+        Counter::new_internal(file, ParseConfig::from(self.attrs))
     }
 
     /// Build a [`Group`] according to the specifications made on this

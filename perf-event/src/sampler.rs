@@ -5,8 +5,11 @@ use std::os::unix::io::{AsRawFd, IntoRawFd, RawFd};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
+use data::parse::Parser;
+
+use crate::data::parse::{ParseBuf, ParseBufChunk, ParseError, ParseResult};
 use crate::sys::bindings::{perf_event_header, perf_event_mmap_page};
-use crate::{check_errno_syscall, Counter};
+use crate::{check_errno_syscall, data, Counter};
 
 /// A sampled perf event.
 ///
@@ -36,7 +39,7 @@ pub struct Sampler {
 /// [`std::mem::forget`] so the next call to [`Sampler::next_record`] will
 /// return the same record again.
 pub struct Record<'a> {
-    page: *const perf_event_mmap_page,
+    sampler: &'a Sampler,
     header: perf_event_header,
     data: ByteBuffer<'a>,
 }
@@ -51,6 +54,8 @@ enum ByteBuffer<'a> {
 
 impl Sampler {
     pub(crate) fn new(counter: Counter, mmap: memmap2::MmapRaw) -> Self {
+        assert!(!mmap.as_ptr().is_null());
+
         Self { counter, mmap }
     }
 
@@ -65,7 +70,7 @@ impl Sampler {
     ///
     /// [`next_blocking`]: Self::next_blocking
     /// [man]: https://man7.org/linux/man-pages/man2/perf_event_open.2.html
-    pub fn next_record(&mut self) -> Option<Record> {
+    pub fn next_record(&self) -> Option<Record> {
         use std::{mem, ptr, slice};
 
         let page = self.page();
@@ -119,7 +124,7 @@ impl Sampler {
         buffer.truncate(header.size as usize - mem::size_of::<perf_event_header>());
 
         Some(Record {
-            page: self.page(),
+            sampler: self,
             header,
             data: buffer,
         })
@@ -271,7 +276,7 @@ impl<'s> Record<'s> {
 
     /// Access the `misc` field of the kernel record header.
     ///
-    /// This contains a set of flags carry some additional metadata on the
+    /// This contains a set of flags that carry some additional metadata on the
     /// record being emitted by the kernel.
     pub fn misc(&self) -> u16 {
         self.header.misc
@@ -317,18 +322,26 @@ impl<'s> Record<'s> {
             }
         }
     }
+
+    /// Parse the data in this record to a [`data::Record`] enum.
+    pub fn parse_record(&self) -> ParseResult<data::Record> {
+        let mut parser = Parser::new(self.data, self.sampler.config().clone());
+        data::Record::parse_with_header(&mut parser, self.header)
+    }
 }
 
 impl<'s> Drop for Record<'s> {
     fn drop(&mut self) {
         use std::ptr;
 
+        let page = self.sampler.page();
+
         unsafe {
             // SAFETY:
             // - page points to a valid instance of perf_event_mmap_page
             // - data_tail is only written on our side so it is safe to do a non-atomic read
             //   here.
-            let tail = ptr::read(ptr::addr_of!((*self.page).data_tail));
+            let tail = ptr::read(ptr::addr_of!((*page).data_tail));
 
             // ATOMICS:
             // - The release store here prevents the compiler from re-ordering any reads
@@ -336,7 +349,7 @@ impl<'s> Drop for Record<'s> {
             // SAFETY:
             // - page points to a valid instance of perf_event_mmap_page
             atomic_store(
-                ptr::addr_of!((*self.page).data_tail),
+                ptr::addr_of!((*page).data_tail),
                 tail + (self.header.size as u64),
                 Ordering::Release,
             );
@@ -415,6 +428,28 @@ impl<'a> ByteBuffer<'a> {
                 d_head.copy_from_slice(a);
                 d_rest.copy_from_slice(b_head);
                 *self = Self::Single(b_rest);
+            }
+        }
+    }
+}
+
+unsafe impl<'a> ParseBuf<'a> for ByteBuffer<'a> {
+    fn chunk(&mut self) -> ParseResult<ParseBufChunk<'_, 'a>> {
+        match self {
+            Self::Single(chunk) if chunk.is_empty() => Err(ParseError::eof()),
+            Self::Single(chunk) => Ok(ParseBufChunk::External(chunk)),
+            Self::Split([chunk, _]) => Ok(ParseBufChunk::External(chunk)),
+        }
+    }
+
+    fn advance(&mut self, mut count: usize) {
+        match self {
+            Self::Single(chunk) => chunk.advance(count),
+            Self::Split([chunk, _]) if count < chunk.len() => chunk.advance(count),
+            Self::Split([a, b]) => {
+                count -= a.len();
+                b.advance(count);
+                *self = Self::Single(b);
             }
         }
     }
