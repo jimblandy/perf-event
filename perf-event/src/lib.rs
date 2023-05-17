@@ -76,6 +76,8 @@
 //! [man]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
 
 #![deny(missing_docs)]
+// The bitflags macro is generating this lint internally.
+#![allow(clippy::assign_op_pattern)]
 
 /// A helper macro for silencing warnings when a type is only implemented so
 /// that it can be linked in the docs.
