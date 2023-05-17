@@ -1,6 +1,8 @@
 # Release notes for `perf-event-open-sys`
 
 ## Unreleased
+
+## 5.0.3
 - Regenerated the bindings from the linux 6.3.4 source tree.
 
 ## 5.0.2
