@@ -166,6 +166,7 @@ pub const PERF_ATTR_SIZE_VER4: u32 = 104;
 pub const PERF_ATTR_SIZE_VER5: u32 = 112;
 pub const PERF_ATTR_SIZE_VER6: u32 = 120;
 pub const PERF_ATTR_SIZE_VER7: u32 = 128;
+pub const PERF_ATTR_SIZE_VER8: u32 = 136;
 pub const PERF_RECORD_MISC_CPUMODE_MASK: u32 = 7;
 pub const PERF_RECORD_MISC_CPUMODE_UNKNOWN: u32 = 0;
 pub const PERF_RECORD_MISC_KERNEL: u32 = 1;
@@ -943,6 +944,7 @@ pub struct perf_event_attr {
     pub aux_sample_size: __u32,
     pub __reserved_3: __u32,
     pub sig_data: __u64,
+    pub config3: __u64,
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -1218,7 +1220,7 @@ fn bindgen_test_layout_perf_event_attr() {
     let ptr = UNINIT.as_ptr();
     assert_eq!(
         ::std::mem::size_of::<perf_event_attr>(),
-        128usize,
+        136usize,
         concat!("Size of: ", stringify!(perf_event_attr))
     );
     assert_eq!(
@@ -1396,6 +1398,16 @@ fn bindgen_test_layout_perf_event_attr() {
             stringify!(sig_data)
         )
     );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).config3) as usize - ptr as usize },
+        128usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_attr),
+            "::",
+            stringify!(config3)
+        )
+    );
 }
 impl Default for perf_event_attr {
     fn default() -> Self {
@@ -1408,7 +1420,7 @@ impl Default for perf_event_attr {
 }
 impl ::std::fmt::Debug for perf_event_attr {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        write ! (f , "perf_event_attr {{ type: {:?}, size: {:?}, config: {:?}, __bindgen_anon_1: {:?}, sample_type: {:?}, read_format: {:?}, disabled : {:?}, inherit : {:?}, pinned : {:?}, exclusive : {:?}, exclude_user : {:?}, exclude_kernel : {:?}, exclude_hv : {:?}, exclude_idle : {:?}, mmap : {:?}, comm : {:?}, freq : {:?}, inherit_stat : {:?}, enable_on_exec : {:?}, task : {:?}, watermark : {:?}, precise_ip : {:?}, mmap_data : {:?}, sample_id_all : {:?}, exclude_host : {:?}, exclude_guest : {:?}, exclude_callchain_kernel : {:?}, exclude_callchain_user : {:?}, mmap2 : {:?}, comm_exec : {:?}, use_clockid : {:?}, context_switch : {:?}, write_backward : {:?}, namespaces : {:?}, ksymbol : {:?}, bpf_event : {:?}, aux_output : {:?}, cgroup : {:?}, text_poke : {:?}, build_id : {:?}, inherit_thread : {:?}, remove_on_exec : {:?}, sigtrap : {:?}, __reserved_1 : {:?}, __bindgen_anon_2: {:?}, bp_type: {:?}, __bindgen_anon_3: {:?}, __bindgen_anon_4: {:?}, branch_sample_type: {:?}, sample_regs_user: {:?}, sample_stack_user: {:?}, clockid: {:?}, sample_regs_intr: {:?}, aux_watermark: {:?}, sample_max_stack: {:?}, __reserved_2: {:?}, aux_sample_size: {:?}, __reserved_3: {:?}, sig_data: {:?} }}" , self . type_ , self . size , self . config , self . __bindgen_anon_1 , self . sample_type , self . read_format , self . disabled () , self . inherit () , self . pinned () , self . exclusive () , self . exclude_user () , self . exclude_kernel () , self . exclude_hv () , self . exclude_idle () , self . mmap () , self . comm () , self . freq () , self . inherit_stat () , self . enable_on_exec () , self . task () , self . watermark () , self . precise_ip () , self . mmap_data () , self . sample_id_all () , self . exclude_host () , self . exclude_guest () , self . exclude_callchain_kernel () , self . exclude_callchain_user () , self . mmap2 () , self . comm_exec () , self . use_clockid () , self . context_switch () , self . write_backward () , self . namespaces () , self . ksymbol () , self . bpf_event () , self . aux_output () , self . cgroup () , self . text_poke () , self . build_id () , self . inherit_thread () , self . remove_on_exec () , self . sigtrap () , self . __reserved_1 () , self . __bindgen_anon_2 , self . bp_type , self . __bindgen_anon_3 , self . __bindgen_anon_4 , self . branch_sample_type , self . sample_regs_user , self . sample_stack_user , self . clockid , self . sample_regs_intr , self . aux_watermark , self . sample_max_stack , self . __reserved_2 , self . aux_sample_size , self . __reserved_3 , self . sig_data)
+        write ! (f , "perf_event_attr {{ type: {:?}, size: {:?}, config: {:?}, __bindgen_anon_1: {:?}, sample_type: {:?}, read_format: {:?}, disabled : {:?}, inherit : {:?}, pinned : {:?}, exclusive : {:?}, exclude_user : {:?}, exclude_kernel : {:?}, exclude_hv : {:?}, exclude_idle : {:?}, mmap : {:?}, comm : {:?}, freq : {:?}, inherit_stat : {:?}, enable_on_exec : {:?}, task : {:?}, watermark : {:?}, precise_ip : {:?}, mmap_data : {:?}, sample_id_all : {:?}, exclude_host : {:?}, exclude_guest : {:?}, exclude_callchain_kernel : {:?}, exclude_callchain_user : {:?}, mmap2 : {:?}, comm_exec : {:?}, use_clockid : {:?}, context_switch : {:?}, write_backward : {:?}, namespaces : {:?}, ksymbol : {:?}, bpf_event : {:?}, aux_output : {:?}, cgroup : {:?}, text_poke : {:?}, build_id : {:?}, inherit_thread : {:?}, remove_on_exec : {:?}, sigtrap : {:?}, __reserved_1 : {:?}, __bindgen_anon_2: {:?}, bp_type: {:?}, __bindgen_anon_3: {:?}, __bindgen_anon_4: {:?}, branch_sample_type: {:?}, sample_regs_user: {:?}, sample_stack_user: {:?}, clockid: {:?}, sample_regs_intr: {:?}, aux_watermark: {:?}, sample_max_stack: {:?}, __reserved_2: {:?}, aux_sample_size: {:?}, __reserved_3: {:?}, sig_data: {:?}, config3: {:?} }}" , self . type_ , self . size , self . config , self . __bindgen_anon_1 , self . sample_type , self . read_format , self . disabled () , self . inherit () , self . pinned () , self . exclusive () , self . exclude_user () , self . exclude_kernel () , self . exclude_hv () , self . exclude_idle () , self . mmap () , self . comm () , self . freq () , self . inherit_stat () , self . enable_on_exec () , self . task () , self . watermark () , self . precise_ip () , self . mmap_data () , self . sample_id_all () , self . exclude_host () , self . exclude_guest () , self . exclude_callchain_kernel () , self . exclude_callchain_user () , self . mmap2 () , self . comm_exec () , self . use_clockid () , self . context_switch () , self . write_backward () , self . namespaces () , self . ksymbol () , self . bpf_event () , self . aux_output () , self . cgroup () , self . text_poke () , self . build_id () , self . inherit_thread () , self . remove_on_exec () , self . sigtrap () , self . __reserved_1 () , self . __bindgen_anon_2 , self . bp_type , self . __bindgen_anon_3 , self . __bindgen_anon_4 , self . branch_sample_type , self . sample_regs_user , self . sample_stack_user , self . clockid , self . sample_regs_intr , self . aux_watermark , self . sample_max_stack , self . __reserved_2 , self . aux_sample_size , self . __reserved_3 , self . sig_data , self . config3)
     }
 }
 impl perf_event_attr {

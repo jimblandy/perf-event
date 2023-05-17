@@ -1,5 +1,8 @@
 # Release notes for `perf-event-open-sys`
 
+## Unreleased
+- Regenerated the bindings from the linux 6.3.4 source tree.
+
 ## 5.0.2
 - The `#[non_exhaustive]` annotation has now been removed from most exported
   structs. The two exceptions where it has been left are `perf_event_attr` and

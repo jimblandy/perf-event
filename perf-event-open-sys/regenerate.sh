@@ -36,7 +36,7 @@ cd "$(dirname "$0")"
 # Updating the linux kernel version
 # =================================
 # The full kernel version used is specified right here:
-version=6.2.10
+version=6.3.2
 #
 # In order to generate bindings for a different kernel change the version and
 # rerun the script. See https://kernel.org/ to find available kernel versions.
