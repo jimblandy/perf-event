@@ -27,7 +27,7 @@ default = []
 bitflags = "2.1"
 c-enum = "0.1"
 libc = "0.2"
-memmap2 = "0.5"
+memmap2 = "0.6"
 perf-event-data = "0.1.1"
 
 [dependencies.perf-event-open-sys2]
