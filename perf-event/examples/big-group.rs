@@ -1,9 +1,9 @@
-use perf_event::events::{Cache, CacheOp, CacheResult, Hardware, WhichCache};
+use perf_event::events::{Cache, CacheId, CacheOp, CacheResult, Hardware};
 use perf_event::{Builder, Group};
 
 fn main() -> std::io::Result<()> {
     const ACCESS: Cache = Cache {
-        which: WhichCache::L1D,
+        which: CacheId::L1D,
         operation: CacheOp::READ,
         result: CacheResult::ACCESS,
     };

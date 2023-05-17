@@ -208,7 +208,7 @@ impl Event for Software {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Cache {
     /// Which cache is being monitored? (data, instruction, ...)
-    pub which: WhichCache,
+    pub which: CacheId,
 
     /// What operation is being monitored? (read, write, etc.)
     pub operation: CacheOp,
@@ -230,6 +230,10 @@ impl Event for Cache {
     }
 }
 
+#[doc(hidden)]
+#[deprecated = "WhichCache has been renamed to CacheId"]
+pub type WhichCache = CacheId;
+
 c_enum! {
     /// A cache whose events we would like to count.
     ///
@@ -241,7 +245,7 @@ c_enum! {
     /// [man]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
     #[repr(transparent)]
     #[derive(Clone, Copy, Eq, PartialEq, Hash)]
-    pub enum WhichCache : u8 {
+    pub enum CacheId : u8 {
         /// Level 1 data cache.
         L1D = bindings::PERF_COUNT_HW_CACHE_L1D as _,
 
