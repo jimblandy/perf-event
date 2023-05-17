@@ -25,6 +25,7 @@ default = []
 
 [dependencies]
 bitflags = "2.1"
+c-enum = "0.1"
 libc = "0.2"
 memmap2 = "0.5"
 perf-event-data = "0.1.1"

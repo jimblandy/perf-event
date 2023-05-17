@@ -1,6 +1,6 @@
 //! Events we can monitor or count.
 //!
-//! There are three general categories of event:
+//! There are a few general categories of event:
 //!
 //! - [`Hardware`] events are counted by the processor itself. This includes
 //!   things like clock cycles, instructions retired, and cache and branch
@@ -18,9 +18,6 @@
 //!   read/write accesses to an address as well as execution of an instruction
 //!   address.
 //!
-//! The `Event` type is just an enum with a variant for each of the above types,
-//! which all implement `Into<Event>`.
-//!
 //! Linux supports many more kinds of events than this module covers, including
 //! events specific to particular make and model of processor, and events that
 //! are dynamically registered by drivers and kernel modules. If something you
@@ -33,6 +30,7 @@
 
 #![allow(non_camel_case_types)]
 use bitflags::bitflags;
+use c_enum::c_enum;
 use perf_event_open_sys::bindings;
 
 /// An event that we can monitor or count.
@@ -49,117 +47,121 @@ pub trait Event {
     fn update_attrs(self, attr: &mut bindings::perf_event_attr);
 }
 
-/// Hardware counters.
-///
-/// These are counters implemented by the processor itself. Such counters vary
-/// from one architecture to the next, and even different models within a
-/// particular architecture will often change the way they expose this data.
-/// This is a selection of portable names for values that can be obtained on a
-/// wide variety of systems.
-///
-/// Each variant of this enum corresponds to a particular `PERF_COUNT_HW_`...
-/// value supported by the [`perf_event_open`][man] system call.
-///
-/// [man]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
-#[repr(u32)]
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum Hardware {
-    /// Total cycles.
-    CPU_CYCLES = bindings::PERF_COUNT_HW_CPU_CYCLES,
+c_enum! {
+    /// Hardware counters.
+    ///
+    /// These are counters implemented by the processor itself. Such counters vary
+    /// from one architecture to the next, and even different models within a
+    /// particular architecture will often change the way they expose this data.
+    /// This is a selection of portable names for values that can be obtained on a
+    /// wide variety of systems.
+    ///
+    /// Each variant of this enum corresponds to a particular `PERF_COUNT_HW_`...
+    /// value supported by the [`perf_event_open`][man] system call.
+    ///
+    /// [man]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
+    #[repr(transparent)]
+    #[derive(Clone, Copy, Eq, PartialEq, Hash)]
+    pub enum Hardware : u64 {
+        /// Total cycles.
+        CPU_CYCLES = bindings::PERF_COUNT_HW_CPU_CYCLES as _,
 
-    /// Retired instructions.
-    INSTRUCTIONS = bindings::PERF_COUNT_HW_INSTRUCTIONS,
+        /// Retired instructions.
+        INSTRUCTIONS = bindings::PERF_COUNT_HW_INSTRUCTIONS as _,
 
-    /// Cache accesses.
-    CACHE_REFERENCES = bindings::PERF_COUNT_HW_CACHE_REFERENCES,
+        /// Cache accesses.
+        CACHE_REFERENCES = bindings::PERF_COUNT_HW_CACHE_REFERENCES as _,
 
-    /// Cache misses.
-    CACHE_MISSES = bindings::PERF_COUNT_HW_CACHE_MISSES,
+        /// Cache misses.
+        CACHE_MISSES = bindings::PERF_COUNT_HW_CACHE_MISSES as _,
 
-    /// Retired branch instructions.
-    BRANCH_INSTRUCTIONS = bindings::PERF_COUNT_HW_BRANCH_INSTRUCTIONS,
+        /// Retired branch instructions.
+        BRANCH_INSTRUCTIONS = bindings::PERF_COUNT_HW_BRANCH_INSTRUCTIONS as _,
 
-    /// Mispredicted branch instructions.
-    BRANCH_MISSES = bindings::PERF_COUNT_HW_BRANCH_MISSES,
+        /// Mispredicted branch instructions.
+        BRANCH_MISSES = bindings::PERF_COUNT_HW_BRANCH_MISSES as _,
 
-    /// Bus cycles.
-    BUS_CYCLES = bindings::PERF_COUNT_HW_BUS_CYCLES,
+        /// Bus cycles.
+        BUS_CYCLES = bindings::PERF_COUNT_HW_BUS_CYCLES as _,
 
-    /// Stalled cycles during issue.
-    STALLED_CYCLES_FRONTEND = bindings::PERF_COUNT_HW_STALLED_CYCLES_FRONTEND,
+        /// Stalled cycles during issue.
+        STALLED_CYCLES_FRONTEND = bindings::PERF_COUNT_HW_STALLED_CYCLES_FRONTEND as _,
 
-    /// Stalled cycles during retirement.
-    STALLED_CYCLES_BACKEND = bindings::PERF_COUNT_HW_STALLED_CYCLES_BACKEND,
+        /// Stalled cycles during retirement.
+        STALLED_CYCLES_BACKEND = bindings::PERF_COUNT_HW_STALLED_CYCLES_BACKEND as _,
 
-    /// Total cycles, independent of frequency scaling.
-    REF_CPU_CYCLES = bindings::PERF_COUNT_HW_REF_CPU_CYCLES,
+        /// Total cycles, independent of frequency scaling.
+        REF_CPU_CYCLES = bindings::PERF_COUNT_HW_REF_CPU_CYCLES as _,
+    }
 }
 
 impl Event for Hardware {
     fn update_attrs(self, attr: &mut bindings::perf_event_attr) {
         attr.type_ = bindings::PERF_TYPE_HARDWARE;
-        attr.config = self as _;
+        attr.config = self.into();
     }
 }
 
-/// Software counters, implemented by the kernel.
-///
-/// Each variant of this enum corresponds to a particular `PERF_COUNT_SW_`...
-/// value supported by the [`perf_event_open`][man] system call.
-///
-/// [man]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
-#[repr(u32)]
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum Software {
-    /// High-resolution per-CPU timer.
-    CPU_CLOCK = bindings::PERF_COUNT_SW_CPU_CLOCK,
-
-    /// Per-task clock count.
-    TASK_CLOCK = bindings::PERF_COUNT_SW_TASK_CLOCK,
-
-    /// Page faults.
-    PAGE_FAULTS = bindings::PERF_COUNT_SW_PAGE_FAULTS,
-
-    /// Context switches.
-    CONTEXT_SWITCHES = bindings::PERF_COUNT_SW_CONTEXT_SWITCHES,
-
-    /// Process migration to another CPU.
-    CPU_MIGRATIONS = bindings::PERF_COUNT_SW_CPU_MIGRATIONS,
-
-    /// Minor page faults: resolved without needing I/O.
-    PAGE_FAULTS_MIN = bindings::PERF_COUNT_SW_PAGE_FAULTS_MIN,
-
-    /// Major page faults: I/O was required to resolve these.
-    PAGE_FAULTS_MAJ = bindings::PERF_COUNT_SW_PAGE_FAULTS_MAJ,
-
-    /// Alignment faults that required kernel intervention.
+c_enum! {
+    /// Software counters, implemented by the kernel.
     ///
-    /// This is only generated on some CPUs, and never on x86_64 or
-    /// ARM.
-    ALIGNMENT_FAULTS = bindings::PERF_COUNT_SW_ALIGNMENT_FAULTS,
-
-    /// Instruction emulation faults.
-    EMULATION_FAULTS = bindings::PERF_COUNT_SW_EMULATION_FAULTS,
-
-    /// Placeholder, for collecting informational sample records.
-    DUMMY = bindings::PERF_COUNT_SW_DUMMY,
-
-    /// Special event type for streaming data from a eBPF program.
+    /// Each variant of this enum corresponds to a particular `PERF_COUNT_SW_`...
+    /// value supported by the [`perf_event_open`][man] system call.
     ///
-    /// See the documentation of the `bpf_perf_event_output` method in the
-    /// [`bpf-helpers(7)`] manpage for details on how to use this event type.
-    ///
-    /// [`bpf-helpers(7)`]: https://man7.org/linux/man-pages/man7/bpf-helpers.7.html
-    BPF_OUTPUT = bindings::PERF_COUNT_SW_BPF_OUTPUT,
+    /// [man]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
+    #[repr(transparent)]
+    #[derive(Clone, Copy, Eq, PartialEq, Hash)]
+    pub enum Software : u64 {
+        /// High-resolution per-CPU timer.
+        CPU_CLOCK = bindings::PERF_COUNT_SW_CPU_CLOCK as _,
 
-    /// Context switches to a task in a different cgroup.
-    CGROUP_SWITCHES = bindings::PERF_COUNT_SW_CGROUP_SWITCHES,
+        /// Per-task clock count.
+        TASK_CLOCK = bindings::PERF_COUNT_SW_TASK_CLOCK as _,
+
+        /// Page faults.
+        PAGE_FAULTS = bindings::PERF_COUNT_SW_PAGE_FAULTS as _,
+
+        /// Context switches.
+        CONTEXT_SWITCHES = bindings::PERF_COUNT_SW_CONTEXT_SWITCHES as _,
+
+        /// Process migration to another CPU.
+        CPU_MIGRATIONS = bindings::PERF_COUNT_SW_CPU_MIGRATIONS as _,
+
+        /// Minor page faults: resolved without needing I/O.
+        PAGE_FAULTS_MIN = bindings::PERF_COUNT_SW_PAGE_FAULTS_MIN as _,
+
+        /// Major page faults: I/O was required to resolve these.
+        PAGE_FAULTS_MAJ = bindings::PERF_COUNT_SW_PAGE_FAULTS_MAJ as _,
+
+        /// Alignment faults that required kernel intervention.
+        ///
+        /// This is only generated on some CPUs, and never on x86_64 or
+        /// ARM.
+        ALIGNMENT_FAULTS = bindings::PERF_COUNT_SW_ALIGNMENT_FAULTS as _,
+
+        /// Instruction emulation faults.
+        EMULATION_FAULTS = bindings::PERF_COUNT_SW_EMULATION_FAULTS as _,
+
+        /// Placeholder, for collecting informational sample records.
+        DUMMY = bindings::PERF_COUNT_SW_DUMMY as _,
+
+        /// Special event type for streaming data from a eBPF program.
+        ///
+        /// See the documentation of the `bpf_perf_event_output` method in the
+        /// [`bpf-helpers(7)`] manpage for details on how to use this event type.
+        ///
+        /// [`bpf-helpers(7)`]: https://man7.org/linux/man-pages/man7/bpf-helpers.7.html
+        BPF_OUTPUT = bindings::PERF_COUNT_SW_BPF_OUTPUT as _,
+
+        /// Context switches to a task in a different cgroup.
+        CGROUP_SWITCHES = bindings::PERF_COUNT_SW_CGROUP_SWITCHES as _,
+    }
 }
 
 impl Event for Software {
     fn update_attrs(self, attr: &mut bindings::perf_event_attr) {
         attr.type_ = bindings::PERF_TYPE_SOFTWARE;
-        attr.config = self as _;
+        attr.config = self.into();
     }
 }
 
@@ -217,7 +219,7 @@ pub struct Cache {
 
 impl Cache {
     fn as_config(&self) -> u64 {
-        self.which as u64 | ((self.operation as u64) << 8) | ((self.result as u64) << 16)
+        self.which.0 as u64 | ((self.operation.0 as u64) << 8) | ((self.result.0 as u64) << 16)
     }
 }
 
@@ -228,80 +230,82 @@ impl Event for Cache {
     }
 }
 
-/// A cache whose events we would like to count.
-///
-/// This is used in the `Cache` type as part of the identification of a cache
-/// event. Each variant here corresponds to a particular
-/// `PERF_COUNT_HW_CACHE_...` constant supported by the [`perf_event_open`][man]
-/// system call.
-///
-/// [man]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
-#[repr(u32)]
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub enum WhichCache {
-    /// Level 1 data cache.
-    L1D = bindings::PERF_COUNT_HW_CACHE_L1D,
+c_enum! {
+    /// A cache whose events we would like to count.
+    ///
+    /// This is used in the `Cache` type as part of the identification of a cache
+    /// event. Each variant here corresponds to a particular
+    /// `PERF_COUNT_HW_CACHE_...` constant supported by the [`perf_event_open`][man]
+    /// system call.
+    ///
+    /// [man]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
+    #[repr(transparent)]
+    #[derive(Clone, Copy, Eq, PartialEq, Hash)]
+    pub enum WhichCache : u8 {
+        /// Level 1 data cache.
+        L1D = bindings::PERF_COUNT_HW_CACHE_L1D as _,
 
-    /// Level 1 instruction cache.
-    L1I = bindings::PERF_COUNT_HW_CACHE_L1I,
+        /// Level 1 instruction cache.
+        L1I = bindings::PERF_COUNT_HW_CACHE_L1I as _,
 
-    /// Last-level cache.
-    LL = bindings::PERF_COUNT_HW_CACHE_LL,
+        /// Last-level cache.
+        LL = bindings::PERF_COUNT_HW_CACHE_LL as _,
 
-    /// Data translation lookaside buffer (virtual address translation).
-    DTLB = bindings::PERF_COUNT_HW_CACHE_DTLB,
+        /// Data translation lookaside buffer (virtual address translation).
+        DTLB = bindings::PERF_COUNT_HW_CACHE_DTLB as _,
 
-    /// Instruction translation lookaside buffer (virtual address translation).
-    ITLB = bindings::PERF_COUNT_HW_CACHE_ITLB,
+        /// Instruction translation lookaside buffer (virtual address translation).
+        ITLB = bindings::PERF_COUNT_HW_CACHE_ITLB as _,
 
-    /// Branch prediction.
-    BPU = bindings::PERF_COUNT_HW_CACHE_BPU,
+        /// Branch prediction.
+        BPU = bindings::PERF_COUNT_HW_CACHE_BPU as _,
 
-    /// Memory accesses that stay local to the originating NUMA node.
-    NODE = bindings::PERF_COUNT_HW_CACHE_NODE,
-}
+        /// Memory accesses that stay local to the originating NUMA node.
+        NODE = bindings::PERF_COUNT_HW_CACHE_NODE as _,
+    }
 
-/// What sort of cache operation we would like to observe.
-///
-/// This is used in the `Cache` type as part of the identification of a cache
-/// event. Each variant here corresponds to a particular
-/// `PERF_COUNT_HW_CACHE_OP_...` constant supported by the
-/// [`perf_event_open`][man] system call.
-///
-/// [man]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
-#[repr(u32)]
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub enum CacheOp {
-    /// Read accesses.
-    READ = bindings::PERF_COUNT_HW_CACHE_OP_READ,
+    /// What sort of cache operation we would like to observe.
+    ///
+    /// This is used in the `Cache` type as part of the identification of a cache
+    /// event. Each variant here corresponds to a particular
+    /// `PERF_COUNT_HW_CACHE_OP_...` constant supported by the
+    /// [`perf_event_open`][man] system call.
+    ///
+    /// [man]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
+    #[repr(transparent)]
+    #[derive(Clone, Copy, Eq, PartialEq, Hash)]
+    pub enum CacheOp : u8 {
+        /// Read accesses.
+        READ = bindings::PERF_COUNT_HW_CACHE_OP_READ as _,
 
-    /// Write accesses.
-    WRITE = bindings::PERF_COUNT_HW_CACHE_OP_WRITE,
+        /// Write accesses.
+        WRITE = bindings::PERF_COUNT_HW_CACHE_OP_WRITE as _,
 
-    /// Prefetch accesses.
-    PREFETCH = bindings::PERF_COUNT_HW_CACHE_OP_PREFETCH,
-}
+        /// Prefetch accesses.
+        PREFETCH = bindings::PERF_COUNT_HW_CACHE_OP_PREFETCH as _,
+    }
 
-#[repr(u32)]
-/// What sort of cache result we're interested in observing.
-///
-/// `ACCESS` counts the total number of operations performed on the cache,
-/// whereas `MISS` counts only those requests that the cache could not satisfy.
-/// Treating `MISS` as a fraction of `ACCESS` gives you the cache's miss rate.
-///
-/// This is used used in the `Cache` type as part of the identification of a
-/// cache event. Each variant here corresponds to a particular
-/// `PERF_COUNT_HW_CACHE_RESULT_...` constant supported by the
-/// [`perf_event_open`][man] system call.
-///
-/// [man]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub enum CacheResult {
-    /// Cache was accessed.
-    ACCESS = bindings::PERF_COUNT_HW_CACHE_RESULT_ACCESS,
+    /// What sort of cache result we're interested in observing.
+    ///
+    /// `ACCESS` counts the total number of operations performed on the cache,
+    /// whereas `MISS` counts only those requests that the cache could not satisfy.
+    /// Treating `MISS` as a fraction of `ACCESS` gives you the cache's miss rate.
+    ///
+    /// This is used used in the `Cache` type as part of the identification of a
+    /// cache event. Each variant here corresponds to a particular
+    /// `PERF_COUNT_HW_CACHE_RESULT_...` constant supported by the
+    /// [`perf_event_open`][man] system call.
+    ///
+    /// [man]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
+    #[repr(transparent)]
+    #[derive(Clone, Copy, Eq, PartialEq, Hash)]
+    pub enum CacheResult : u8 {
+        /// Cache was accessed.
+        ACCESS = bindings::PERF_COUNT_HW_CACHE_RESULT_ACCESS as _,
 
-    /// Cache access was a miss.
-    MISS = bindings::PERF_COUNT_HW_CACHE_RESULT_MISS,
+        /// Cache access was a miss.
+        MISS = bindings::PERF_COUNT_HW_CACHE_RESULT_MISS as _,
+    }
 }
 
 bitflags! {
