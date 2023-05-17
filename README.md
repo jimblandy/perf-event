@@ -1,6 +1,6 @@
 ## perf-event: a Rust interface to Linux performance monitoring
 
-![example workflow](https://github.com/jimblandy/perf-event/actions/workflows/master.yml/badge.svg)
+![example workflow](https://img.shields.io/github/actions/workflow/status/phantomical/perf-event/cargo.yml?style=flat-square)
 
 *This is a nascent project. Tests are lacking. The design may change.*
 
