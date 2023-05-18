@@ -375,6 +375,17 @@ impl Counter {
         self.ioctl(|fd| unsafe { ioctls::RESET(fd, PERF_IOC_FLAG_GROUP) })
     }
 
+    /// Attach an eBPF program to this counter.
+    ///
+    /// This will only work if this counter was created as a kprobe
+    /// tracepoint event.
+    ///
+    /// This method corresponds to the `IOC_SET_BPF` ioctl.
+    pub fn set_bpf(&mut self, bpf: RawFd) -> io::Result<()> {
+        self.ioctl(|fd| unsafe { ioctls::SET_BPF(fd, bpf as _) })
+            .map(drop)
+    }
+
     /// Map a buffer for samples from this counter, returning a [`Sampler`]
     /// that can be used to access them.
     ///
