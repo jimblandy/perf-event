@@ -28,10 +28,16 @@
 //! [`Software`]: enum.Software.html
 //! [`Cache`]: struct.Cache.html
 
-#![allow(non_camel_case_types)]
+use std::sync::Arc;
+
 use bitflags::bitflags;
 use c_enum::c_enum;
-use perf_event_open_sys::bindings;
+use perf_event_open_sys::bindings::{self, perf_event_attr};
+
+use crate::{Builder, Counter};
+
+used_in_docs!(Counter);
+used_in_docs!(Builder);
 
 /// An event that we can monitor or count.
 pub trait Event {
@@ -42,10 +48,32 @@ pub trait Event {
     /// collect various events can vary by quite a bit so this crate avoids
     /// putting any restrictions here by just passing the whole
     /// [`perf_event_attr`] struct.
+    fn update_attrs(self, attr: &mut perf_event_attr);
+
+    /// Update the [`perf_event_attr`] struct so that it will record the
+    /// requested event.
     ///
-    /// [`perf_event_attr`]: bindings::perf_event_attr
-    fn update_attrs(self, attr: &mut bindings::perf_event_attr);
+    /// This is exactly the same as `update_attrs` except it optionally allows
+    /// the Event implementor to return data that needs to live until the
+    /// actual [`Counter`] is constructed.
+    ///
+    /// [`Builder`] will always call this method instead of `update_attrs`.
+    fn update_attrs_with_data(self, attr: &mut perf_event_attr) -> Option<Arc<dyn EventData>>
+    where
+        Self: Sized,
+    {
+        self.update_attrs(attr);
+        None
+    }
 }
+
+/// Trait for owned event data.
+///
+/// This is automatically implemented for any type which is both `Send` and
+/// `Sync`.
+pub trait EventData: Send + Sync {}
+
+impl<T: Send + Sync> EventData for T {}
 
 c_enum! {
     /// Hardware counters.

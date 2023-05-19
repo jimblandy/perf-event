@@ -3,11 +3,13 @@ use std::fs::File;
 use std::io::{self, ErrorKind};
 use std::os::raw::{c_int, c_ulong};
 use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
+use std::panic::{RefUnwindSafe, UnwindSafe};
+use std::sync::Arc;
 
 use libc::pid_t;
 use perf_event_data::parse::ParseConfig;
 
-use crate::events::Event;
+use crate::events::{Event, EventData};
 use crate::sys::bindings::perf_event_attr;
 use crate::{check_errno_syscall, sys, Clock, Counter, Group, ReadFormat, SampleFlag, SampleSkid};
 
@@ -59,12 +61,21 @@ use crate::{check_errno_syscall, sys, Clock, Counter, Group, ReadFormat, SampleF
 /// perf_event_attr` type.
 ///
 /// [`enable`]: Counter::enable
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Builder<'a> {
     attrs: perf_event_attr,
     who: EventPid<'a>,
     cpu: Option<usize>,
+
+    // Some events need to hold onto data that is referenced in the builder.
+    // The perf_event_attr struct obviously doesn't have lifetimes so the only
+    // safe solution is to have the builder hold onto it.
+    event_data: Option<Arc<dyn EventData>>,
 }
+
+// Needed for backwards compat
+impl UnwindSafe for Builder<'_> {}
+impl RefUnwindSafe for Builder<'_> {}
 
 #[derive(Clone, Debug)]
 enum EventPid<'a> {
@@ -99,12 +110,12 @@ impl<'a> Builder<'a> {
     /// Return a new `Builder`, with all parameters set to their defaults.
     ///
     /// Return a new `Builder` for the specified event.
-    pub fn new(event: impl Event) -> Self {
+    pub fn new<E: Event + Sized>(event: E) -> Self {
         let mut attrs = perf_event_attr::default();
 
         // Do the update_attrs bit before we set any of the default state so
         // that user code can't break configuration we really care about.
-        event.update_attrs(&mut attrs);
+        let data = event.update_attrs_with_data(&mut attrs);
 
         // Setting `size` accurately will not prevent the code from working
         // on older kernels. The module comments for `perf_event_open_sys`
@@ -115,6 +126,7 @@ impl<'a> Builder<'a> {
             attrs,
             who: EventPid::ThisProcess,
             cpu: None,
+            event_data: data,
         };
 
         builder.enabled(false);
@@ -833,6 +845,20 @@ impl<'a> Builder<'a> {
     pub fn sigtrap(&mut self, sigtrap: bool) -> &mut Self {
         self.attrs.set_sigtrap(sigtrap.into());
         self
+    }
+}
+
+impl fmt::Debug for Builder<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Builder")
+            .field("attrs", &self.attrs)
+            .field("who", &self.who)
+            .field("cpu", &self.cpu)
+            .field(
+                "event_data",
+                &self.event_data.as_ref().map(|_| "<dyn EventData>"),
+            )
+            .finish()
     }
 }
 
