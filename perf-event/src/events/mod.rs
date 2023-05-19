@@ -40,11 +40,13 @@ used_in_docs!(Builder);
 mod breakpoint;
 mod cache;
 mod hardware;
+mod probe;
 mod software;
 
 pub use self::breakpoint::{Breakpoint, BreakpointAccess};
 pub use self::cache::{Cache, CacheId, CacheOp, CacheResult};
 pub use self::hardware::Hardware;
+pub use self::probe::{KProbe, UProbe};
 pub use self::software::Software;
 
 #[allow(deprecated)]
