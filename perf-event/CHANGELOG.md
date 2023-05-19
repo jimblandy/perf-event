@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Expose the `IOC_SET_BPF` ioctl as `Counter::set_bpf`.
 - Add `KProbe` and `UProbe` events.
+- Add `Event::update_attrs_with_data` to allow events to store references to
+  owned data within `Builder`'s `perf_event_attr` struct.
 
 ## [0.6.0] - 2023-05-17
 ### Added
