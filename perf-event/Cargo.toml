@@ -1,6 +1,6 @@
 [package]
 name = "perf-event2"
-version = "0.6.0"
+version = "0.6.1"
 description = "A Rust interface to Linux performance monitoring"
 license = "MIT OR Apache-2.0"
 authors = ["Sean Lynch <sean@lynches.ca>", "Jim Blandy <jimb@red-bean.com>"]
@@ -21,7 +21,6 @@ name = "perf_event"
 [features]
 # Enable syscall interception hooks for mock testing and logging.
 hooks = []
-default = []
 
 [dependencies]
 bitflags = "2.1"
