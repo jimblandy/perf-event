@@ -110,7 +110,7 @@ impl<'a> Builder<'a> {
     /// Return a new `Builder`, with all parameters set to their defaults.
     ///
     /// Return a new `Builder` for the specified event.
-    pub fn new<E: Event + Sized>(event: E) -> Self {
+    pub fn new<E: Event>(event: E) -> Self {
         let mut attrs = perf_event_attr::default();
 
         // Do the update_attrs bit before we set any of the default state so
