@@ -42,12 +42,14 @@ mod cache;
 mod hardware;
 mod probe;
 mod software;
+mod tracepoint;
 
 pub use self::breakpoint::{Breakpoint, BreakpointAccess};
 pub use self::cache::{Cache, CacheId, CacheOp, CacheResult};
 pub use self::hardware::Hardware;
 pub use self::probe::{KProbe, UProbe};
 pub use self::software::Software;
+pub use self::tracepoint::Tracepoint;
 
 #[allow(deprecated)]
 pub use self::cache::WhichCache;
