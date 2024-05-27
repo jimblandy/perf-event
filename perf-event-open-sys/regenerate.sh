@@ -89,10 +89,24 @@ function gen_bindings {
         -E wrapper.h                            \
         -o "$target/$arch/wrapper.i"
 
-    bindgen                                     \
-        --impl-debug                            \
-        --with-derive-default                   \
-        --no-prepend-enum-name                  \
+    BINDGEN_ARGS=(
+        --impl-debug
+        --with-derive-default
+        --no-prepend-enum-name
+
+        # This ends up being a needless changed line when updating bindgen
+        # versions.
+        --disable-header-comment
+
+        --allowlist-var 'PERF_.*'
+        --allowlist-var '__NR_perf_event_open'
+        --allowlist-var '[A-Z]+_NS_INDEX'
+        --allowlist-var 'HW_BREAKPOINT_[A-Z0-9_]+'
+        
+        --allowlist-type 'perf_.*'
+    )
+
+    bindgen "${BINDGEN_ARGS[@]}"                \
         --output "$bindings"                    \
         wrapper.h                               \
         --                                      \

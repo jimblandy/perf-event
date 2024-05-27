@@ -1,5 +1,15 @@
 # Release notes for `perf-event-open-sys`
 
+## Unreleased
+
+-   `perf_event_attr` and `perf_event_mmap_page` are now marked as
+    `#[non_exhaustive]`.
+
+-   `perf_event_attr` now has several deref hacks so that fields in unnamed C
+    unions can be accessed like they would be in C code.
+
+-   All bindings have been regenerated from the headers for Linux v6.13.9.
+
 ## 5.0.0
 
 -   Regenerated `x86_64` bindings from Fedora's
