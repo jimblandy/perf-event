@@ -19,7 +19,4 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 #![allow(deref_nullptr)] // `bindgen_test_layout` tests use bogus code
-#![allow(clippy::missing_safety_doc)]
-#![allow(clippy::too_many_arguments)]
-#![allow(clippy::useless_transmute)]
-
+#![allow(clippy::all)]
