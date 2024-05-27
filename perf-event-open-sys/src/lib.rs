@@ -177,6 +177,8 @@
 //! [man]: http://man7.org/linux/man-pages/man2/perf_event_open.2.html
 //! [`perf_event`]: https://crates.io/crates/perf_event
 
+mod attr;
+
 #[cfg(target_arch = "aarch64")]
 #[path = "bindings_aarch64.rs"]
 pub mod bindings;
