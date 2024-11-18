@@ -97,10 +97,9 @@ pub mod ioctls {
     }
 
     unsafe fn untyped_ioctl<A>(fd: c_int, ioctl: bindings::perf_event_ioctls, arg: A) -> c_int {
-        #[cfg(any(target_env = "musl", target_os = "android"))]
-        return libc::ioctl(fd, ioctl as c_int, arg);
-
-        #[cfg(not(any(target_env = "musl", target_os = "android")))]
-        libc::ioctl(fd, ioctl as c_ulong, arg)
+        // Depending on the libc implementation this may cast to either
+        // - c_int (musl or android), or,
+        // - c_ulong (glibc)
+        libc::ioctl(fd, ioctl as _, arg)
     }
 }
