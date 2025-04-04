@@ -1,5 +1,12 @@
 # Release notes for `perf-event-open-sys`
 
+## 5.0.0
+
+-   Regenerated `x86_64` bindings from Fedora's
+    `kernel-headers-6.13.3-200.fc41.x86_64` package.
+
+-   Added support for 64-bit RISCV (`riscv64`).
+
 ## 4.0.0
 
 -   Regenerated `x86_64` bindings from Fedora's
