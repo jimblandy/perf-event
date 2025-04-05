@@ -5,7 +5,9 @@ fn main() {
 
     // Build a vector that `walk` will traverse from start to end.
     let mut vec: Vec<usize> = (1..SIZE).chain(Some(0)).collect();
-    measure("linear", || { black_box(walk(&vec)); });
+    measure("linear", || {
+        black_box(walk(&vec));
+    });
 
     let mut random = XorShift128Plus::from_seed(1729, 42);
     random.nth(100); // Propagate the 1-bits in the state a bit.
@@ -23,7 +25,9 @@ fn main() {
         rest = next;
     }
 
-    measure("random", || { black_box(walk(&vec)); });
+    measure("random", || {
+        black_box(walk(&vec));
+    });
 }
 
 /// Access elements of `indices`, as guided by its contents.
@@ -113,7 +117,7 @@ fn measure(label: &str, task: impl FnOnce()) {
 ///
 /// This implements [`Iterator`], producing pseudorandom `u64` values
 /// as items.
-/// 
+///
 /// [XorShift128+]: https://en.wikipedia.org/wiki/Xorshift#xorshift+
 struct XorShift128Plus {
     state: [u64; 2],
