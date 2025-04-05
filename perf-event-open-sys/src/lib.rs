@@ -186,7 +186,7 @@ pub mod bindings;
 pub mod bindings;
 
 #[cfg(any(target_arch = "riscv64"))]
-#[path = "bindings_riscv64.rs"]
+#[path = "bindings_riscv64gc.rs"]
 pub mod bindings;
 
 // Provide actual callable code only on Linux/Android. See "Using perf
