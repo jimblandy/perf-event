@@ -71,7 +71,7 @@
 //!
 //! The bindings in this crate are generated from the Linux kernel headers as
 //! built by kernel version
-#![doc = include_str!("version")]
+#![doc = concat!(include_str!("version"), ".")]
 //!
 //! As explained above, bugs aside, it is not necessary to use the version of
 //! these structures that matches the kernel you want to run under, so it should
