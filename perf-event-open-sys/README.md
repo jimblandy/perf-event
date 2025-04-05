@@ -48,7 +48,10 @@ features are added at a steady pace. To update the generated bindings:
     major version.
 
     You can use [`cargo-semver-checks`][semchecks] in order to verify that the
-    resulting changes are semver-compatible.
+    resulting changes are semver-compatible. We don't always literally follow
+    the standards set by cargo-semver-checks (e.g. some changes to
+    `perf_event_attr` are actually fine) but it is generally a good starting
+    point for determining whether the change is a breaking one.
 
 [bindgen]: https://crates.io/crates/bindgen
 [semchecks]: https://github.com/obi1kenobi/cargo-semver-checks
