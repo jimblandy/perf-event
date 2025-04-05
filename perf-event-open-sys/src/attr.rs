@@ -19,8 +19,7 @@
 
 use std::mem::{self, MaybeUninit};
 use std::ops::{Deref, DerefMut};
-
-use memoffset::offset_of;
+use std::mem::offset_of;
 
 use crate::bindings::{self, perf_event_attr};
 
