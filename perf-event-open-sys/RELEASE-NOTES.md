@@ -2,13 +2,10 @@
 
 ## Unreleased
 
--   `perf_event_attr` and `perf_event_mmap_page` are now marked as
-    `#[non_exhaustive]`.
-
--   `perf_event_attr` now has several deref hacks so that fields in unnamed C
-    unions can be accessed like they would be in C code.
-
 -   All bindings have been regenerated from the headers for Linux v6.13.9.
+
+-   The bindings no longer include a large number of types and constants that
+    are not related to `perf_event_open`.
 
 ## 5.0.0
 
