@@ -140,6 +140,7 @@ pub const PERF_ATTR_SIZE_VER4: u32 = 104;
 pub const PERF_ATTR_SIZE_VER5: u32 = 112;
 pub const PERF_ATTR_SIZE_VER6: u32 = 120;
 pub const PERF_ATTR_SIZE_VER7: u32 = 128;
+pub const PERF_ATTR_SIZE_VER8: u32 = 136;
 pub const PERF_RECORD_MISC_CPUMODE_MASK: u32 = 7;
 pub const PERF_RECORD_MISC_CPUMODE_UNKNOWN: u32 = 0;
 pub const PERF_RECORD_MISC_KERNEL: u32 = 1;
@@ -197,6 +198,9 @@ pub const PERF_MEM_LVLNUM_L1: u32 = 1;
 pub const PERF_MEM_LVLNUM_L2: u32 = 2;
 pub const PERF_MEM_LVLNUM_L3: u32 = 3;
 pub const PERF_MEM_LVLNUM_L4: u32 = 4;
+pub const PERF_MEM_LVLNUM_L2_MHB: u32 = 5;
+pub const PERF_MEM_LVLNUM_MSC: u32 = 6;
+pub const PERF_MEM_LVLNUM_UNC: u32 = 8;
 pub const PERF_MEM_LVLNUM_CXL: u32 = 9;
 pub const PERF_MEM_LVLNUM_IO: u32 = 10;
 pub const PERF_MEM_LVLNUM_ANY_CACHE: u32 = 11;
@@ -234,6 +238,7 @@ pub const PERF_MEM_HOPS_1: u32 = 2;
 pub const PERF_MEM_HOPS_2: u32 = 3;
 pub const PERF_MEM_HOPS_3: u32 = 4;
 pub const PERF_MEM_HOPS_SHIFT: u32 = 43;
+pub const PERF_BRANCH_ENTRY_INFO_BITS_MAX: u32 = 33;
 pub const __NR_perf_event_open: u32 = 241;
 pub type __u8 = ::std::os::raw::c_uchar;
 pub type __u16 = ::std::os::raw::c_ushort;
@@ -339,7 +344,8 @@ pub const PERF_SAMPLE_BRANCH_NO_CYCLES_SHIFT: perf_branch_sample_type_shift = 15
 pub const PERF_SAMPLE_BRANCH_TYPE_SAVE_SHIFT: perf_branch_sample_type_shift = 16;
 pub const PERF_SAMPLE_BRANCH_HW_INDEX_SHIFT: perf_branch_sample_type_shift = 17;
 pub const PERF_SAMPLE_BRANCH_PRIV_SAVE_SHIFT: perf_branch_sample_type_shift = 18;
-pub const PERF_SAMPLE_BRANCH_MAX_SHIFT: perf_branch_sample_type_shift = 19;
+pub const PERF_SAMPLE_BRANCH_COUNTERS_SHIFT: perf_branch_sample_type_shift = 19;
+pub const PERF_SAMPLE_BRANCH_MAX_SHIFT: perf_branch_sample_type_shift = 20;
 pub type perf_branch_sample_type_shift = ::std::os::raw::c_uint;
 pub const PERF_SAMPLE_BRANCH_USER: perf_branch_sample_type = 1;
 pub const PERF_SAMPLE_BRANCH_KERNEL: perf_branch_sample_type = 2;
@@ -360,7 +366,8 @@ pub const PERF_SAMPLE_BRANCH_NO_CYCLES: perf_branch_sample_type = 32768;
 pub const PERF_SAMPLE_BRANCH_TYPE_SAVE: perf_branch_sample_type = 65536;
 pub const PERF_SAMPLE_BRANCH_HW_INDEX: perf_branch_sample_type = 131072;
 pub const PERF_SAMPLE_BRANCH_PRIV_SAVE: perf_branch_sample_type = 262144;
-pub const PERF_SAMPLE_BRANCH_MAX: perf_branch_sample_type = 524288;
+pub const PERF_SAMPLE_BRANCH_COUNTERS: perf_branch_sample_type = 524288;
+pub const PERF_SAMPLE_BRANCH_MAX: perf_branch_sample_type = 1048576;
 pub type perf_branch_sample_type = ::std::os::raw::c_uint;
 pub const PERF_BR_UNKNOWN: _bindgen_ty_1 = 0;
 pub const PERF_BR_COND: _bindgen_ty_1 = 1;
@@ -448,8 +455,9 @@ pub struct perf_event_attr {
     pub sample_max_stack: __u16,
     pub __reserved_2: __u16,
     pub aux_sample_size: __u32,
-    pub __reserved_3: __u32,
+    pub __bindgen_anon_5: perf_event_attr__bindgen_ty_5,
     pub sig_data: __u64,
+    pub config3: __u64,
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -719,13 +727,156 @@ impl ::std::fmt::Debug for perf_event_attr__bindgen_ty_4 {
         write!(f, "perf_event_attr__bindgen_ty_4 {{ union }}")
     }
 }
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union perf_event_attr__bindgen_ty_5 {
+    pub aux_action: __u32,
+    pub __bindgen_anon_1: perf_event_attr__bindgen_ty_5__bindgen_ty_1,
+}
+#[repr(C)]
+#[derive(Debug, Default, Copy, Clone)]
+pub struct perf_event_attr__bindgen_ty_5__bindgen_ty_1 {
+    pub _bitfield_align_1: [u32; 0],
+    pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize]>,
+}
+#[test]
+fn bindgen_test_layout_perf_event_attr__bindgen_ty_5__bindgen_ty_1() {
+    assert_eq!(
+        ::std::mem::size_of::<perf_event_attr__bindgen_ty_5__bindgen_ty_1>(),
+        4usize,
+        concat!(
+            "Size of: ",
+            stringify!(perf_event_attr__bindgen_ty_5__bindgen_ty_1)
+        )
+    );
+    assert_eq!(
+        ::std::mem::align_of::<perf_event_attr__bindgen_ty_5__bindgen_ty_1>(),
+        4usize,
+        concat!(
+            "Alignment of ",
+            stringify!(perf_event_attr__bindgen_ty_5__bindgen_ty_1)
+        )
+    );
+}
+impl perf_event_attr__bindgen_ty_5__bindgen_ty_1 {
+    #[inline]
+    pub fn aux_start_paused(&self) -> __u32 {
+        unsafe { ::std::mem::transmute(self._bitfield_1.get(0usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_aux_start_paused(&mut self, val: __u32) {
+        unsafe {
+            let val: u32 = ::std::mem::transmute(val);
+            self._bitfield_1.set(0usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn aux_pause(&self) -> __u32 {
+        unsafe { ::std::mem::transmute(self._bitfield_1.get(1usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_aux_pause(&mut self, val: __u32) {
+        unsafe {
+            let val: u32 = ::std::mem::transmute(val);
+            self._bitfield_1.set(1usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn aux_resume(&self) -> __u32 {
+        unsafe { ::std::mem::transmute(self._bitfield_1.get(2usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_aux_resume(&mut self, val: __u32) {
+        unsafe {
+            let val: u32 = ::std::mem::transmute(val);
+            self._bitfield_1.set(2usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn __reserved_3(&self) -> __u32 {
+        unsafe { ::std::mem::transmute(self._bitfield_1.get(3usize, 29u8) as u32) }
+    }
+    #[inline]
+    pub fn set___reserved_3(&mut self, val: __u32) {
+        unsafe {
+            let val: u32 = ::std::mem::transmute(val);
+            self._bitfield_1.set(3usize, 29u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn new_bitfield_1(
+        aux_start_paused: __u32,
+        aux_pause: __u32,
+        aux_resume: __u32,
+        __reserved_3: __u32,
+    ) -> __BindgenBitfieldUnit<[u8; 4usize]> {
+        let mut __bindgen_bitfield_unit: __BindgenBitfieldUnit<[u8; 4usize]> = Default::default();
+        __bindgen_bitfield_unit.set(0usize, 1u8, {
+            let aux_start_paused: u32 = unsafe { ::std::mem::transmute(aux_start_paused) };
+            aux_start_paused as u64
+        });
+        __bindgen_bitfield_unit.set(1usize, 1u8, {
+            let aux_pause: u32 = unsafe { ::std::mem::transmute(aux_pause) };
+            aux_pause as u64
+        });
+        __bindgen_bitfield_unit.set(2usize, 1u8, {
+            let aux_resume: u32 = unsafe { ::std::mem::transmute(aux_resume) };
+            aux_resume as u64
+        });
+        __bindgen_bitfield_unit.set(3usize, 29u8, {
+            let __reserved_3: u32 = unsafe { ::std::mem::transmute(__reserved_3) };
+            __reserved_3 as u64
+        });
+        __bindgen_bitfield_unit
+    }
+}
+#[test]
+fn bindgen_test_layout_perf_event_attr__bindgen_ty_5() {
+    const UNINIT: ::std::mem::MaybeUninit<perf_event_attr__bindgen_ty_5> =
+        ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
+    assert_eq!(
+        ::std::mem::size_of::<perf_event_attr__bindgen_ty_5>(),
+        4usize,
+        concat!("Size of: ", stringify!(perf_event_attr__bindgen_ty_5))
+    );
+    assert_eq!(
+        ::std::mem::align_of::<perf_event_attr__bindgen_ty_5>(),
+        4usize,
+        concat!("Alignment of ", stringify!(perf_event_attr__bindgen_ty_5))
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).aux_action) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_attr__bindgen_ty_5),
+            "::",
+            stringify!(aux_action)
+        )
+    );
+}
+impl Default for perf_event_attr__bindgen_ty_5 {
+    fn default() -> Self {
+        let mut s = ::std::mem::MaybeUninit::<Self>::uninit();
+        unsafe {
+            ::std::ptr::write_bytes(s.as_mut_ptr(), 0, 1);
+            s.assume_init()
+        }
+    }
+}
+impl ::std::fmt::Debug for perf_event_attr__bindgen_ty_5 {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        write!(f, "perf_event_attr__bindgen_ty_5 {{ union }}")
+    }
+}
 #[test]
 fn bindgen_test_layout_perf_event_attr() {
     const UNINIT: ::std::mem::MaybeUninit<perf_event_attr> = ::std::mem::MaybeUninit::uninit();
     let ptr = UNINIT.as_ptr();
     assert_eq!(
         ::std::mem::size_of::<perf_event_attr>(),
-        128usize,
+        136usize,
         concat!("Size of: ", stringify!(perf_event_attr))
     );
     assert_eq!(
@@ -884,16 +1035,6 @@ fn bindgen_test_layout_perf_event_attr() {
         )
     );
     assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).__reserved_3) as usize - ptr as usize },
-        116usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_attr),
-            "::",
-            stringify!(__reserved_3)
-        )
-    );
-    assert_eq!(
         unsafe { ::std::ptr::addr_of!((*ptr).sig_data) as usize - ptr as usize },
         120usize,
         concat!(
@@ -901,6 +1042,16 @@ fn bindgen_test_layout_perf_event_attr() {
             stringify!(perf_event_attr),
             "::",
             stringify!(sig_data)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).config3) as usize - ptr as usize },
+        128usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(perf_event_attr),
+            "::",
+            stringify!(config3)
         )
     );
 }
@@ -915,7 +1066,7 @@ impl Default for perf_event_attr {
 }
 impl ::std::fmt::Debug for perf_event_attr {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        write ! (f , "perf_event_attr {{ type: {:?}, size: {:?}, config: {:?}, __bindgen_anon_1: {:?}, sample_type: {:?}, read_format: {:?}, disabled : {:?}, inherit : {:?}, pinned : {:?}, exclusive : {:?}, exclude_user : {:?}, exclude_kernel : {:?}, exclude_hv : {:?}, exclude_idle : {:?}, mmap : {:?}, comm : {:?}, freq : {:?}, inherit_stat : {:?}, enable_on_exec : {:?}, task : {:?}, watermark : {:?}, precise_ip : {:?}, mmap_data : {:?}, sample_id_all : {:?}, exclude_host : {:?}, exclude_guest : {:?}, exclude_callchain_kernel : {:?}, exclude_callchain_user : {:?}, mmap2 : {:?}, comm_exec : {:?}, use_clockid : {:?}, context_switch : {:?}, write_backward : {:?}, namespaces : {:?}, ksymbol : {:?}, bpf_event : {:?}, aux_output : {:?}, cgroup : {:?}, text_poke : {:?}, build_id : {:?}, inherit_thread : {:?}, remove_on_exec : {:?}, sigtrap : {:?}, __reserved_1 : {:?}, __bindgen_anon_2: {:?}, bp_type: {:?}, __bindgen_anon_3: {:?}, __bindgen_anon_4: {:?}, branch_sample_type: {:?}, sample_regs_user: {:?}, sample_stack_user: {:?}, clockid: {:?}, sample_regs_intr: {:?}, aux_watermark: {:?}, sample_max_stack: {:?}, __reserved_2: {:?}, aux_sample_size: {:?}, __reserved_3: {:?}, sig_data: {:?} }}" , self . type_ , self . size , self . config , self . __bindgen_anon_1 , self . sample_type , self . read_format , self . disabled () , self . inherit () , self . pinned () , self . exclusive () , self . exclude_user () , self . exclude_kernel () , self . exclude_hv () , self . exclude_idle () , self . mmap () , self . comm () , self . freq () , self . inherit_stat () , self . enable_on_exec () , self . task () , self . watermark () , self . precise_ip () , self . mmap_data () , self . sample_id_all () , self . exclude_host () , self . exclude_guest () , self . exclude_callchain_kernel () , self . exclude_callchain_user () , self . mmap2 () , self . comm_exec () , self . use_clockid () , self . context_switch () , self . write_backward () , self . namespaces () , self . ksymbol () , self . bpf_event () , self . aux_output () , self . cgroup () , self . text_poke () , self . build_id () , self . inherit_thread () , self . remove_on_exec () , self . sigtrap () , self . __reserved_1 () , self . __bindgen_anon_2 , self . bp_type , self . __bindgen_anon_3 , self . __bindgen_anon_4 , self . branch_sample_type , self . sample_regs_user , self . sample_stack_user , self . clockid , self . sample_regs_intr , self . aux_watermark , self . sample_max_stack , self . __reserved_2 , self . aux_sample_size , self . __reserved_3 , self . sig_data)
+        write ! (f , "perf_event_attr {{ type: {:?}, size: {:?}, config: {:?}, __bindgen_anon_1: {:?}, sample_type: {:?}, read_format: {:?}, disabled : {:?}, inherit : {:?}, pinned : {:?}, exclusive : {:?}, exclude_user : {:?}, exclude_kernel : {:?}, exclude_hv : {:?}, exclude_idle : {:?}, mmap : {:?}, comm : {:?}, freq : {:?}, inherit_stat : {:?}, enable_on_exec : {:?}, task : {:?}, watermark : {:?}, precise_ip : {:?}, mmap_data : {:?}, sample_id_all : {:?}, exclude_host : {:?}, exclude_guest : {:?}, exclude_callchain_kernel : {:?}, exclude_callchain_user : {:?}, mmap2 : {:?}, comm_exec : {:?}, use_clockid : {:?}, context_switch : {:?}, write_backward : {:?}, namespaces : {:?}, ksymbol : {:?}, bpf_event : {:?}, aux_output : {:?}, cgroup : {:?}, text_poke : {:?}, build_id : {:?}, inherit_thread : {:?}, remove_on_exec : {:?}, sigtrap : {:?}, __reserved_1 : {:?}, __bindgen_anon_2: {:?}, bp_type: {:?}, __bindgen_anon_3: {:?}, __bindgen_anon_4: {:?}, branch_sample_type: {:?}, sample_regs_user: {:?}, sample_stack_user: {:?}, clockid: {:?}, sample_regs_intr: {:?}, aux_watermark: {:?}, sample_max_stack: {:?}, __reserved_2: {:?}, aux_sample_size: {:?}, __bindgen_anon_5: {:?}, sig_data: {:?}, config3: {:?} }}" , self . type_ , self . size , self . config , self . __bindgen_anon_1 , self . sample_type , self . read_format , self . disabled () , self . inherit () , self . pinned () , self . exclusive () , self . exclude_user () , self . exclude_kernel () , self . exclude_hv () , self . exclude_idle () , self . mmap () , self . comm () , self . freq () , self . inherit_stat () , self . enable_on_exec () , self . task () , self . watermark () , self . precise_ip () , self . mmap_data () , self . sample_id_all () , self . exclude_host () , self . exclude_guest () , self . exclude_callchain_kernel () , self . exclude_callchain_user () , self . mmap2 () , self . comm_exec () , self . use_clockid () , self . context_switch () , self . write_backward () , self . namespaces () , self . ksymbol () , self . bpf_event () , self . aux_output () , self . cgroup () , self . text_poke () , self . build_id () , self . inherit_thread () , self . remove_on_exec () , self . sigtrap () , self . __reserved_1 () , self . __bindgen_anon_2 , self . bp_type , self . __bindgen_anon_3 , self . __bindgen_anon_4 , self . branch_sample_type , self . sample_regs_user , self . sample_stack_user , self . clockid , self . sample_regs_intr , self . aux_watermark , self . sample_max_stack , self . __reserved_2 , self . aux_sample_size , self . __bindgen_anon_5 , self . sig_data , self . config3)
     }
 }
 impl perf_event_attr {
