@@ -1,3 +1,29 @@
+/*! Observe the L1 data cache hit rate under two different access patterns.
+
+This example measures L1 data cache hit rate and prefetch counts while
+accessing a 40MB array linearly, and then randomly.
+
+One surprising finding is that, even though the loop accessing the
+array is extremely simple, a `dev` build performs seven times as many
+reads as a `release` build. Furthermore, in a `dev` build, the L1 data
+cache still manages to achieve an 85% hit rate even under the random
+access pattern, which should be completely uncacheable.
+
+This suggests that the machine code for a `dev` build generates a lot
+of extraneous memory traffic, but the cache is able to cover for most
+of it. This would seem to render `dev` builds unsuitable for assessing
+cache behavior.
+
+    $ cargo run --quiet --example locality
+    linear: hits / reads: 68791796 / 70043629  98.21%, prefetched  1250129
+    random: hits / reads: 60639316 / 70642773  85.84%, prefetched       84
+
+    $ cargo run --quiet --example locality --release
+    linear: hits / reads:  8750124 / 10000528  87.50%, prefetched  1249700
+    random: hits / reads:    11500 / 10009804   0.11%, prefetched      149
+
+*/
+
 fn main() {
     use std::hint::black_box;
 
@@ -99,8 +125,8 @@ fn measure(label: &str, task: impl FnOnce()) {
     let prefetches = counts[&prefetch_counter];
 
     println!(
-        "{label}: hits / reads: {read_hits:10} / {reads:10} {:3.2}%, \
-         prefetched {prefetches:10}",
+        "{label}: hits / reads: {read_hits:8} / {reads:8} {:6.2}%, \
+         prefetched {prefetches:8}",
         (read_hits as f64 / reads as f64) * 100.0,
     );
 
