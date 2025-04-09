@@ -36,10 +36,7 @@ where
     Storage: AsRef<[u8]> + AsMut<[u8]>,
 {
     #[inline]
-    pub fn get_bit(&self, index: usize) -> bool {
-        debug_assert!(index / 8 < self.storage.as_ref().len());
-        let byte_index = index / 8;
-        let byte = self.storage.as_ref()[byte_index];
+    fn extract_bit(byte: u8, index: usize) -> bool {
         let bit_index = if cfg!(target_endian = "big") {
             7 - (index % 8)
         } else {
@@ -49,10 +46,21 @@ where
         byte & mask == mask
     }
     #[inline]
-    pub fn set_bit(&mut self, index: usize, val: bool) {
+    pub fn get_bit(&self, index: usize) -> bool {
         debug_assert!(index / 8 < self.storage.as_ref().len());
         let byte_index = index / 8;
-        let byte = &mut self.storage.as_mut()[byte_index];
+        let byte = self.storage.as_ref()[byte_index];
+        Self::extract_bit(byte, index)
+    }
+    #[inline]
+    pub unsafe fn raw_get_bit(this: *const Self, index: usize) -> bool {
+        debug_assert!(index / 8 < core::mem::size_of::<Storage>());
+        let byte_index = index / 8;
+        let byte = *(core::ptr::addr_of!((*this).storage) as *const u8).offset(byte_index as isize);
+        Self::extract_bit(byte, index)
+    }
+    #[inline]
+    fn change_bit(byte: u8, index: usize, val: bool) -> u8 {
         let bit_index = if cfg!(target_endian = "big") {
             7 - (index % 8)
         } else {
@@ -60,10 +68,25 @@ where
         };
         let mask = 1 << bit_index;
         if val {
-            *byte |= mask;
+            byte | mask
         } else {
-            *byte &= !mask;
+            byte & !mask
         }
+    }
+    #[inline]
+    pub fn set_bit(&mut self, index: usize, val: bool) {
+        debug_assert!(index / 8 < self.storage.as_ref().len());
+        let byte_index = index / 8;
+        let byte = &mut self.storage.as_mut()[byte_index];
+        *byte = Self::change_bit(*byte, index, val);
+    }
+    #[inline]
+    pub unsafe fn raw_set_bit(this: *mut Self, index: usize, val: bool) {
+        debug_assert!(index / 8 < core::mem::size_of::<Storage>());
+        let byte_index = index / 8;
+        let byte =
+            (core::ptr::addr_of_mut!((*this).storage) as *mut u8).offset(byte_index as isize);
+        *byte = Self::change_bit(*byte, index, val);
     }
     #[inline]
     pub fn get(&self, bit_offset: usize, bit_width: u8) -> u64 {
@@ -73,6 +96,24 @@ where
         let mut val = 0;
         for i in 0..(bit_width as usize) {
             if self.get_bit(i + bit_offset) {
+                let index = if cfg!(target_endian = "big") {
+                    bit_width as usize - 1 - i
+                } else {
+                    i
+                };
+                val |= 1 << index;
+            }
+        }
+        val
+    }
+    #[inline]
+    pub unsafe fn raw_get(this: *const Self, bit_offset: usize, bit_width: u8) -> u64 {
+        debug_assert!(bit_width <= 64);
+        debug_assert!(bit_offset / 8 < core::mem::size_of::<Storage>());
+        debug_assert!((bit_offset + (bit_width as usize)) / 8 <= core::mem::size_of::<Storage>());
+        let mut val = 0;
+        for i in 0..(bit_width as usize) {
+            if Self::raw_get_bit(this, i + bit_offset) {
                 let index = if cfg!(target_endian = "big") {
                     bit_width as usize - 1 - i
                 } else {
@@ -97,6 +138,22 @@ where
                 i
             };
             self.set_bit(index + bit_offset, val_bit_is_set);
+        }
+    }
+    #[inline]
+    pub unsafe fn raw_set(this: *mut Self, bit_offset: usize, bit_width: u8, val: u64) {
+        debug_assert!(bit_width <= 64);
+        debug_assert!(bit_offset / 8 < core::mem::size_of::<Storage>());
+        debug_assert!((bit_offset + (bit_width as usize)) / 8 <= core::mem::size_of::<Storage>());
+        for i in 0..(bit_width as usize) {
+            let mask = 1 << i;
+            let val_bit_is_set = val & mask == mask;
+            let index = if cfg!(target_endian = "big") {
+                bit_width as usize - 1 - i
+            } else {
+                i
+            };
+            Self::raw_set_bit(this, index + bit_offset, val_bit_is_set);
         }
     }
 }
@@ -465,42 +522,17 @@ pub union perf_event_attr__bindgen_ty_1 {
     pub sample_period: __u64,
     pub sample_freq: __u64,
 }
-#[test]
-fn bindgen_test_layout_perf_event_attr__bindgen_ty_1() {
-    const UNINIT: ::std::mem::MaybeUninit<perf_event_attr__bindgen_ty_1> =
-        ::std::mem::MaybeUninit::uninit();
-    let ptr = UNINIT.as_ptr();
-    assert_eq!(
-        ::std::mem::size_of::<perf_event_attr__bindgen_ty_1>(),
-        8usize,
-        concat!("Size of: ", stringify!(perf_event_attr__bindgen_ty_1))
-    );
-    assert_eq!(
-        ::std::mem::align_of::<perf_event_attr__bindgen_ty_1>(),
-        8usize,
-        concat!("Alignment of ", stringify!(perf_event_attr__bindgen_ty_1))
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).sample_period) as usize - ptr as usize },
-        0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_attr__bindgen_ty_1),
-            "::",
-            stringify!(sample_period)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).sample_freq) as usize - ptr as usize },
-        0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_attr__bindgen_ty_1),
-            "::",
-            stringify!(sample_freq)
-        )
-    );
-}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of perf_event_attr__bindgen_ty_1"]
+        [::std::mem::size_of::<perf_event_attr__bindgen_ty_1>() - 8usize];
+    ["Alignment of perf_event_attr__bindgen_ty_1"]
+        [::std::mem::align_of::<perf_event_attr__bindgen_ty_1>() - 8usize];
+    ["Offset of field: perf_event_attr__bindgen_ty_1::sample_period"]
+        [::std::mem::offset_of!(perf_event_attr__bindgen_ty_1, sample_period) - 0usize];
+    ["Offset of field: perf_event_attr__bindgen_ty_1::sample_freq"]
+        [::std::mem::offset_of!(perf_event_attr__bindgen_ty_1, sample_freq) - 0usize];
+};
 impl Default for perf_event_attr__bindgen_ty_1 {
     fn default() -> Self {
         let mut s = ::std::mem::MaybeUninit::<Self>::uninit();
@@ -521,42 +553,17 @@ pub union perf_event_attr__bindgen_ty_2 {
     pub wakeup_events: __u32,
     pub wakeup_watermark: __u32,
 }
-#[test]
-fn bindgen_test_layout_perf_event_attr__bindgen_ty_2() {
-    const UNINIT: ::std::mem::MaybeUninit<perf_event_attr__bindgen_ty_2> =
-        ::std::mem::MaybeUninit::uninit();
-    let ptr = UNINIT.as_ptr();
-    assert_eq!(
-        ::std::mem::size_of::<perf_event_attr__bindgen_ty_2>(),
-        4usize,
-        concat!("Size of: ", stringify!(perf_event_attr__bindgen_ty_2))
-    );
-    assert_eq!(
-        ::std::mem::align_of::<perf_event_attr__bindgen_ty_2>(),
-        4usize,
-        concat!("Alignment of ", stringify!(perf_event_attr__bindgen_ty_2))
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).wakeup_events) as usize - ptr as usize },
-        0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_attr__bindgen_ty_2),
-            "::",
-            stringify!(wakeup_events)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).wakeup_watermark) as usize - ptr as usize },
-        0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_attr__bindgen_ty_2),
-            "::",
-            stringify!(wakeup_watermark)
-        )
-    );
-}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of perf_event_attr__bindgen_ty_2"]
+        [::std::mem::size_of::<perf_event_attr__bindgen_ty_2>() - 4usize];
+    ["Alignment of perf_event_attr__bindgen_ty_2"]
+        [::std::mem::align_of::<perf_event_attr__bindgen_ty_2>() - 4usize];
+    ["Offset of field: perf_event_attr__bindgen_ty_2::wakeup_events"]
+        [::std::mem::offset_of!(perf_event_attr__bindgen_ty_2, wakeup_events) - 0usize];
+    ["Offset of field: perf_event_attr__bindgen_ty_2::wakeup_watermark"]
+        [::std::mem::offset_of!(perf_event_attr__bindgen_ty_2, wakeup_watermark) - 0usize];
+};
 impl Default for perf_event_attr__bindgen_ty_2 {
     fn default() -> Self {
         let mut s = ::std::mem::MaybeUninit::<Self>::uninit();
@@ -579,62 +586,21 @@ pub union perf_event_attr__bindgen_ty_3 {
     pub uprobe_path: __u64,
     pub config1: __u64,
 }
-#[test]
-fn bindgen_test_layout_perf_event_attr__bindgen_ty_3() {
-    const UNINIT: ::std::mem::MaybeUninit<perf_event_attr__bindgen_ty_3> =
-        ::std::mem::MaybeUninit::uninit();
-    let ptr = UNINIT.as_ptr();
-    assert_eq!(
-        ::std::mem::size_of::<perf_event_attr__bindgen_ty_3>(),
-        8usize,
-        concat!("Size of: ", stringify!(perf_event_attr__bindgen_ty_3))
-    );
-    assert_eq!(
-        ::std::mem::align_of::<perf_event_attr__bindgen_ty_3>(),
-        8usize,
-        concat!("Alignment of ", stringify!(perf_event_attr__bindgen_ty_3))
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).bp_addr) as usize - ptr as usize },
-        0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_attr__bindgen_ty_3),
-            "::",
-            stringify!(bp_addr)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).kprobe_func) as usize - ptr as usize },
-        0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_attr__bindgen_ty_3),
-            "::",
-            stringify!(kprobe_func)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).uprobe_path) as usize - ptr as usize },
-        0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_attr__bindgen_ty_3),
-            "::",
-            stringify!(uprobe_path)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).config1) as usize - ptr as usize },
-        0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_attr__bindgen_ty_3),
-            "::",
-            stringify!(config1)
-        )
-    );
-}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of perf_event_attr__bindgen_ty_3"]
+        [::std::mem::size_of::<perf_event_attr__bindgen_ty_3>() - 8usize];
+    ["Alignment of perf_event_attr__bindgen_ty_3"]
+        [::std::mem::align_of::<perf_event_attr__bindgen_ty_3>() - 8usize];
+    ["Offset of field: perf_event_attr__bindgen_ty_3::bp_addr"]
+        [::std::mem::offset_of!(perf_event_attr__bindgen_ty_3, bp_addr) - 0usize];
+    ["Offset of field: perf_event_attr__bindgen_ty_3::kprobe_func"]
+        [::std::mem::offset_of!(perf_event_attr__bindgen_ty_3, kprobe_func) - 0usize];
+    ["Offset of field: perf_event_attr__bindgen_ty_3::uprobe_path"]
+        [::std::mem::offset_of!(perf_event_attr__bindgen_ty_3, uprobe_path) - 0usize];
+    ["Offset of field: perf_event_attr__bindgen_ty_3::config1"]
+        [::std::mem::offset_of!(perf_event_attr__bindgen_ty_3, config1) - 0usize];
+};
 impl Default for perf_event_attr__bindgen_ty_3 {
     fn default() -> Self {
         let mut s = ::std::mem::MaybeUninit::<Self>::uninit();
@@ -657,62 +623,21 @@ pub union perf_event_attr__bindgen_ty_4 {
     pub probe_offset: __u64,
     pub config2: __u64,
 }
-#[test]
-fn bindgen_test_layout_perf_event_attr__bindgen_ty_4() {
-    const UNINIT: ::std::mem::MaybeUninit<perf_event_attr__bindgen_ty_4> =
-        ::std::mem::MaybeUninit::uninit();
-    let ptr = UNINIT.as_ptr();
-    assert_eq!(
-        ::std::mem::size_of::<perf_event_attr__bindgen_ty_4>(),
-        8usize,
-        concat!("Size of: ", stringify!(perf_event_attr__bindgen_ty_4))
-    );
-    assert_eq!(
-        ::std::mem::align_of::<perf_event_attr__bindgen_ty_4>(),
-        8usize,
-        concat!("Alignment of ", stringify!(perf_event_attr__bindgen_ty_4))
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).bp_len) as usize - ptr as usize },
-        0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_attr__bindgen_ty_4),
-            "::",
-            stringify!(bp_len)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).kprobe_addr) as usize - ptr as usize },
-        0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_attr__bindgen_ty_4),
-            "::",
-            stringify!(kprobe_addr)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).probe_offset) as usize - ptr as usize },
-        0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_attr__bindgen_ty_4),
-            "::",
-            stringify!(probe_offset)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).config2) as usize - ptr as usize },
-        0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_attr__bindgen_ty_4),
-            "::",
-            stringify!(config2)
-        )
-    );
-}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of perf_event_attr__bindgen_ty_4"]
+        [::std::mem::size_of::<perf_event_attr__bindgen_ty_4>() - 8usize];
+    ["Alignment of perf_event_attr__bindgen_ty_4"]
+        [::std::mem::align_of::<perf_event_attr__bindgen_ty_4>() - 8usize];
+    ["Offset of field: perf_event_attr__bindgen_ty_4::bp_len"]
+        [::std::mem::offset_of!(perf_event_attr__bindgen_ty_4, bp_len) - 0usize];
+    ["Offset of field: perf_event_attr__bindgen_ty_4::kprobe_addr"]
+        [::std::mem::offset_of!(perf_event_attr__bindgen_ty_4, kprobe_addr) - 0usize];
+    ["Offset of field: perf_event_attr__bindgen_ty_4::probe_offset"]
+        [::std::mem::offset_of!(perf_event_attr__bindgen_ty_4, probe_offset) - 0usize];
+    ["Offset of field: perf_event_attr__bindgen_ty_4::config2"]
+        [::std::mem::offset_of!(perf_event_attr__bindgen_ty_4, config2) - 0usize];
+};
 impl Default for perf_event_attr__bindgen_ty_4 {
     fn default() -> Self {
         let mut s = ::std::mem::MaybeUninit::<Self>::uninit();
@@ -739,25 +664,13 @@ pub struct perf_event_attr__bindgen_ty_5__bindgen_ty_1 {
     pub _bitfield_align_1: [u32; 0],
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize]>,
 }
-#[test]
-fn bindgen_test_layout_perf_event_attr__bindgen_ty_5__bindgen_ty_1() {
-    assert_eq!(
-        ::std::mem::size_of::<perf_event_attr__bindgen_ty_5__bindgen_ty_1>(),
-        4usize,
-        concat!(
-            "Size of: ",
-            stringify!(perf_event_attr__bindgen_ty_5__bindgen_ty_1)
-        )
-    );
-    assert_eq!(
-        ::std::mem::align_of::<perf_event_attr__bindgen_ty_5__bindgen_ty_1>(),
-        4usize,
-        concat!(
-            "Alignment of ",
-            stringify!(perf_event_attr__bindgen_ty_5__bindgen_ty_1)
-        )
-    );
-}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of perf_event_attr__bindgen_ty_5__bindgen_ty_1"]
+        [::std::mem::size_of::<perf_event_attr__bindgen_ty_5__bindgen_ty_1>() - 4usize];
+    ["Alignment of perf_event_attr__bindgen_ty_5__bindgen_ty_1"]
+        [::std::mem::align_of::<perf_event_attr__bindgen_ty_5__bindgen_ty_1>() - 4usize];
+};
 impl perf_event_attr__bindgen_ty_5__bindgen_ty_1 {
     #[inline]
     pub fn aux_start_paused(&self) -> __u32 {
@@ -768,6 +681,28 @@ impl perf_event_attr__bindgen_ty_5__bindgen_ty_1 {
         unsafe {
             let val: u32 = ::std::mem::transmute(val);
             self._bitfield_1.set(0usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn aux_start_paused_raw(this: *const Self) -> __u32 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 4usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                0usize,
+                1u8,
+            ) as u32)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_aux_start_paused_raw(this: *mut Self, val: __u32) {
+        unsafe {
+            let val: u32 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 4usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                0usize,
+                1u8,
+                val as u64,
+            )
         }
     }
     #[inline]
@@ -782,6 +717,28 @@ impl perf_event_attr__bindgen_ty_5__bindgen_ty_1 {
         }
     }
     #[inline]
+    pub unsafe fn aux_pause_raw(this: *const Self) -> __u32 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 4usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                1usize,
+                1u8,
+            ) as u32)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_aux_pause_raw(this: *mut Self, val: __u32) {
+        unsafe {
+            let val: u32 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 4usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                1usize,
+                1u8,
+                val as u64,
+            )
+        }
+    }
+    #[inline]
     pub fn aux_resume(&self) -> __u32 {
         unsafe { ::std::mem::transmute(self._bitfield_1.get(2usize, 1u8) as u32) }
     }
@@ -793,6 +750,28 @@ impl perf_event_attr__bindgen_ty_5__bindgen_ty_1 {
         }
     }
     #[inline]
+    pub unsafe fn aux_resume_raw(this: *const Self) -> __u32 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 4usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                2usize,
+                1u8,
+            ) as u32)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_aux_resume_raw(this: *mut Self, val: __u32) {
+        unsafe {
+            let val: u32 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 4usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                2usize,
+                1u8,
+                val as u64,
+            )
+        }
+    }
+    #[inline]
     pub fn __reserved_3(&self) -> __u32 {
         unsafe { ::std::mem::transmute(self._bitfield_1.get(3usize, 29u8) as u32) }
     }
@@ -801,6 +780,28 @@ impl perf_event_attr__bindgen_ty_5__bindgen_ty_1 {
         unsafe {
             let val: u32 = ::std::mem::transmute(val);
             self._bitfield_1.set(3usize, 29u8, val as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn __reserved_3_raw(this: *const Self) -> __u32 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 4usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                3usize,
+                29u8,
+            ) as u32)
+        }
+    }
+    #[inline]
+    pub unsafe fn set___reserved_3_raw(this: *mut Self, val: __u32) {
+        unsafe {
+            let val: u32 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 4usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                3usize,
+                29u8,
+                val as u64,
+            )
         }
     }
     #[inline]
@@ -830,32 +831,15 @@ impl perf_event_attr__bindgen_ty_5__bindgen_ty_1 {
         __bindgen_bitfield_unit
     }
 }
-#[test]
-fn bindgen_test_layout_perf_event_attr__bindgen_ty_5() {
-    const UNINIT: ::std::mem::MaybeUninit<perf_event_attr__bindgen_ty_5> =
-        ::std::mem::MaybeUninit::uninit();
-    let ptr = UNINIT.as_ptr();
-    assert_eq!(
-        ::std::mem::size_of::<perf_event_attr__bindgen_ty_5>(),
-        4usize,
-        concat!("Size of: ", stringify!(perf_event_attr__bindgen_ty_5))
-    );
-    assert_eq!(
-        ::std::mem::align_of::<perf_event_attr__bindgen_ty_5>(),
-        4usize,
-        concat!("Alignment of ", stringify!(perf_event_attr__bindgen_ty_5))
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).aux_action) as usize - ptr as usize },
-        0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_attr__bindgen_ty_5),
-            "::",
-            stringify!(aux_action)
-        )
-    );
-}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of perf_event_attr__bindgen_ty_5"]
+        [::std::mem::size_of::<perf_event_attr__bindgen_ty_5>() - 4usize];
+    ["Alignment of perf_event_attr__bindgen_ty_5"]
+        [::std::mem::align_of::<perf_event_attr__bindgen_ty_5>() - 4usize];
+    ["Offset of field: perf_event_attr__bindgen_ty_5::aux_action"]
+        [::std::mem::offset_of!(perf_event_attr__bindgen_ty_5, aux_action) - 0usize];
+};
 impl Default for perf_event_attr__bindgen_ty_5 {
     fn default() -> Self {
         let mut s = ::std::mem::MaybeUninit::<Self>::uninit();
@@ -870,191 +854,45 @@ impl ::std::fmt::Debug for perf_event_attr__bindgen_ty_5 {
         write!(f, "perf_event_attr__bindgen_ty_5 {{ union }}")
     }
 }
-#[test]
-fn bindgen_test_layout_perf_event_attr() {
-    const UNINIT: ::std::mem::MaybeUninit<perf_event_attr> = ::std::mem::MaybeUninit::uninit();
-    let ptr = UNINIT.as_ptr();
-    assert_eq!(
-        ::std::mem::size_of::<perf_event_attr>(),
-        136usize,
-        concat!("Size of: ", stringify!(perf_event_attr))
-    );
-    assert_eq!(
-        ::std::mem::align_of::<perf_event_attr>(),
-        8usize,
-        concat!("Alignment of ", stringify!(perf_event_attr))
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).type_) as usize - ptr as usize },
-        0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_attr),
-            "::",
-            stringify!(type_)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).size) as usize - ptr as usize },
-        4usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_attr),
-            "::",
-            stringify!(size)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).config) as usize - ptr as usize },
-        8usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_attr),
-            "::",
-            stringify!(config)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).sample_type) as usize - ptr as usize },
-        24usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_attr),
-            "::",
-            stringify!(sample_type)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).read_format) as usize - ptr as usize },
-        32usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_attr),
-            "::",
-            stringify!(read_format)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).bp_type) as usize - ptr as usize },
-        52usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_attr),
-            "::",
-            stringify!(bp_type)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).branch_sample_type) as usize - ptr as usize },
-        72usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_attr),
-            "::",
-            stringify!(branch_sample_type)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).sample_regs_user) as usize - ptr as usize },
-        80usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_attr),
-            "::",
-            stringify!(sample_regs_user)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).sample_stack_user) as usize - ptr as usize },
-        88usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_attr),
-            "::",
-            stringify!(sample_stack_user)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).clockid) as usize - ptr as usize },
-        92usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_attr),
-            "::",
-            stringify!(clockid)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).sample_regs_intr) as usize - ptr as usize },
-        96usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_attr),
-            "::",
-            stringify!(sample_regs_intr)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).aux_watermark) as usize - ptr as usize },
-        104usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_attr),
-            "::",
-            stringify!(aux_watermark)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).sample_max_stack) as usize - ptr as usize },
-        108usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_attr),
-            "::",
-            stringify!(sample_max_stack)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).__reserved_2) as usize - ptr as usize },
-        110usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_attr),
-            "::",
-            stringify!(__reserved_2)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).aux_sample_size) as usize - ptr as usize },
-        112usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_attr),
-            "::",
-            stringify!(aux_sample_size)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).sig_data) as usize - ptr as usize },
-        120usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_attr),
-            "::",
-            stringify!(sig_data)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).config3) as usize - ptr as usize },
-        128usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_attr),
-            "::",
-            stringify!(config3)
-        )
-    );
-}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of perf_event_attr"][::std::mem::size_of::<perf_event_attr>() - 136usize];
+    ["Alignment of perf_event_attr"][::std::mem::align_of::<perf_event_attr>() - 8usize];
+    ["Offset of field: perf_event_attr::type_"]
+        [::std::mem::offset_of!(perf_event_attr, type_) - 0usize];
+    ["Offset of field: perf_event_attr::size"]
+        [::std::mem::offset_of!(perf_event_attr, size) - 4usize];
+    ["Offset of field: perf_event_attr::config"]
+        [::std::mem::offset_of!(perf_event_attr, config) - 8usize];
+    ["Offset of field: perf_event_attr::sample_type"]
+        [::std::mem::offset_of!(perf_event_attr, sample_type) - 24usize];
+    ["Offset of field: perf_event_attr::read_format"]
+        [::std::mem::offset_of!(perf_event_attr, read_format) - 32usize];
+    ["Offset of field: perf_event_attr::bp_type"]
+        [::std::mem::offset_of!(perf_event_attr, bp_type) - 52usize];
+    ["Offset of field: perf_event_attr::branch_sample_type"]
+        [::std::mem::offset_of!(perf_event_attr, branch_sample_type) - 72usize];
+    ["Offset of field: perf_event_attr::sample_regs_user"]
+        [::std::mem::offset_of!(perf_event_attr, sample_regs_user) - 80usize];
+    ["Offset of field: perf_event_attr::sample_stack_user"]
+        [::std::mem::offset_of!(perf_event_attr, sample_stack_user) - 88usize];
+    ["Offset of field: perf_event_attr::clockid"]
+        [::std::mem::offset_of!(perf_event_attr, clockid) - 92usize];
+    ["Offset of field: perf_event_attr::sample_regs_intr"]
+        [::std::mem::offset_of!(perf_event_attr, sample_regs_intr) - 96usize];
+    ["Offset of field: perf_event_attr::aux_watermark"]
+        [::std::mem::offset_of!(perf_event_attr, aux_watermark) - 104usize];
+    ["Offset of field: perf_event_attr::sample_max_stack"]
+        [::std::mem::offset_of!(perf_event_attr, sample_max_stack) - 108usize];
+    ["Offset of field: perf_event_attr::__reserved_2"]
+        [::std::mem::offset_of!(perf_event_attr, __reserved_2) - 110usize];
+    ["Offset of field: perf_event_attr::aux_sample_size"]
+        [::std::mem::offset_of!(perf_event_attr, aux_sample_size) - 112usize];
+    ["Offset of field: perf_event_attr::sig_data"]
+        [::std::mem::offset_of!(perf_event_attr, sig_data) - 120usize];
+    ["Offset of field: perf_event_attr::config3"]
+        [::std::mem::offset_of!(perf_event_attr, config3) - 128usize];
+};
 impl Default for perf_event_attr {
     fn default() -> Self {
         let mut s = ::std::mem::MaybeUninit::<Self>::uninit();
@@ -1082,6 +920,28 @@ impl perf_event_attr {
         }
     }
     #[inline]
+    pub unsafe fn disabled_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                0usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_disabled_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                0usize,
+                1u8,
+                val as u64,
+            )
+        }
+    }
+    #[inline]
     pub fn inherit(&self) -> __u64 {
         unsafe { ::std::mem::transmute(self._bitfield_1.get(1usize, 1u8) as u64) }
     }
@@ -1090,6 +950,28 @@ impl perf_event_attr {
         unsafe {
             let val: u64 = ::std::mem::transmute(val);
             self._bitfield_1.set(1usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn inherit_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                1usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_inherit_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                1usize,
+                1u8,
+                val as u64,
+            )
         }
     }
     #[inline]
@@ -1104,6 +986,28 @@ impl perf_event_attr {
         }
     }
     #[inline]
+    pub unsafe fn pinned_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                2usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_pinned_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                2usize,
+                1u8,
+                val as u64,
+            )
+        }
+    }
+    #[inline]
     pub fn exclusive(&self) -> __u64 {
         unsafe { ::std::mem::transmute(self._bitfield_1.get(3usize, 1u8) as u64) }
     }
@@ -1112,6 +1016,28 @@ impl perf_event_attr {
         unsafe {
             let val: u64 = ::std::mem::transmute(val);
             self._bitfield_1.set(3usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn exclusive_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                3usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_exclusive_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                3usize,
+                1u8,
+                val as u64,
+            )
         }
     }
     #[inline]
@@ -1126,6 +1052,28 @@ impl perf_event_attr {
         }
     }
     #[inline]
+    pub unsafe fn exclude_user_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                4usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_exclude_user_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                4usize,
+                1u8,
+                val as u64,
+            )
+        }
+    }
+    #[inline]
     pub fn exclude_kernel(&self) -> __u64 {
         unsafe { ::std::mem::transmute(self._bitfield_1.get(5usize, 1u8) as u64) }
     }
@@ -1134,6 +1082,28 @@ impl perf_event_attr {
         unsafe {
             let val: u64 = ::std::mem::transmute(val);
             self._bitfield_1.set(5usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn exclude_kernel_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                5usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_exclude_kernel_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                5usize,
+                1u8,
+                val as u64,
+            )
         }
     }
     #[inline]
@@ -1148,6 +1118,28 @@ impl perf_event_attr {
         }
     }
     #[inline]
+    pub unsafe fn exclude_hv_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                6usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_exclude_hv_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                6usize,
+                1u8,
+                val as u64,
+            )
+        }
+    }
+    #[inline]
     pub fn exclude_idle(&self) -> __u64 {
         unsafe { ::std::mem::transmute(self._bitfield_1.get(7usize, 1u8) as u64) }
     }
@@ -1156,6 +1148,28 @@ impl perf_event_attr {
         unsafe {
             let val: u64 = ::std::mem::transmute(val);
             self._bitfield_1.set(7usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn exclude_idle_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                7usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_exclude_idle_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                7usize,
+                1u8,
+                val as u64,
+            )
         }
     }
     #[inline]
@@ -1170,6 +1184,28 @@ impl perf_event_attr {
         }
     }
     #[inline]
+    pub unsafe fn mmap_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                8usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_mmap_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                8usize,
+                1u8,
+                val as u64,
+            )
+        }
+    }
+    #[inline]
     pub fn comm(&self) -> __u64 {
         unsafe { ::std::mem::transmute(self._bitfield_1.get(9usize, 1u8) as u64) }
     }
@@ -1178,6 +1214,28 @@ impl perf_event_attr {
         unsafe {
             let val: u64 = ::std::mem::transmute(val);
             self._bitfield_1.set(9usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn comm_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                9usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_comm_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                9usize,
+                1u8,
+                val as u64,
+            )
         }
     }
     #[inline]
@@ -1192,6 +1250,28 @@ impl perf_event_attr {
         }
     }
     #[inline]
+    pub unsafe fn freq_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                10usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_freq_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                10usize,
+                1u8,
+                val as u64,
+            )
+        }
+    }
+    #[inline]
     pub fn inherit_stat(&self) -> __u64 {
         unsafe { ::std::mem::transmute(self._bitfield_1.get(11usize, 1u8) as u64) }
     }
@@ -1200,6 +1280,28 @@ impl perf_event_attr {
         unsafe {
             let val: u64 = ::std::mem::transmute(val);
             self._bitfield_1.set(11usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn inherit_stat_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                11usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_inherit_stat_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                11usize,
+                1u8,
+                val as u64,
+            )
         }
     }
     #[inline]
@@ -1214,6 +1316,28 @@ impl perf_event_attr {
         }
     }
     #[inline]
+    pub unsafe fn enable_on_exec_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                12usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_enable_on_exec_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                12usize,
+                1u8,
+                val as u64,
+            )
+        }
+    }
+    #[inline]
     pub fn task(&self) -> __u64 {
         unsafe { ::std::mem::transmute(self._bitfield_1.get(13usize, 1u8) as u64) }
     }
@@ -1222,6 +1346,28 @@ impl perf_event_attr {
         unsafe {
             let val: u64 = ::std::mem::transmute(val);
             self._bitfield_1.set(13usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn task_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                13usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_task_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                13usize,
+                1u8,
+                val as u64,
+            )
         }
     }
     #[inline]
@@ -1236,6 +1382,28 @@ impl perf_event_attr {
         }
     }
     #[inline]
+    pub unsafe fn watermark_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                14usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_watermark_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                14usize,
+                1u8,
+                val as u64,
+            )
+        }
+    }
+    #[inline]
     pub fn precise_ip(&self) -> __u64 {
         unsafe { ::std::mem::transmute(self._bitfield_1.get(15usize, 2u8) as u64) }
     }
@@ -1244,6 +1412,28 @@ impl perf_event_attr {
         unsafe {
             let val: u64 = ::std::mem::transmute(val);
             self._bitfield_1.set(15usize, 2u8, val as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn precise_ip_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                15usize,
+                2u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_precise_ip_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                15usize,
+                2u8,
+                val as u64,
+            )
         }
     }
     #[inline]
@@ -1258,6 +1448,28 @@ impl perf_event_attr {
         }
     }
     #[inline]
+    pub unsafe fn mmap_data_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                17usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_mmap_data_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                17usize,
+                1u8,
+                val as u64,
+            )
+        }
+    }
+    #[inline]
     pub fn sample_id_all(&self) -> __u64 {
         unsafe { ::std::mem::transmute(self._bitfield_1.get(18usize, 1u8) as u64) }
     }
@@ -1266,6 +1478,28 @@ impl perf_event_attr {
         unsafe {
             let val: u64 = ::std::mem::transmute(val);
             self._bitfield_1.set(18usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn sample_id_all_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                18usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_sample_id_all_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                18usize,
+                1u8,
+                val as u64,
+            )
         }
     }
     #[inline]
@@ -1280,6 +1514,28 @@ impl perf_event_attr {
         }
     }
     #[inline]
+    pub unsafe fn exclude_host_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                19usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_exclude_host_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                19usize,
+                1u8,
+                val as u64,
+            )
+        }
+    }
+    #[inline]
     pub fn exclude_guest(&self) -> __u64 {
         unsafe { ::std::mem::transmute(self._bitfield_1.get(20usize, 1u8) as u64) }
     }
@@ -1288,6 +1544,28 @@ impl perf_event_attr {
         unsafe {
             let val: u64 = ::std::mem::transmute(val);
             self._bitfield_1.set(20usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn exclude_guest_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                20usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_exclude_guest_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                20usize,
+                1u8,
+                val as u64,
+            )
         }
     }
     #[inline]
@@ -1302,6 +1580,28 @@ impl perf_event_attr {
         }
     }
     #[inline]
+    pub unsafe fn exclude_callchain_kernel_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                21usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_exclude_callchain_kernel_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                21usize,
+                1u8,
+                val as u64,
+            )
+        }
+    }
+    #[inline]
     pub fn exclude_callchain_user(&self) -> __u64 {
         unsafe { ::std::mem::transmute(self._bitfield_1.get(22usize, 1u8) as u64) }
     }
@@ -1310,6 +1610,28 @@ impl perf_event_attr {
         unsafe {
             let val: u64 = ::std::mem::transmute(val);
             self._bitfield_1.set(22usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn exclude_callchain_user_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                22usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_exclude_callchain_user_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                22usize,
+                1u8,
+                val as u64,
+            )
         }
     }
     #[inline]
@@ -1324,6 +1646,28 @@ impl perf_event_attr {
         }
     }
     #[inline]
+    pub unsafe fn mmap2_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                23usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_mmap2_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                23usize,
+                1u8,
+                val as u64,
+            )
+        }
+    }
+    #[inline]
     pub fn comm_exec(&self) -> __u64 {
         unsafe { ::std::mem::transmute(self._bitfield_1.get(24usize, 1u8) as u64) }
     }
@@ -1332,6 +1676,28 @@ impl perf_event_attr {
         unsafe {
             let val: u64 = ::std::mem::transmute(val);
             self._bitfield_1.set(24usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn comm_exec_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                24usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_comm_exec_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                24usize,
+                1u8,
+                val as u64,
+            )
         }
     }
     #[inline]
@@ -1346,6 +1712,28 @@ impl perf_event_attr {
         }
     }
     #[inline]
+    pub unsafe fn use_clockid_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                25usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_use_clockid_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                25usize,
+                1u8,
+                val as u64,
+            )
+        }
+    }
+    #[inline]
     pub fn context_switch(&self) -> __u64 {
         unsafe { ::std::mem::transmute(self._bitfield_1.get(26usize, 1u8) as u64) }
     }
@@ -1354,6 +1742,28 @@ impl perf_event_attr {
         unsafe {
             let val: u64 = ::std::mem::transmute(val);
             self._bitfield_1.set(26usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn context_switch_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                26usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_context_switch_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                26usize,
+                1u8,
+                val as u64,
+            )
         }
     }
     #[inline]
@@ -1368,6 +1778,28 @@ impl perf_event_attr {
         }
     }
     #[inline]
+    pub unsafe fn write_backward_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                27usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_write_backward_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                27usize,
+                1u8,
+                val as u64,
+            )
+        }
+    }
+    #[inline]
     pub fn namespaces(&self) -> __u64 {
         unsafe { ::std::mem::transmute(self._bitfield_1.get(28usize, 1u8) as u64) }
     }
@@ -1376,6 +1808,28 @@ impl perf_event_attr {
         unsafe {
             let val: u64 = ::std::mem::transmute(val);
             self._bitfield_1.set(28usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn namespaces_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                28usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_namespaces_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                28usize,
+                1u8,
+                val as u64,
+            )
         }
     }
     #[inline]
@@ -1390,6 +1844,28 @@ impl perf_event_attr {
         }
     }
     #[inline]
+    pub unsafe fn ksymbol_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                29usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_ksymbol_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                29usize,
+                1u8,
+                val as u64,
+            )
+        }
+    }
+    #[inline]
     pub fn bpf_event(&self) -> __u64 {
         unsafe { ::std::mem::transmute(self._bitfield_1.get(30usize, 1u8) as u64) }
     }
@@ -1398,6 +1874,28 @@ impl perf_event_attr {
         unsafe {
             let val: u64 = ::std::mem::transmute(val);
             self._bitfield_1.set(30usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn bpf_event_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                30usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_bpf_event_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                30usize,
+                1u8,
+                val as u64,
+            )
         }
     }
     #[inline]
@@ -1412,6 +1910,28 @@ impl perf_event_attr {
         }
     }
     #[inline]
+    pub unsafe fn aux_output_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                31usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_aux_output_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                31usize,
+                1u8,
+                val as u64,
+            )
+        }
+    }
+    #[inline]
     pub fn cgroup(&self) -> __u64 {
         unsafe { ::std::mem::transmute(self._bitfield_1.get(32usize, 1u8) as u64) }
     }
@@ -1420,6 +1940,28 @@ impl perf_event_attr {
         unsafe {
             let val: u64 = ::std::mem::transmute(val);
             self._bitfield_1.set(32usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn cgroup_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                32usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_cgroup_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                32usize,
+                1u8,
+                val as u64,
+            )
         }
     }
     #[inline]
@@ -1434,6 +1976,28 @@ impl perf_event_attr {
         }
     }
     #[inline]
+    pub unsafe fn text_poke_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                33usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_text_poke_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                33usize,
+                1u8,
+                val as u64,
+            )
+        }
+    }
+    #[inline]
     pub fn build_id(&self) -> __u64 {
         unsafe { ::std::mem::transmute(self._bitfield_1.get(34usize, 1u8) as u64) }
     }
@@ -1442,6 +2006,28 @@ impl perf_event_attr {
         unsafe {
             let val: u64 = ::std::mem::transmute(val);
             self._bitfield_1.set(34usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn build_id_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                34usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_build_id_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                34usize,
+                1u8,
+                val as u64,
+            )
         }
     }
     #[inline]
@@ -1456,6 +2042,28 @@ impl perf_event_attr {
         }
     }
     #[inline]
+    pub unsafe fn inherit_thread_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                35usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_inherit_thread_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                35usize,
+                1u8,
+                val as u64,
+            )
+        }
+    }
+    #[inline]
     pub fn remove_on_exec(&self) -> __u64 {
         unsafe { ::std::mem::transmute(self._bitfield_1.get(36usize, 1u8) as u64) }
     }
@@ -1464,6 +2072,28 @@ impl perf_event_attr {
         unsafe {
             let val: u64 = ::std::mem::transmute(val);
             self._bitfield_1.set(36usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn remove_on_exec_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                36usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_remove_on_exec_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                36usize,
+                1u8,
+                val as u64,
+            )
         }
     }
     #[inline]
@@ -1478,6 +2108,28 @@ impl perf_event_attr {
         }
     }
     #[inline]
+    pub unsafe fn sigtrap_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                37usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_sigtrap_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                37usize,
+                1u8,
+                val as u64,
+            )
+        }
+    }
+    #[inline]
     pub fn __reserved_1(&self) -> __u64 {
         unsafe { ::std::mem::transmute(self._bitfield_1.get(38usize, 26u8) as u64) }
     }
@@ -1486,6 +2138,28 @@ impl perf_event_attr {
         unsafe {
             let val: u64 = ::std::mem::transmute(val);
             self._bitfield_1.set(38usize, 26u8, val as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn __reserved_1_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                38usize,
+                26u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set___reserved_1_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                38usize,
+                26u8,
+                val as u64,
+            )
         }
     }
     #[inline]
@@ -1694,51 +2368,17 @@ pub struct perf_event_query_bpf {
     pub prog_cnt: __u32,
     pub ids: __IncompleteArrayField<__u32>,
 }
-#[test]
-fn bindgen_test_layout_perf_event_query_bpf() {
-    const UNINIT: ::std::mem::MaybeUninit<perf_event_query_bpf> = ::std::mem::MaybeUninit::uninit();
-    let ptr = UNINIT.as_ptr();
-    assert_eq!(
-        ::std::mem::size_of::<perf_event_query_bpf>(),
-        8usize,
-        concat!("Size of: ", stringify!(perf_event_query_bpf))
-    );
-    assert_eq!(
-        ::std::mem::align_of::<perf_event_query_bpf>(),
-        4usize,
-        concat!("Alignment of ", stringify!(perf_event_query_bpf))
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).ids_len) as usize - ptr as usize },
-        0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_query_bpf),
-            "::",
-            stringify!(ids_len)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).prog_cnt) as usize - ptr as usize },
-        4usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_query_bpf),
-            "::",
-            stringify!(prog_cnt)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).ids) as usize - ptr as usize },
-        8usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_query_bpf),
-            "::",
-            stringify!(ids)
-        )
-    );
-}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of perf_event_query_bpf"][::std::mem::size_of::<perf_event_query_bpf>() - 8usize];
+    ["Alignment of perf_event_query_bpf"][::std::mem::align_of::<perf_event_query_bpf>() - 4usize];
+    ["Offset of field: perf_event_query_bpf::ids_len"]
+        [::std::mem::offset_of!(perf_event_query_bpf, ids_len) - 0usize];
+    ["Offset of field: perf_event_query_bpf::prog_cnt"]
+        [::std::mem::offset_of!(perf_event_query_bpf, prog_cnt) - 4usize];
+    ["Offset of field: perf_event_query_bpf::ids"]
+        [::std::mem::offset_of!(perf_event_query_bpf, ids) - 8usize];
+};
 pub const PERF_IOC_FLAG_GROUP: perf_event_ioc_flags = 1;
 pub type perf_event_ioc_flags = ::std::os::raw::c_uint;
 #[repr(C)]
@@ -1783,25 +2423,13 @@ pub struct perf_event_mmap_page__bindgen_ty_1__bindgen_ty_1 {
     pub _bitfield_align_1: [u64; 0],
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 8usize]>,
 }
-#[test]
-fn bindgen_test_layout_perf_event_mmap_page__bindgen_ty_1__bindgen_ty_1() {
-    assert_eq!(
-        ::std::mem::size_of::<perf_event_mmap_page__bindgen_ty_1__bindgen_ty_1>(),
-        8usize,
-        concat!(
-            "Size of: ",
-            stringify!(perf_event_mmap_page__bindgen_ty_1__bindgen_ty_1)
-        )
-    );
-    assert_eq!(
-        ::std::mem::align_of::<perf_event_mmap_page__bindgen_ty_1__bindgen_ty_1>(),
-        8usize,
-        concat!(
-            "Alignment of ",
-            stringify!(perf_event_mmap_page__bindgen_ty_1__bindgen_ty_1)
-        )
-    );
-}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of perf_event_mmap_page__bindgen_ty_1__bindgen_ty_1"]
+        [::std::mem::size_of::<perf_event_mmap_page__bindgen_ty_1__bindgen_ty_1>() - 8usize];
+    ["Alignment of perf_event_mmap_page__bindgen_ty_1__bindgen_ty_1"]
+        [::std::mem::align_of::<perf_event_mmap_page__bindgen_ty_1__bindgen_ty_1>() - 8usize];
+};
 impl perf_event_mmap_page__bindgen_ty_1__bindgen_ty_1 {
     #[inline]
     pub fn cap_bit0(&self) -> __u64 {
@@ -1812,6 +2440,28 @@ impl perf_event_mmap_page__bindgen_ty_1__bindgen_ty_1 {
         unsafe {
             let val: u64 = ::std::mem::transmute(val);
             self._bitfield_1.set(0usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn cap_bit0_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                0usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_cap_bit0_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                0usize,
+                1u8,
+                val as u64,
+            )
         }
     }
     #[inline]
@@ -1826,6 +2476,28 @@ impl perf_event_mmap_page__bindgen_ty_1__bindgen_ty_1 {
         }
     }
     #[inline]
+    pub unsafe fn cap_bit0_is_deprecated_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                1usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_cap_bit0_is_deprecated_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                1usize,
+                1u8,
+                val as u64,
+            )
+        }
+    }
+    #[inline]
     pub fn cap_user_rdpmc(&self) -> __u64 {
         unsafe { ::std::mem::transmute(self._bitfield_1.get(2usize, 1u8) as u64) }
     }
@@ -1834,6 +2506,28 @@ impl perf_event_mmap_page__bindgen_ty_1__bindgen_ty_1 {
         unsafe {
             let val: u64 = ::std::mem::transmute(val);
             self._bitfield_1.set(2usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn cap_user_rdpmc_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                2usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_cap_user_rdpmc_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                2usize,
+                1u8,
+                val as u64,
+            )
         }
     }
     #[inline]
@@ -1848,6 +2542,28 @@ impl perf_event_mmap_page__bindgen_ty_1__bindgen_ty_1 {
         }
     }
     #[inline]
+    pub unsafe fn cap_user_time_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                3usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_cap_user_time_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                3usize,
+                1u8,
+                val as u64,
+            )
+        }
+    }
+    #[inline]
     pub fn cap_user_time_zero(&self) -> __u64 {
         unsafe { ::std::mem::transmute(self._bitfield_1.get(4usize, 1u8) as u64) }
     }
@@ -1856,6 +2572,28 @@ impl perf_event_mmap_page__bindgen_ty_1__bindgen_ty_1 {
         unsafe {
             let val: u64 = ::std::mem::transmute(val);
             self._bitfield_1.set(4usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn cap_user_time_zero_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                4usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_cap_user_time_zero_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                4usize,
+                1u8,
+                val as u64,
+            )
         }
     }
     #[inline]
@@ -1870,6 +2608,28 @@ impl perf_event_mmap_page__bindgen_ty_1__bindgen_ty_1 {
         }
     }
     #[inline]
+    pub unsafe fn cap_user_time_short_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                5usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_cap_user_time_short_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                5usize,
+                1u8,
+                val as u64,
+            )
+        }
+    }
+    #[inline]
     pub fn cap_____res(&self) -> __u64 {
         unsafe { ::std::mem::transmute(self._bitfield_1.get(6usize, 58u8) as u64) }
     }
@@ -1878,6 +2638,28 @@ impl perf_event_mmap_page__bindgen_ty_1__bindgen_ty_1 {
         unsafe {
             let val: u64 = ::std::mem::transmute(val);
             self._bitfield_1.set(6usize, 58u8, val as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn cap_____res_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                6usize,
+                58u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_cap_____res_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                6usize,
+                58u8,
+                val as u64,
+            )
         }
     }
     #[inline]
@@ -1923,35 +2705,15 @@ impl perf_event_mmap_page__bindgen_ty_1__bindgen_ty_1 {
         __bindgen_bitfield_unit
     }
 }
-#[test]
-fn bindgen_test_layout_perf_event_mmap_page__bindgen_ty_1() {
-    const UNINIT: ::std::mem::MaybeUninit<perf_event_mmap_page__bindgen_ty_1> =
-        ::std::mem::MaybeUninit::uninit();
-    let ptr = UNINIT.as_ptr();
-    assert_eq!(
-        ::std::mem::size_of::<perf_event_mmap_page__bindgen_ty_1>(),
-        8usize,
-        concat!("Size of: ", stringify!(perf_event_mmap_page__bindgen_ty_1))
-    );
-    assert_eq!(
-        ::std::mem::align_of::<perf_event_mmap_page__bindgen_ty_1>(),
-        8usize,
-        concat!(
-            "Alignment of ",
-            stringify!(perf_event_mmap_page__bindgen_ty_1)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).capabilities) as usize - ptr as usize },
-        0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_mmap_page__bindgen_ty_1),
-            "::",
-            stringify!(capabilities)
-        )
-    );
-}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of perf_event_mmap_page__bindgen_ty_1"]
+        [::std::mem::size_of::<perf_event_mmap_page__bindgen_ty_1>() - 8usize];
+    ["Alignment of perf_event_mmap_page__bindgen_ty_1"]
+        [::std::mem::align_of::<perf_event_mmap_page__bindgen_ty_1>() - 8usize];
+    ["Offset of field: perf_event_mmap_page__bindgen_ty_1::capabilities"]
+        [::std::mem::offset_of!(perf_event_mmap_page__bindgen_ty_1, capabilities) - 0usize];
+};
 impl Default for perf_event_mmap_page__bindgen_ty_1 {
     fn default() -> Self {
         let mut s = ::std::mem::MaybeUninit::<Self>::uninit();
@@ -1966,271 +2728,61 @@ impl ::std::fmt::Debug for perf_event_mmap_page__bindgen_ty_1 {
         write!(f, "perf_event_mmap_page__bindgen_ty_1 {{ union }}")
     }
 }
-#[test]
-fn bindgen_test_layout_perf_event_mmap_page() {
-    const UNINIT: ::std::mem::MaybeUninit<perf_event_mmap_page> = ::std::mem::MaybeUninit::uninit();
-    let ptr = UNINIT.as_ptr();
-    assert_eq!(
-        ::std::mem::size_of::<perf_event_mmap_page>(),
-        1088usize,
-        concat!("Size of: ", stringify!(perf_event_mmap_page))
-    );
-    assert_eq!(
-        ::std::mem::align_of::<perf_event_mmap_page>(),
-        8usize,
-        concat!("Alignment of ", stringify!(perf_event_mmap_page))
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).version) as usize - ptr as usize },
-        0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_mmap_page),
-            "::",
-            stringify!(version)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).compat_version) as usize - ptr as usize },
-        4usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_mmap_page),
-            "::",
-            stringify!(compat_version)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).lock) as usize - ptr as usize },
-        8usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_mmap_page),
-            "::",
-            stringify!(lock)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).index) as usize - ptr as usize },
-        12usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_mmap_page),
-            "::",
-            stringify!(index)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).offset) as usize - ptr as usize },
-        16usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_mmap_page),
-            "::",
-            stringify!(offset)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).time_enabled) as usize - ptr as usize },
-        24usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_mmap_page),
-            "::",
-            stringify!(time_enabled)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).time_running) as usize - ptr as usize },
-        32usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_mmap_page),
-            "::",
-            stringify!(time_running)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).pmc_width) as usize - ptr as usize },
-        48usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_mmap_page),
-            "::",
-            stringify!(pmc_width)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).time_shift) as usize - ptr as usize },
-        50usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_mmap_page),
-            "::",
-            stringify!(time_shift)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).time_mult) as usize - ptr as usize },
-        52usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_mmap_page),
-            "::",
-            stringify!(time_mult)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).time_offset) as usize - ptr as usize },
-        56usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_mmap_page),
-            "::",
-            stringify!(time_offset)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).time_zero) as usize - ptr as usize },
-        64usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_mmap_page),
-            "::",
-            stringify!(time_zero)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).size) as usize - ptr as usize },
-        72usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_mmap_page),
-            "::",
-            stringify!(size)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).__reserved_1) as usize - ptr as usize },
-        76usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_mmap_page),
-            "::",
-            stringify!(__reserved_1)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).time_cycles) as usize - ptr as usize },
-        80usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_mmap_page),
-            "::",
-            stringify!(time_cycles)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).time_mask) as usize - ptr as usize },
-        88usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_mmap_page),
-            "::",
-            stringify!(time_mask)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).__reserved) as usize - ptr as usize },
-        96usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_mmap_page),
-            "::",
-            stringify!(__reserved)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).data_head) as usize - ptr as usize },
-        1024usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_mmap_page),
-            "::",
-            stringify!(data_head)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).data_tail) as usize - ptr as usize },
-        1032usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_mmap_page),
-            "::",
-            stringify!(data_tail)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).data_offset) as usize - ptr as usize },
-        1040usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_mmap_page),
-            "::",
-            stringify!(data_offset)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).data_size) as usize - ptr as usize },
-        1048usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_mmap_page),
-            "::",
-            stringify!(data_size)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).aux_head) as usize - ptr as usize },
-        1056usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_mmap_page),
-            "::",
-            stringify!(aux_head)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).aux_tail) as usize - ptr as usize },
-        1064usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_mmap_page),
-            "::",
-            stringify!(aux_tail)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).aux_offset) as usize - ptr as usize },
-        1072usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_mmap_page),
-            "::",
-            stringify!(aux_offset)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).aux_size) as usize - ptr as usize },
-        1080usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_mmap_page),
-            "::",
-            stringify!(aux_size)
-        )
-    );
-}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of perf_event_mmap_page"][::std::mem::size_of::<perf_event_mmap_page>() - 1088usize];
+    ["Alignment of perf_event_mmap_page"][::std::mem::align_of::<perf_event_mmap_page>() - 8usize];
+    ["Offset of field: perf_event_mmap_page::version"]
+        [::std::mem::offset_of!(perf_event_mmap_page, version) - 0usize];
+    ["Offset of field: perf_event_mmap_page::compat_version"]
+        [::std::mem::offset_of!(perf_event_mmap_page, compat_version) - 4usize];
+    ["Offset of field: perf_event_mmap_page::lock"]
+        [::std::mem::offset_of!(perf_event_mmap_page, lock) - 8usize];
+    ["Offset of field: perf_event_mmap_page::index"]
+        [::std::mem::offset_of!(perf_event_mmap_page, index) - 12usize];
+    ["Offset of field: perf_event_mmap_page::offset"]
+        [::std::mem::offset_of!(perf_event_mmap_page, offset) - 16usize];
+    ["Offset of field: perf_event_mmap_page::time_enabled"]
+        [::std::mem::offset_of!(perf_event_mmap_page, time_enabled) - 24usize];
+    ["Offset of field: perf_event_mmap_page::time_running"]
+        [::std::mem::offset_of!(perf_event_mmap_page, time_running) - 32usize];
+    ["Offset of field: perf_event_mmap_page::pmc_width"]
+        [::std::mem::offset_of!(perf_event_mmap_page, pmc_width) - 48usize];
+    ["Offset of field: perf_event_mmap_page::time_shift"]
+        [::std::mem::offset_of!(perf_event_mmap_page, time_shift) - 50usize];
+    ["Offset of field: perf_event_mmap_page::time_mult"]
+        [::std::mem::offset_of!(perf_event_mmap_page, time_mult) - 52usize];
+    ["Offset of field: perf_event_mmap_page::time_offset"]
+        [::std::mem::offset_of!(perf_event_mmap_page, time_offset) - 56usize];
+    ["Offset of field: perf_event_mmap_page::time_zero"]
+        [::std::mem::offset_of!(perf_event_mmap_page, time_zero) - 64usize];
+    ["Offset of field: perf_event_mmap_page::size"]
+        [::std::mem::offset_of!(perf_event_mmap_page, size) - 72usize];
+    ["Offset of field: perf_event_mmap_page::__reserved_1"]
+        [::std::mem::offset_of!(perf_event_mmap_page, __reserved_1) - 76usize];
+    ["Offset of field: perf_event_mmap_page::time_cycles"]
+        [::std::mem::offset_of!(perf_event_mmap_page, time_cycles) - 80usize];
+    ["Offset of field: perf_event_mmap_page::time_mask"]
+        [::std::mem::offset_of!(perf_event_mmap_page, time_mask) - 88usize];
+    ["Offset of field: perf_event_mmap_page::__reserved"]
+        [::std::mem::offset_of!(perf_event_mmap_page, __reserved) - 96usize];
+    ["Offset of field: perf_event_mmap_page::data_head"]
+        [::std::mem::offset_of!(perf_event_mmap_page, data_head) - 1024usize];
+    ["Offset of field: perf_event_mmap_page::data_tail"]
+        [::std::mem::offset_of!(perf_event_mmap_page, data_tail) - 1032usize];
+    ["Offset of field: perf_event_mmap_page::data_offset"]
+        [::std::mem::offset_of!(perf_event_mmap_page, data_offset) - 1040usize];
+    ["Offset of field: perf_event_mmap_page::data_size"]
+        [::std::mem::offset_of!(perf_event_mmap_page, data_size) - 1048usize];
+    ["Offset of field: perf_event_mmap_page::aux_head"]
+        [::std::mem::offset_of!(perf_event_mmap_page, aux_head) - 1056usize];
+    ["Offset of field: perf_event_mmap_page::aux_tail"]
+        [::std::mem::offset_of!(perf_event_mmap_page, aux_tail) - 1064usize];
+    ["Offset of field: perf_event_mmap_page::aux_offset"]
+        [::std::mem::offset_of!(perf_event_mmap_page, aux_offset) - 1072usize];
+    ["Offset of field: perf_event_mmap_page::aux_size"]
+        [::std::mem::offset_of!(perf_event_mmap_page, aux_size) - 1080usize];
+};
 impl Default for perf_event_mmap_page {
     fn default() -> Self {
         let mut s = ::std::mem::MaybeUninit::<Self>::uninit();
@@ -2252,92 +2804,32 @@ pub struct perf_event_header {
     pub misc: __u16,
     pub size: __u16,
 }
-#[test]
-fn bindgen_test_layout_perf_event_header() {
-    const UNINIT: ::std::mem::MaybeUninit<perf_event_header> = ::std::mem::MaybeUninit::uninit();
-    let ptr = UNINIT.as_ptr();
-    assert_eq!(
-        ::std::mem::size_of::<perf_event_header>(),
-        8usize,
-        concat!("Size of: ", stringify!(perf_event_header))
-    );
-    assert_eq!(
-        ::std::mem::align_of::<perf_event_header>(),
-        4usize,
-        concat!("Alignment of ", stringify!(perf_event_header))
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).type_) as usize - ptr as usize },
-        0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_header),
-            "::",
-            stringify!(type_)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).misc) as usize - ptr as usize },
-        4usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_header),
-            "::",
-            stringify!(misc)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).size) as usize - ptr as usize },
-        6usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_event_header),
-            "::",
-            stringify!(size)
-        )
-    );
-}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of perf_event_header"][::std::mem::size_of::<perf_event_header>() - 8usize];
+    ["Alignment of perf_event_header"][::std::mem::align_of::<perf_event_header>() - 4usize];
+    ["Offset of field: perf_event_header::type_"]
+        [::std::mem::offset_of!(perf_event_header, type_) - 0usize];
+    ["Offset of field: perf_event_header::misc"]
+        [::std::mem::offset_of!(perf_event_header, misc) - 4usize];
+    ["Offset of field: perf_event_header::size"]
+        [::std::mem::offset_of!(perf_event_header, size) - 6usize];
+};
 #[repr(C)]
 #[derive(Debug, Default, Copy, Clone)]
 pub struct perf_ns_link_info {
     pub dev: __u64,
     pub ino: __u64,
 }
-#[test]
-fn bindgen_test_layout_perf_ns_link_info() {
-    const UNINIT: ::std::mem::MaybeUninit<perf_ns_link_info> = ::std::mem::MaybeUninit::uninit();
-    let ptr = UNINIT.as_ptr();
-    assert_eq!(
-        ::std::mem::size_of::<perf_ns_link_info>(),
-        16usize,
-        concat!("Size of: ", stringify!(perf_ns_link_info))
-    );
-    assert_eq!(
-        ::std::mem::align_of::<perf_ns_link_info>(),
-        8usize,
-        concat!("Alignment of ", stringify!(perf_ns_link_info))
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).dev) as usize - ptr as usize },
-        0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_ns_link_info),
-            "::",
-            stringify!(dev)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).ino) as usize - ptr as usize },
-        8usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_ns_link_info),
-            "::",
-            stringify!(ino)
-        )
-    );
-}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of perf_ns_link_info"][::std::mem::size_of::<perf_ns_link_info>() - 16usize];
+    ["Alignment of perf_ns_link_info"][::std::mem::align_of::<perf_ns_link_info>() - 8usize];
+    ["Offset of field: perf_ns_link_info::dev"]
+        [::std::mem::offset_of!(perf_ns_link_info, dev) - 0usize];
+    ["Offset of field: perf_ns_link_info::ino"]
+        [::std::mem::offset_of!(perf_ns_link_info, ino) - 8usize];
+};
 pub const NET_NS_INDEX: _bindgen_ty_6 = 0;
 pub const UTS_NS_INDEX: _bindgen_ty_6 = 1;
 pub const IPC_NS_INDEX: _bindgen_ty_6 = 2;
@@ -2401,19 +2893,13 @@ pub struct perf_mem_data_src__bindgen_ty_1 {
     pub _bitfield_align_1: [u32; 0],
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 8usize]>,
 }
-#[test]
-fn bindgen_test_layout_perf_mem_data_src__bindgen_ty_1() {
-    assert_eq!(
-        ::std::mem::size_of::<perf_mem_data_src__bindgen_ty_1>(),
-        8usize,
-        concat!("Size of: ", stringify!(perf_mem_data_src__bindgen_ty_1))
-    );
-    assert_eq!(
-        ::std::mem::align_of::<perf_mem_data_src__bindgen_ty_1>(),
-        8usize,
-        concat!("Alignment of ", stringify!(perf_mem_data_src__bindgen_ty_1))
-    );
-}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of perf_mem_data_src__bindgen_ty_1"]
+        [::std::mem::size_of::<perf_mem_data_src__bindgen_ty_1>() - 8usize];
+    ["Alignment of perf_mem_data_src__bindgen_ty_1"]
+        [::std::mem::align_of::<perf_mem_data_src__bindgen_ty_1>() - 8usize];
+};
 impl perf_mem_data_src__bindgen_ty_1 {
     #[inline]
     pub fn mem_op(&self) -> __u64 {
@@ -2424,6 +2910,28 @@ impl perf_mem_data_src__bindgen_ty_1 {
         unsafe {
             let val: u64 = ::std::mem::transmute(val);
             self._bitfield_1.set(0usize, 5u8, val as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn mem_op_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                0usize,
+                5u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_mem_op_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                0usize,
+                5u8,
+                val as u64,
+            )
         }
     }
     #[inline]
@@ -2438,6 +2946,28 @@ impl perf_mem_data_src__bindgen_ty_1 {
         }
     }
     #[inline]
+    pub unsafe fn mem_lvl_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                5usize,
+                14u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_mem_lvl_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                5usize,
+                14u8,
+                val as u64,
+            )
+        }
+    }
+    #[inline]
     pub fn mem_snoop(&self) -> __u64 {
         unsafe { ::std::mem::transmute(self._bitfield_1.get(19usize, 5u8) as u64) }
     }
@@ -2446,6 +2976,28 @@ impl perf_mem_data_src__bindgen_ty_1 {
         unsafe {
             let val: u64 = ::std::mem::transmute(val);
             self._bitfield_1.set(19usize, 5u8, val as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn mem_snoop_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                19usize,
+                5u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_mem_snoop_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                19usize,
+                5u8,
+                val as u64,
+            )
         }
     }
     #[inline]
@@ -2460,6 +3012,28 @@ impl perf_mem_data_src__bindgen_ty_1 {
         }
     }
     #[inline]
+    pub unsafe fn mem_lock_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                24usize,
+                2u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_mem_lock_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                24usize,
+                2u8,
+                val as u64,
+            )
+        }
+    }
+    #[inline]
     pub fn mem_dtlb(&self) -> __u64 {
         unsafe { ::std::mem::transmute(self._bitfield_1.get(26usize, 7u8) as u64) }
     }
@@ -2468,6 +3042,28 @@ impl perf_mem_data_src__bindgen_ty_1 {
         unsafe {
             let val: u64 = ::std::mem::transmute(val);
             self._bitfield_1.set(26usize, 7u8, val as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn mem_dtlb_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                26usize,
+                7u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_mem_dtlb_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                26usize,
+                7u8,
+                val as u64,
+            )
         }
     }
     #[inline]
@@ -2482,6 +3078,28 @@ impl perf_mem_data_src__bindgen_ty_1 {
         }
     }
     #[inline]
+    pub unsafe fn mem_lvl_num_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                33usize,
+                4u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_mem_lvl_num_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                33usize,
+                4u8,
+                val as u64,
+            )
+        }
+    }
+    #[inline]
     pub fn mem_remote(&self) -> __u64 {
         unsafe { ::std::mem::transmute(self._bitfield_1.get(37usize, 1u8) as u64) }
     }
@@ -2490,6 +3108,28 @@ impl perf_mem_data_src__bindgen_ty_1 {
         unsafe {
             let val: u64 = ::std::mem::transmute(val);
             self._bitfield_1.set(37usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn mem_remote_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                37usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_mem_remote_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                37usize,
+                1u8,
+                val as u64,
+            )
         }
     }
     #[inline]
@@ -2504,6 +3144,28 @@ impl perf_mem_data_src__bindgen_ty_1 {
         }
     }
     #[inline]
+    pub unsafe fn mem_snoopx_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                38usize,
+                2u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_mem_snoopx_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                38usize,
+                2u8,
+                val as u64,
+            )
+        }
+    }
+    #[inline]
     pub fn mem_blk(&self) -> __u64 {
         unsafe { ::std::mem::transmute(self._bitfield_1.get(40usize, 3u8) as u64) }
     }
@@ -2512,6 +3174,28 @@ impl perf_mem_data_src__bindgen_ty_1 {
         unsafe {
             let val: u64 = ::std::mem::transmute(val);
             self._bitfield_1.set(40usize, 3u8, val as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn mem_blk_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                40usize,
+                3u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_mem_blk_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                40usize,
+                3u8,
+                val as u64,
+            )
         }
     }
     #[inline]
@@ -2526,6 +3210,28 @@ impl perf_mem_data_src__bindgen_ty_1 {
         }
     }
     #[inline]
+    pub unsafe fn mem_hops_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                43usize,
+                3u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_mem_hops_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                43usize,
+                3u8,
+                val as u64,
+            )
+        }
+    }
+    #[inline]
     pub fn mem_rsvd(&self) -> __u64 {
         unsafe { ::std::mem::transmute(self._bitfield_1.get(46usize, 18u8) as u64) }
     }
@@ -2534,6 +3240,28 @@ impl perf_mem_data_src__bindgen_ty_1 {
         unsafe {
             let val: u64 = ::std::mem::transmute(val);
             self._bitfield_1.set(46usize, 18u8, val as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn mem_rsvd_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                46usize,
+                18u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_mem_rsvd_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                46usize,
+                18u8,
+                val as u64,
+            )
         }
     }
     #[inline]
@@ -2598,31 +3326,13 @@ impl perf_mem_data_src__bindgen_ty_1 {
         __bindgen_bitfield_unit
     }
 }
-#[test]
-fn bindgen_test_layout_perf_mem_data_src() {
-    const UNINIT: ::std::mem::MaybeUninit<perf_mem_data_src> = ::std::mem::MaybeUninit::uninit();
-    let ptr = UNINIT.as_ptr();
-    assert_eq!(
-        ::std::mem::size_of::<perf_mem_data_src>(),
-        8usize,
-        concat!("Size of: ", stringify!(perf_mem_data_src))
-    );
-    assert_eq!(
-        ::std::mem::align_of::<perf_mem_data_src>(),
-        8usize,
-        concat!("Alignment of ", stringify!(perf_mem_data_src))
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).val) as usize - ptr as usize },
-        0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_mem_data_src),
-            "::",
-            stringify!(val)
-        )
-    );
-}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of perf_mem_data_src"][::std::mem::size_of::<perf_mem_data_src>() - 8usize];
+    ["Alignment of perf_mem_data_src"][::std::mem::align_of::<perf_mem_data_src>() - 8usize];
+    ["Offset of field: perf_mem_data_src::val"]
+        [::std::mem::offset_of!(perf_mem_data_src, val) - 0usize];
+};
 impl Default for perf_mem_data_src {
     fn default() -> Self {
         let mut s = ::std::mem::MaybeUninit::<Self>::uninit();
@@ -2645,41 +3355,15 @@ pub struct perf_branch_entry {
     pub _bitfield_align_1: [u32; 0],
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 8usize]>,
 }
-#[test]
-fn bindgen_test_layout_perf_branch_entry() {
-    const UNINIT: ::std::mem::MaybeUninit<perf_branch_entry> = ::std::mem::MaybeUninit::uninit();
-    let ptr = UNINIT.as_ptr();
-    assert_eq!(
-        ::std::mem::size_of::<perf_branch_entry>(),
-        24usize,
-        concat!("Size of: ", stringify!(perf_branch_entry))
-    );
-    assert_eq!(
-        ::std::mem::align_of::<perf_branch_entry>(),
-        8usize,
-        concat!("Alignment of ", stringify!(perf_branch_entry))
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).from) as usize - ptr as usize },
-        0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_branch_entry),
-            "::",
-            stringify!(from)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).to) as usize - ptr as usize },
-        8usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_branch_entry),
-            "::",
-            stringify!(to)
-        )
-    );
-}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of perf_branch_entry"][::std::mem::size_of::<perf_branch_entry>() - 24usize];
+    ["Alignment of perf_branch_entry"][::std::mem::align_of::<perf_branch_entry>() - 8usize];
+    ["Offset of field: perf_branch_entry::from"]
+        [::std::mem::offset_of!(perf_branch_entry, from) - 0usize];
+    ["Offset of field: perf_branch_entry::to"]
+        [::std::mem::offset_of!(perf_branch_entry, to) - 8usize];
+};
 impl perf_branch_entry {
     #[inline]
     pub fn mispred(&self) -> __u64 {
@@ -2690,6 +3374,28 @@ impl perf_branch_entry {
         unsafe {
             let val: u64 = ::std::mem::transmute(val);
             self._bitfield_1.set(0usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn mispred_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                0usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_mispred_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                0usize,
+                1u8,
+                val as u64,
+            )
         }
     }
     #[inline]
@@ -2704,6 +3410,28 @@ impl perf_branch_entry {
         }
     }
     #[inline]
+    pub unsafe fn predicted_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                1usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_predicted_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                1usize,
+                1u8,
+                val as u64,
+            )
+        }
+    }
+    #[inline]
     pub fn in_tx(&self) -> __u64 {
         unsafe { ::std::mem::transmute(self._bitfield_1.get(2usize, 1u8) as u64) }
     }
@@ -2712,6 +3440,28 @@ impl perf_branch_entry {
         unsafe {
             let val: u64 = ::std::mem::transmute(val);
             self._bitfield_1.set(2usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn in_tx_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                2usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_in_tx_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                2usize,
+                1u8,
+                val as u64,
+            )
         }
     }
     #[inline]
@@ -2726,6 +3476,28 @@ impl perf_branch_entry {
         }
     }
     #[inline]
+    pub unsafe fn abort_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                3usize,
+                1u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_abort_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                3usize,
+                1u8,
+                val as u64,
+            )
+        }
+    }
+    #[inline]
     pub fn cycles(&self) -> __u64 {
         unsafe { ::std::mem::transmute(self._bitfield_1.get(4usize, 16u8) as u64) }
     }
@@ -2734,6 +3506,28 @@ impl perf_branch_entry {
         unsafe {
             let val: u64 = ::std::mem::transmute(val);
             self._bitfield_1.set(4usize, 16u8, val as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn cycles_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                4usize,
+                16u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_cycles_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                4usize,
+                16u8,
+                val as u64,
+            )
         }
     }
     #[inline]
@@ -2748,6 +3542,28 @@ impl perf_branch_entry {
         }
     }
     #[inline]
+    pub unsafe fn type__raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                20usize,
+                4u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_type_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                20usize,
+                4u8,
+                val as u64,
+            )
+        }
+    }
+    #[inline]
     pub fn spec(&self) -> __u64 {
         unsafe { ::std::mem::transmute(self._bitfield_1.get(24usize, 2u8) as u64) }
     }
@@ -2756,6 +3572,28 @@ impl perf_branch_entry {
         unsafe {
             let val: u64 = ::std::mem::transmute(val);
             self._bitfield_1.set(24usize, 2u8, val as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn spec_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                24usize,
+                2u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_spec_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                24usize,
+                2u8,
+                val as u64,
+            )
         }
     }
     #[inline]
@@ -2770,6 +3608,28 @@ impl perf_branch_entry {
         }
     }
     #[inline]
+    pub unsafe fn new_type_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                26usize,
+                4u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_new_type_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                26usize,
+                4u8,
+                val as u64,
+            )
+        }
+    }
+    #[inline]
     pub fn priv_(&self) -> __u64 {
         unsafe { ::std::mem::transmute(self._bitfield_1.get(30usize, 3u8) as u64) }
     }
@@ -2781,6 +3641,28 @@ impl perf_branch_entry {
         }
     }
     #[inline]
+    pub unsafe fn priv__raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                30usize,
+                3u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_priv_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                30usize,
+                3u8,
+                val as u64,
+            )
+        }
+    }
+    #[inline]
     pub fn reserved(&self) -> __u64 {
         unsafe { ::std::mem::transmute(self._bitfield_1.get(33usize, 31u8) as u64) }
     }
@@ -2789,6 +3671,28 @@ impl perf_branch_entry {
         unsafe {
             let val: u64 = ::std::mem::transmute(val);
             self._bitfield_1.set(33usize, 31u8, val as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn reserved_raw(this: *const Self) -> __u64 {
+        unsafe {
+            ::std::mem::transmute(<__BindgenBitfieldUnit<[u8; 8usize]>>::raw_get(
+                ::std::ptr::addr_of!((*this)._bitfield_1),
+                33usize,
+                31u8,
+            ) as u64)
+        }
+    }
+    #[inline]
+    pub unsafe fn set_reserved_raw(this: *mut Self, val: __u64) {
+        unsafe {
+            let val: u64 = ::std::mem::transmute(val);
+            <__BindgenBitfieldUnit<[u8; 8usize]>>::raw_set(
+                ::std::ptr::addr_of_mut!((*this)._bitfield_1),
+                33usize,
+                31u8,
+                val as u64,
+            )
         }
     }
     #[inline]
@@ -2861,80 +3765,26 @@ pub struct perf_sample_weight__bindgen_ty_1 {
     pub var2_w: __u16,
     pub var3_w: __u16,
 }
-#[test]
-fn bindgen_test_layout_perf_sample_weight__bindgen_ty_1() {
-    const UNINIT: ::std::mem::MaybeUninit<perf_sample_weight__bindgen_ty_1> =
-        ::std::mem::MaybeUninit::uninit();
-    let ptr = UNINIT.as_ptr();
-    assert_eq!(
-        ::std::mem::size_of::<perf_sample_weight__bindgen_ty_1>(),
-        8usize,
-        concat!("Size of: ", stringify!(perf_sample_weight__bindgen_ty_1))
-    );
-    assert_eq!(
-        ::std::mem::align_of::<perf_sample_weight__bindgen_ty_1>(),
-        4usize,
-        concat!(
-            "Alignment of ",
-            stringify!(perf_sample_weight__bindgen_ty_1)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).var1_dw) as usize - ptr as usize },
-        0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_sample_weight__bindgen_ty_1),
-            "::",
-            stringify!(var1_dw)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).var2_w) as usize - ptr as usize },
-        4usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_sample_weight__bindgen_ty_1),
-            "::",
-            stringify!(var2_w)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).var3_w) as usize - ptr as usize },
-        6usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_sample_weight__bindgen_ty_1),
-            "::",
-            stringify!(var3_w)
-        )
-    );
-}
-#[test]
-fn bindgen_test_layout_perf_sample_weight() {
-    const UNINIT: ::std::mem::MaybeUninit<perf_sample_weight> = ::std::mem::MaybeUninit::uninit();
-    let ptr = UNINIT.as_ptr();
-    assert_eq!(
-        ::std::mem::size_of::<perf_sample_weight>(),
-        8usize,
-        concat!("Size of: ", stringify!(perf_sample_weight))
-    );
-    assert_eq!(
-        ::std::mem::align_of::<perf_sample_weight>(),
-        8usize,
-        concat!("Alignment of ", stringify!(perf_sample_weight))
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).full) as usize - ptr as usize },
-        0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(perf_sample_weight),
-            "::",
-            stringify!(full)
-        )
-    );
-}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of perf_sample_weight__bindgen_ty_1"]
+        [::std::mem::size_of::<perf_sample_weight__bindgen_ty_1>() - 8usize];
+    ["Alignment of perf_sample_weight__bindgen_ty_1"]
+        [::std::mem::align_of::<perf_sample_weight__bindgen_ty_1>() - 4usize];
+    ["Offset of field: perf_sample_weight__bindgen_ty_1::var1_dw"]
+        [::std::mem::offset_of!(perf_sample_weight__bindgen_ty_1, var1_dw) - 0usize];
+    ["Offset of field: perf_sample_weight__bindgen_ty_1::var2_w"]
+        [::std::mem::offset_of!(perf_sample_weight__bindgen_ty_1, var2_w) - 4usize];
+    ["Offset of field: perf_sample_weight__bindgen_ty_1::var3_w"]
+        [::std::mem::offset_of!(perf_sample_weight__bindgen_ty_1, var3_w) - 6usize];
+};
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of perf_sample_weight"][::std::mem::size_of::<perf_sample_weight>() - 8usize];
+    ["Alignment of perf_sample_weight"][::std::mem::align_of::<perf_sample_weight>() - 8usize];
+    ["Offset of field: perf_sample_weight::full"]
+        [::std::mem::offset_of!(perf_sample_weight, full) - 0usize];
+};
 impl Default for perf_sample_weight {
     fn default() -> Self {
         let mut s = ::std::mem::MaybeUninit::<Self>::uninit();
