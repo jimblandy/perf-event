@@ -446,13 +446,12 @@ impl<'a> EventPid<'a> {
 
 impl<'a> Default for Builder<'a> {
     fn default() -> Builder<'a> {
-        let mut attrs = perf_event_attr {
-            // Setting `size` accurately will not prevent the code from working
-            // on older kernels. The module comments for `perf_event_open_sys`
-            // explain why in far too much detail.
-            size: std::mem::size_of::<perf_event_attr>() as u32,
-            ..perf_event_attr::default()
-        };
+        let mut attrs = perf_event_attr::default();
+
+        // Setting `size` accurately will not prevent the code from working
+        // on older kernels. The module comments for `perf_event_open_sys`
+        // explain why in far too much detail.
+        attrs.size = std::mem::size_of::<perf_event_attr>() as u32;
 
         attrs.set_disabled(1);
         attrs.set_exclude_kernel(1); // don't count time in kernel
@@ -818,12 +817,10 @@ impl Group {
     #[allow(unused_parens)]
     pub fn new() -> io::Result<Group> {
         // Open a placeholder perf counter that we can add other events to.
-        let mut attrs = perf_event_attr {
-            size: std::mem::size_of::<perf_event_attr>() as u32,
-            type_: sys::bindings::PERF_TYPE_SOFTWARE,
-            config: sys::bindings::PERF_COUNT_SW_DUMMY as u64,
-            ..perf_event_attr::default()
-        };
+        let mut attrs = perf_event_attr::default();
+        attrs.size = std::mem::size_of::<perf_event_attr>() as u32;
+        attrs.type_ = sys::bindings::PERF_TYPE_SOFTWARE;
+        attrs.config = sys::bindings::PERF_COUNT_SW_DUMMY as u64;
 
         attrs.set_disabled(1);
         attrs.set_exclude_kernel(1);
