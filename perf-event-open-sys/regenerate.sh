@@ -63,7 +63,7 @@ fi
 function gen_bindings {
     arch="$1"
     linux_arch="${2:-$arch}"
-    clang_arch="${3:-$arch}"
+    clang_triple="${3:-${arch}-unknown-linux-gnu}"
 
     bindings="$target/$arch/bindings.rs"
 
@@ -76,7 +76,7 @@ function gen_bindings {
     cd "$scriptdir"
 
     CLANG_ARGS=(
-        -target "$clang_arch-unknown-linux-gnu"
+        -target "$clang_triple"
         -nostdlibinc
         -isystem "$target/$arch/include"
     )
@@ -121,4 +121,5 @@ echo "$version" > src/version
 
 gen_bindings x86_64
 gen_bindings aarch64 arm64
-gen_bindings riscv64gc riscv riscv64
+gen_bindings riscv64gc riscv riscv64-unknown-linux-gnu
+gen_bindings armv7 arm armv7a-non-linux-gnueabi
