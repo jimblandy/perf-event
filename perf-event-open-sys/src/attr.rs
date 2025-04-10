@@ -189,4 +189,44 @@ mod tests {
         attr.sig_data = 0;
         attr.config3 = 0;
     }
+
+    macro_rules! test_field_offsets {
+        {
+            $(
+                $base:ident => $($field:ident)*;
+            )*
+        } => {
+            #[test]
+            fn validate_attr_deref_field_offsets() {
+                let attr = perf_event_attr::default();
+
+                $({
+                    let baseoff = std::mem::offset_of!(perf_event_attr, $base);
+                    $(
+                        let fieldoff: usize = (&attr.$field as *const _ as usize) -
+                            (&attr as *const _ as usize);
+                        assert_eq!(
+                            baseoff,
+                            fieldoff,
+                            "offset of base field `{}` and dereferenced field `{}` are different ({} != {})",
+                            stringify!($base),
+                            stringify!($field),
+                            baseoff,
+                            fieldoff
+                        );
+                    )*
+                })*
+            }
+        }
+    }
+
+    // This generates a test that validates that the deref'd fields are at the
+    // same offset as their base field.
+    test_field_offsets! {
+        __bindgen_anon_1 => sample_period sample_freq;
+        __bindgen_anon_2 => wakeup_events wakeup_watermark;
+        __bindgen_anon_3 => bp_addr kprobe_func uprobe_path config1;
+        __bindgen_anon_4 => bp_len kprobe_addr probe_offset config2;
+        __bindgen_anon_5 => aux_action;
+    }
 }
