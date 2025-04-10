@@ -147,3 +147,46 @@ impl Layout3 {
     const PAD2: usize = Offsets::OFF4 - Offsets::END3;
     const PAD3: usize = mem::size_of::<perf_event_attr>() - Offsets::END4;
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::bindings::perf_event_attr;
+
+    /// This test manually sets every known field on perf_event_attr. If it
+    /// starts erroring then that means a field has been replaced with an
+    /// inline union and the deref stack in this file needs to be updated.
+    #[test]
+    fn access_attr_fields() {
+        let mut attr = perf_event_attr::default();
+
+        attr.type_ = 0;
+        attr.size = 0;
+        attr.config = 0;
+        attr.sample_period = 0;
+        attr.sample_freq = 0;
+        attr.sample_type = 0;
+        attr.read_format = 0;
+        attr.wakeup_events = 0;
+        attr.wakeup_watermark = 0;
+        attr.bp_type = 0;
+        attr.bp_addr = 0;
+        attr.kprobe_func = 0;
+        attr.uprobe_path = 0;
+        attr.config1 = 0;
+        attr.bp_len = 0;
+        attr.kprobe_addr = 0;
+        attr.probe_offset = 0;
+        attr.config2 = 0;
+        attr.branch_sample_type = 0;
+        attr.sample_regs_user = 0;
+        attr.sample_stack_user = 0;
+        attr.clockid = 0;
+        attr.sample_regs_intr = 0;
+        attr.aux_watermark = 0;
+        attr.sample_max_stack = 0;
+        attr.aux_sample_size = 0;
+        attr.aux_action = 0;
+        attr.sig_data = 0;
+        attr.config3 = 0;
+    }
+}
