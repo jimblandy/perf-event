@@ -111,6 +111,53 @@ impl<'a> Builder<'a> {
         Builder::default()
     }
 
+    /// Construct a [`Counter`] according to the specifications made on this
+    /// `Builder`.
+    ///
+    /// A freshly built `Counter` is disabled. To begin counting events, you
+    /// must call [`enable`] on the `Counter` or the `Group` to which it belongs.
+    ///
+    /// If the `Builder` requests features that the running kernel does not
+    /// support, it returns `Err(e)` where `e.kind() == ErrorKind::Other` and
+    /// `e.raw_os_error() == Some(libc::E2BIG)`.
+    ///
+    /// Unfortunately, problems in counter configuration are detected at this
+    /// point, by the kernel, not earlier when the offending request is made on
+    /// the `Builder`. The kernel's returned errors are not always helpful.
+    ///
+    /// [`Counter`]: struct.Counter.html
+    /// [`enable`]: struct.Counter.html#method.enable
+    pub fn build(mut self) -> std::io::Result<Counter> {
+        let cpu = match self.cpu {
+            Some(cpu) => cpu as c_int,
+            None => -1,
+        };
+        let (pid, flags) = self.who.as_args();
+        let group_fd = match self.group {
+            Some(ref mut g) => {
+                g.max_members += 1;
+                g.file.as_raw_fd() as c_int
+            }
+            None => -1,
+        };
+
+        let file = unsafe {
+            File::from_raw_fd(check_errno_syscall(|| {
+                sys::perf_event_open(&mut self.attrs, pid, cpu, group_fd, flags as c_ulong)
+            })?)
+        };
+
+        // If we're going to be part of a Group, retrieve the ID the kernel
+        // assigned us, so we can find our results in a Counts structure. Even
+        // if we're not part of a group, we'll use it in `Debug` output.
+        let mut id = 0_u64;
+        check_errno_syscall(|| unsafe { sys::ioctls::ID(file.as_raw_fd(), &mut id) })?;
+
+        Ok(Counter { file, id })
+    }
+}
+
+impl<'a> Builder<'a> {
     /// Include kernel code.
     pub fn include_kernel(mut self) -> Builder<'a> {
         self.attrs.set_exclude_kernel(0);
@@ -256,51 +303,6 @@ impl<'a> Builder<'a> {
         self.attrs.set_disabled(0);
 
         self
-    }
-
-    /// Construct a [`Counter`] according to the specifications made on this
-    /// `Builder`.
-    ///
-    /// A freshly built `Counter` is disabled. To begin counting events, you
-    /// must call [`enable`] on the `Counter` or the `Group` to which it belongs.
-    ///
-    /// If the `Builder` requests features that the running kernel does not
-    /// support, it returns `Err(e)` where `e.kind() == ErrorKind::Other` and
-    /// `e.raw_os_error() == Some(libc::E2BIG)`.
-    ///
-    /// Unfortunately, problems in counter configuration are detected at this
-    /// point, by the kernel, not earlier when the offending request is made on
-    /// the `Builder`. The kernel's returned errors are not always helpful.
-    ///
-    /// [`Counter`]: struct.Counter.html
-    /// [`enable`]: struct.Counter.html#method.enable
-    pub fn build(mut self) -> std::io::Result<Counter> {
-        let cpu = match self.cpu {
-            Some(cpu) => cpu as c_int,
-            None => -1,
-        };
-        let (pid, flags) = self.who.as_args();
-        let group_fd = match self.group {
-            Some(ref mut g) => {
-                g.max_members += 1;
-                g.file.as_raw_fd() as c_int
-            }
-            None => -1,
-        };
-
-        let file = unsafe {
-            File::from_raw_fd(check_errno_syscall(|| {
-                sys::perf_event_open(&mut self.attrs, pid, cpu, group_fd, flags as c_ulong)
-            })?)
-        };
-
-        // If we're going to be part of a Group, retrieve the ID the kernel
-        // assigned us, so we can find our results in a Counts structure. Even
-        // if we're not part of a group, we'll use it in `Debug` output.
-        let mut id = 0_u64;
-        check_errno_syscall(|| unsafe { sys::ioctls::ID(file.as_raw_fd(), &mut id) })?;
-
-        Ok(Counter { file, id })
     }
 }
 
