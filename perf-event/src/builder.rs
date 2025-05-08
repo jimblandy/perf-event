@@ -158,6 +158,16 @@ impl<'a> Builder<'a> {
 }
 
 impl<'a> Builder<'a> {
+    /// Directly access the [`perf_event_attr`] within this builder.
+    pub fn attrs(&self) -> &perf_event_attr {
+        &self.attrs
+    }
+
+    /// Directly access the [`perf_event_attr`] within this builder.
+    pub fn attrs_mut(&mut self) -> &mut perf_event_attr {
+        &mut self.attrs
+    }
+
     /// Include kernel code.
     pub fn include_kernel(mut self) -> Builder<'a> {
         self.attrs.set_exclude_kernel(0);
