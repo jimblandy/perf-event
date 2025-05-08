@@ -72,6 +72,21 @@
 
 #![deny(missing_docs)]
 
+/// A helper macro for silencing warnings when a type is only implemented so
+/// that it can be linked in the docs.
+macro_rules! used_in_docs {
+    ($t:ident) => {
+        const _: () = {
+            // Using a module here means that this macro can accept any identifier that
+            // would normally be used in an import statement.
+            mod use_item {
+                #[allow(unused_imports)]
+                use super::$t;
+            }
+        };
+    };
+}
+
 use perf_event_open_sys::bindings::perf_event_attr;
 use std::fs::File;
 use std::io::{self, Read};
@@ -85,6 +100,7 @@ pub mod hooks;
 
 mod builder;
 mod counter;
+mod flags;
 
 // When the `"hooks"` feature is not enabled, call directly into
 // `perf-event-open-sys`.
@@ -98,6 +114,7 @@ use hooks::sys;
 
 pub use crate::builder::Builder;
 pub use crate::counter::Counter;
+pub use crate::flags::{Clock, ReadFormat, SampleBranchFlag, SampleSkid};
 
 /// A group of counters that can be managed as a unit.
 ///
