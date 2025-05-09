@@ -153,7 +153,7 @@ impl<'a> Builder<'a> {
         let mut id = 0_u64;
         check_errno_syscall(|| unsafe { sys::ioctls::ID(file.as_raw_fd(), &mut id) })?;
 
-        Ok(Counter { file, id })
+        Ok(Counter::new(file, id))
     }
 }
 
