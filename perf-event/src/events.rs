@@ -335,6 +335,7 @@ pub enum CacheResult {
 
 bitflags! {
     /// Memory access mask for a hardware data breakpoint.
+    #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
     pub struct BreakpointAccess : u32 {
         /// Count when we read the memory location.
         const READ = bindings::HW_BREAKPOINT_R;
