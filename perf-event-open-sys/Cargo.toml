@@ -1,12 +1,12 @@
 [package]
 name = "perf-event-open-sys"
-version = "5.0.0"
+version = "6.0.0"
 description = """
 Unsafe, direct bindings for Linux's perf_event_open system call, with associated
 types and constants.
 """
 license = "MIT OR Apache-2.0"
-authors = ["Jim Blandy <jimb@red-bean.com>"]
+authors = ["Jim Blandy <jimb@red-bean.com>", "Sean Lynch <sean@lynches.ca>"]
 repository = "https://github.com/jimblandy/perf-event.git"
 edition = "2018"
 readme = "README.md"
