@@ -40,19 +40,13 @@ use bitflags::bitflags;
 use perf_event_open_sys::bindings;
 use std::{
     collections::HashMap,
-    fs::{
-        read_dir,
-        read_to_string,
-    },
+    fs::{read_dir, read_to_string},
     io,
     path::Path,
-    sync::{
-        LazyLock,
-        Mutex,
-    },
+    sync::{LazyLock, Mutex},
 };
 
-static RAW_METRIC_DICT:LazyLock<Mutex<HashMap<String,(u32,u32)>>> =
+static RAW_METRIC_DICT: LazyLock<Mutex<HashMap<String, (u32, u32)>>> =
     LazyLock::new(|| Mutex::new(HashMap::with_capacity(1)));
 
 /// Any sort of event. This is a sum of the [`Hardware`],
@@ -117,35 +111,40 @@ impl Event {
             }
             Event::Raw(ref name) => {
                 if RAW_METRIC_DICT.lock().unwrap().len() < 1 {
-                    if RAW_METRIC_DICT.lock().unwrap().get("none")==Some(&(0_u32,0_u32)) {
-                        println!("Warning: Could not get event names from \
-                                  `/sys/bus/event_source/devices/`; recording \
-                                  instructions");
+                    if RAW_METRIC_DICT.lock().unwrap().get("none") == Some(&(0_u32, 0_u32)) {
+                        println!(
+                            "Warning: Could not get event names from \
+                                `/sys/bus/event_source/devices/`; recording \
+                                instructions"
+                        );
                         return;
-                    }
-                    else {
+                    } else {
                         let res = self.fill_raw_metric_dict();
                         if res.is_err() {
-                            println!("Warning: Could not get event names from \
-                                      `/sys/bus/event_source/devices/` ({}); \
-                                      recording instructions", res.unwrap_err());
+                            println!(
+                                "Warning: Could not get event names from \
+                                    `/sys/bus/event_source/devices/` ({}); \
+                                    recording instructions",
+                                res.unwrap_err()
+                            );
                             return;
                         }
                     }
                 }
-                if RAW_METRIC_DICT.lock().unwrap()
-                                  .contains_key(name) {
-                    let attributes = RAW_METRIC_DICT.lock().unwrap().get(name)
-                                                    .copied().unwrap();
+                if RAW_METRIC_DICT.lock().unwrap().contains_key(name) {
+                    let attributes = RAW_METRIC_DICT.lock().unwrap().get(name).copied().unwrap();
                     attr.type_ = attributes.0;
                     attr.config = attributes.1 as _;
                 }
                 // Add more error handling if necessary?
                 else {
-                    println!("Warning: Perf metric `{}` does not exist; recording \
-                              instructions", name);
+                    println!(
+                        "Warning: Perf metric `{}` does not exist; recording \
+                              instructions",
+                        name
+                    );
                 };
-            },
+            }
         }
     }
 
@@ -166,19 +165,22 @@ impl Event {
         // Each subdirectory should contain a device that contains subfolders
         // that represent events; iterate through them accordingly and add them
         // to RAW_METRIC_DICT
-        let mut event_name : String;
-        let mut event_config : u32;
-        let mut event_type : u32;
+        let mut event_name: String;
+        let mut event_config: u32;
+        let mut event_type: u32;
         let device_iterator = read_dir(device_dir);
         if let Err(e) = device_iterator {
-            RAW_METRIC_DICT.lock().unwrap().insert("none".to_string(), (0, 0));
+            RAW_METRIC_DICT
+                .lock()
+                .unwrap()
+                .insert("none".to_string(), (0, 0));
             return Err(e);
         }
         'device_loop: for device in device_iterator.unwrap() {
             if device.is_err() {
                 // println!("Error: Could not read {}: {}", device_dir.to_str()
-                                                                   // .unwrap(),
-                         // device.unwrap_err());
+                // .unwrap(),
+                // device.unwrap_err());
                 continue 'device_loop;
             }
             let device = device.unwrap();
@@ -186,19 +188,19 @@ impl Event {
                 let event_dir_iterator = read_dir(device.path());
                 if event_dir_iterator.is_err() {
                     // println!("Error: Could not iterate through device \
-                              // directory {}: {}",
-                             // device.path().to_str().unwrap(),
-                             // event_dir_iterator.unwrap_err());
+                    // directory {}: {}",
+                    // device.path().to_str().unwrap(),
+                    // event_dir_iterator.unwrap_err());
                     continue 'device_loop;
                 }
                 event_type = match read_to_string(device.path().join("type")) {
-                    Ok(num) => {
-                        num.trim().parse::<u32>().unwrap()
-                    },
+                    Ok(num) => num.trim().parse::<u32>().unwrap(),
                     Err(e) => {
-                        println!("Warning: Could not get {} event type: {}",
-                                 device.path().join("type").to_str().unwrap(),
-                                 e);
+                        println!(
+                            "Warning: Could not get {} event type: {}",
+                            device.path().join("type").to_str().unwrap(),
+                            e
+                        );
                         0_u32
                     }
                 };
@@ -208,16 +210,16 @@ impl Event {
                 let event_iterator = read_dir(event_dir.as_path());
                 if event_iterator.is_err() {
                     // println!("Error: Could not iterate through event \
-                              // directory {}: {}",
-                             // event_dir.as_path().to_str().unwrap(),
-                             // event_iterator.unwrap_err());
+                    // directory {}: {}",
+                    // event_dir.as_path().to_str().unwrap(),
+                    // event_iterator.unwrap_err());
                     continue 'device_loop;
                 }
                 'event_loop: for event in event_iterator.unwrap() {
                     if event.is_err() {
                         // println!("Error: Could not read event in {}: {}",
-                                 // event_dir.as_path().to_str().unwrap(),
-                                 // event.unwrap_err());
+                        // event_dir.as_path().to_str().unwrap(),
+                        // event.unwrap_err());
                         continue 'event_loop;
                     }
                     let event = event.unwrap();
@@ -228,57 +230,57 @@ impl Event {
                             // "csource=0x_", with optional ",umask=0x_" following.
                             // Any other params will be ignored.
                             let code_str = if event_str.contains("event=") {
-                                event_str.trim().split("event=")
-                                         .collect::<Vec<&str>>()[1].split(",")
-                                         .collect::<Vec<&str>>()[0]
-                                         .trim_start_matches("0x")
-                            }
-                            else if event_str.contains("csource=") {
-                                event_str.trim().split("csource=")
-                                         .collect::<Vec<&str>>()[1].split(",")
-                                         .collect::<Vec<&str>>()[0]
-                                         .trim_start_matches("0x")
-                            }
-                            else {
+                                event_str.trim().split("event=").collect::<Vec<&str>>()[1]
+                                    .split(",")
+                                    .collect::<Vec<&str>>()[0]
+                                    .trim_start_matches("0x")
+                            } else if event_str.contains("csource=") {
+                                event_str.trim().split("csource=").collect::<Vec<&str>>()[1]
+                                    .split(",")
+                                    .collect::<Vec<&str>>()[0]
+                                    .trim_start_matches("0x")
+                            } else {
                                 // println!("Error: Could not read event {}: \
-                                          // Event code does not begin with \
-                                          // `event=` or `csource=`",
-                                         // event.path().to_str().unwrap());
+                                // Event code does not begin with \
+                                // `event=` or `csource=`",
+                                // event.path().to_str().unwrap());
                                 continue 'event_loop;
                             };
                             let code = u32::from_str_radix(code_str, 16).unwrap();
-                            let temp_vec = event_str.trim().split("umask=")
-                                                    .collect::<Vec<&str>>();
-                            let umask : u32 = if temp_vec.len() > 1 {
+                            let temp_vec = event_str.trim().split("umask=").collect::<Vec<&str>>();
+                            let umask: u32 = if temp_vec.len() > 1 {
                                 // println!("{}: {:?}", event.path().to_str()
-                                                          // .unwrap(), temp_vec);
-                                let res = u32::from_str_radix(temp_vec[1].split(",")
-                                                        .collect::<Vec<&str>>()[0]
-                                                        .trim_start_matches("0x"),
-                                                    16);
+                                // .unwrap(), temp_vec);
+                                let res = u32::from_str_radix(
+                                    temp_vec[1].split(",").collect::<Vec<&str>>()[0]
+                                        .trim_start_matches("0x"),
+                                    16,
+                                );
                                 if res.is_ok() {
                                     res.unwrap()
-                                }
-                                else {
+                                } else {
                                     // println!("Error: Could not read event {}",
-                                             // event.path().to_str().unwrap());
+                                    // event.path().to_str().unwrap());
                                     continue 'event_loop;
                                 }
-                            }
-                            else {
+                            } else {
                                 0x0
                             };
                             code | umask
-                        },
+                        }
                         Err(e) => {
-                            println!("Error: Could not read event {}: {}",
-                                     event.path().to_str().unwrap(), e);
+                            println!(
+                                "Error: Could not read event {}: {}",
+                                event.path().to_str().unwrap(),
+                                e
+                            );
                             continue 'event_loop;
                         }
                     };
-                    RAW_METRIC_DICT.lock().unwrap().insert(event_name,
-                                                           (event_type,
-                                                            event_config));
+                    RAW_METRIC_DICT
+                        .lock()
+                        .unwrap()
+                        .insert(event_name, (event_type, event_config));
                 }
             }
         }
@@ -685,4 +687,3 @@ impl From<Breakpoint> for Event {
         Event::Breakpoint(bp)
     }
 }
-
