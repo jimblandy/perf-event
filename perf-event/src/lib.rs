@@ -579,8 +579,8 @@ impl Counts {
     /// Each item is a pair `(id, &value)`, where `id` is the number assigned to
     /// the counter by the kernel (see `Counter::id`), and `value` is that
     /// counter's value.
-    pub fn iter(&self) -> CountsIter {
-        <&Counts as IntoIterator>::into_iter(self)
+    pub fn iter<'a>(&'a self) -> CountsIter<'a> {
+        <&'a Counts as IntoIterator>::into_iter(self)
     }
 }
 
