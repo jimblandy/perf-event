@@ -2,10 +2,17 @@
 
 ## Unreleased
 
+## 6.0.0
+
 -   All bindings have been regenerated from the headers for Linux v6.13.9.
 
 -   The bindings no longer include a large number of types and constants that
     are not related to `perf_event_open`.
+
+-   Added support for 64-bit PowerPC (`powerpc64`).
+
+-   Fields in unnamed unions within `perf_event_attr` can now be directly
+    accessed like they would be in C.
 
 ## 5.0.0
 
