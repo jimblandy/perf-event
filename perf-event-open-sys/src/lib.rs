@@ -182,7 +182,8 @@
     target_arch = "x86",
     target_arch = "x86_64",
     target_arch = "riscv64",
-    target_arch = "powerpc64"
+    target_arch = "powerpc64",
+    target_arch = "loongarch64"
 ))]
 mod attr;
 
@@ -200,6 +201,10 @@ pub mod bindings;
 
 #[cfg(target_arch = "powerpc64")]
 #[path = "bindings_powerpc64.rs"]
+pub mod bindings;
+
+#[cfg(target_arch = "loongarch64")]
+#[path = "bindings_loongarch64.rs"]
 pub mod bindings;
 
 // Provide actual callable code only on Linux/Android. See "Using perf
