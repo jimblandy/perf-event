@@ -363,7 +363,8 @@ bitflags! {
 /// We can use a breakpoint to count the number of times that a function gets
 /// called, as long as the compiler does not optimize the function away.
 ///
-/// ```
+// Execution breakpoints broken on x86 (32-bit) #68
+/// ```ignore-i686-unknown-linux-gnu
 /// # use perf_event::Builder;
 /// # use perf_event::events::Breakpoint;
 /// #[inline(never)]
