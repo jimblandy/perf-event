@@ -1,6 +1,6 @@
 # Release notes for `perf-event-open-sys`
 
-## Unreleased
+## 6.0.0
 
 -   All bindings have been regenerated from the headers for Linux v6.13.9.
 
