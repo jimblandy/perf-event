@@ -745,7 +745,7 @@ impl<'a> Builder<'a> {
         self
     }
 
-    /// Specify which CPU registers to dump in a sample.
+    /// Specify which user-level CPU registers to dump in a sample.
     ///
     /// This does nothing unless [`SampleFlag::REGS_USER`] is part of the
     /// specified [`sample`](Builder::sample) flags.
@@ -758,7 +758,7 @@ impl<'a> Builder<'a> {
         self
     }
 
-    /// Specify which CPU registers to dump in a sample.
+    /// Specify which user- or kernel-level CPU registers to dump in a sample.
     ///
     /// This does nothing unless [`SampleFlag::REGS_INTR`] is part of the
     /// specified [`sample`](Builder::sample) flags.
@@ -767,7 +767,7 @@ impl<'a> Builder<'a> {
     /// You will generally want the `PERF_REG_<arch>` constants in
     /// [`perf_event_open_sys`]. (e.g. `PERF_REG_X86_SP`).
     pub fn sample_regs_intr(&mut self, regs: u64) -> &mut Self {
-        self.attrs.sample_regs_user = regs;
+        self.attrs.sample_regs_intr = regs;
         self
     }
 
