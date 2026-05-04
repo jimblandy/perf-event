@@ -430,13 +430,21 @@ impl Group {
         //             u64 id;        /* if PERF_FORMAT_ID */
         //         } values[nr];
         //     };
-        let mut data = vec![0_u64; 3 + 2 * self.max_members];
-        assert_eq!(
-            self.file.read(u64::slice_as_bytes_mut(&mut data))?,
-            std::mem::size_of_val(&data[..])
-        );
+        let mut data = vec![0_u64; Counts::size_in_u64s(self.max_members)];
+
+        // Group members can be closed before the group itself, in which case
+        // they're just omitted from the results, so we may not read as many
+        // bytes as `max_members` would suggest.
+        let bytes = self.file.read(u64::slice_as_bytes_mut(&mut data))?;
+
+        // Truncate `data` to the number of full `u64` values read.
+        let words = bytes / std::mem::size_of::<u64>();
+        data.truncate(words);
 
         let counts = Counts { data };
+
+        // We should have gotten as many `u64`s as the count would suggest.
+        assert_eq!(words, Counts::size_in_u64s(counts.len()));
 
         // CountsIter assumes that the group's dummy count appears first.
         assert_eq!(counts.nth_ref(0).0, self.id);
@@ -491,6 +499,11 @@ impl Counts {
     /// counts that contributed to this `Counts`' contents.
     pub fn time_running(&self) -> u64 {
         self.data[2]
+    }
+
+    /// Return the number of `u64` words a `Counts` buffer needs to hold `n` counters.
+    const fn size_in_u64s(n: usize) -> usize {
+        3 + 2 * n
     }
 
     /// Return a range of indexes covering the count and id of the `n`'th counter.
@@ -657,4 +670,17 @@ fn test_error_code_is_correct() {
         Ok(_) => panic!("counter construction was not supposed to succeed"),
         Err(e) => assert_eq!(e.raw_os_error(), Some(libc::EINVAL)),
     }
+}
+
+#[test]
+#[cfg(target_os = "linux")]
+fn test_drop_member_before_group() {
+    let mut group = Group::new().expect("creating group is ok");
+    let counter = Builder::new()
+        .group(&mut group)
+        .build()
+        .expect("building counter is okay");
+    drop(counter);
+    let counts = group.read().expect("reading group is okay");
+    assert_eq!(counts.len(), 1);
 }
