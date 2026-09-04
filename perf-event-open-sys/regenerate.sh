@@ -124,6 +124,7 @@ echo "$version" > src/version
 
 gen_bindings x86_64
 gen_bindings i686 i386
+gen_bindings s390x s390
 gen_bindings aarch64 arm64
 gen_bindings riscv64gc riscv riscv64
 gen_bindings powerpc64 powerpc
