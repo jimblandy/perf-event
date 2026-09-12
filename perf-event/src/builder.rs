@@ -301,7 +301,7 @@ impl<'a> Builder<'a> {
     /// [`ReadFormat::GROUP`] when building a single counter.
     ///
     /// [`sample`]: Builder::sample
-    pub fn read_format(&mut self, mut read_format: ReadFormat) -> &mut Self {
+    pub fn read_format(mut self, mut read_format: ReadFormat) -> Self {
         if read_format.contains(ReadFormat::GROUP) {
             read_format |= ReadFormat::ID;
         }
@@ -320,7 +320,7 @@ impl<'a> Builder<'a> {
     /// soon as it is created.
     ///
     /// By default, this is false.
-    pub fn enabled(&mut self, enabled: bool) -> &mut Self {
+    pub fn enabled(mut self, enabled: bool) -> Self {
         self.attrs.set_disabled((!enabled).into());
         self
     }
@@ -336,7 +336,7 @@ impl<'a> Builder<'a> {
     /// This flag cannot be set if the counter belongs to a `Group`. Doing so
     /// will result in an error when the counter is built. This is a kernel
     /// limitation.
-    pub fn inherit(&mut self, inherit: bool) -> &mut Self {
+    pub fn inherit(mut self, inherit: bool) -> Self {
         self.attrs.set_inherit(inherit.into());
         self
     }
@@ -356,7 +356,7 @@ impl<'a> Builder<'a> {
     /// This is false by default.
     ///
     /// [`ErrorKind::UnexpectedEof`]: std::io::ErrorKind::UnexpectedEof
-    pub fn pinned(&mut self, pinned: bool) -> &mut Self {
+    pub fn pinned(mut self, pinned: bool) -> Self {
         self.attrs.set_pinned(pinned.into());
         self
     }
@@ -365,7 +365,7 @@ impl<'a> Builder<'a> {
     /// alongside other counters or groups.
     ///
     /// This is false by default.
-    pub fn exclusive(&mut self, exclusive: bool) -> &mut Self {
+    pub fn exclusive(mut self, exclusive: bool) -> Self {
         self.attrs.set_exclusive(exclusive.into());
         self
     }
@@ -373,7 +373,7 @@ impl<'a> Builder<'a> {
     /// Whether we should exclude events that occur in user space.
     ///
     /// This is false by default.
-    pub fn exclude_user(&mut self, exclude_user: bool) -> &mut Self {
+    pub fn exclude_user(mut self, exclude_user: bool) -> Self {
         self.attrs.set_exclude_user(exclude_user.into());
         self
     }
@@ -384,7 +384,7 @@ impl<'a> Builder<'a> {
     /// the current `perf_event_paranoid` value is greater than 1.
     ///
     /// This is true by default.
-    pub fn exclude_kernel(&mut self, exclude_kernel: bool) -> &mut Self {
+    pub fn exclude_kernel(mut self, exclude_kernel: bool) -> Self {
         self.attrs.set_exclude_kernel(exclude_kernel.into());
         self
     }
@@ -392,7 +392,7 @@ impl<'a> Builder<'a> {
     /// Include kernel code.
     ///
     /// See [`exclude_kernel`](Builder::exclude_kernel).
-    pub fn include_kernel(&mut self) -> &mut Self {
+    pub fn include_kernel(self) -> Self {
         self.exclude_kernel(false)
     }
 
@@ -405,7 +405,7 @@ impl<'a> Builder<'a> {
     /// the current `perf_event_paranoid` value is greater than 1.
     ///
     /// This is true by default
-    pub fn exclude_hv(&mut self, exclude_hv: bool) -> &mut Self {
+    pub fn exclude_hv(mut self, exclude_hv: bool) -> Self {
         self.attrs.set_exclude_hv(exclude_hv.into());
         self
     }
@@ -413,14 +413,14 @@ impl<'a> Builder<'a> {
     /// Include hypervisor code.
     ///
     /// See [`exclude_hv`](Builder::exclude_hv).
-    pub fn include_hv(&mut self) -> &mut Self {
+    pub fn include_hv(self) -> Self {
         self.exclude_hv(false)
     }
 
     /// Whether to exclude events that occur when running the idle task.
     ///
     /// Note that this only has an effect for software events.
-    pub fn exclude_idle(&mut self, exclude_idle: bool) -> &mut Self {
+    pub fn exclude_idle(mut self, exclude_idle: bool) -> Self {
         self.attrs.set_exclude_idle(exclude_idle.into());
         self
     }
@@ -429,7 +429,7 @@ impl<'a> Builder<'a> {
     ///
     /// MMAP records are emitted when the process/thread that is being
     /// observed creates a new executable memory mapping.
-    pub fn mmap(&mut self, mmap: bool) -> &mut Self {
+    pub fn mmap(mut self, mmap: bool) -> Self {
         self.attrs.set_mmap(mmap.into());
         self
     }
@@ -442,7 +442,7 @@ impl<'a> Builder<'a> {
     /// If you also set the [`comm_exec`](Builder::comm_exec) flag, then the
     /// kernel will indicate which of these process name changes were due to
     /// calls to `execve(2)`.
-    pub fn comm(&mut self, comm: bool) -> &mut Self {
+    pub fn comm(mut self, comm: bool) -> Self {
         self.attrs.set_comm(comm.into());
         self
     }
@@ -461,7 +461,7 @@ impl<'a> Builder<'a> {
     ///
     /// [`precise_ip`]: Builder::precise_ip
     /// [`sample_frequency`]: Builder::sample_frequency
-    pub fn sample_period(&mut self, period: u64) -> &mut Self {
+    pub fn sample_period(mut self, period: u64) -> Self {
         self.attrs.set_freq(0);
         self.attrs.sample_period = period;
         self
@@ -482,7 +482,7 @@ impl<'a> Builder<'a> {
     ///
     /// [`precise_ip`]: Builder::precise_ip
     /// [`sample_period`]: Builder::sample_period
-    pub fn sample_frequency(&mut self, frequency: u64) -> &mut Self {
+    pub fn sample_frequency(mut self, frequency: u64) -> Self {
         self.attrs.set_freq(1);
         self.attrs.sample_freq = frequency;
         self
@@ -493,19 +493,19 @@ impl<'a> Builder<'a> {
     /// This option is only meaningful if [`inherit`] is also enabled.
     ///
     /// [`inherit`]: Builder::inherit
-    pub fn inherit_stat(&mut self, inherit_stat: bool) -> &mut Self {
+    pub fn inherit_stat(mut self, inherit_stat: bool) -> Self {
         self.attrs.set_inherit_stat(inherit_stat.into());
         self
     }
 
     /// Enable the counter automatically after a call to `execve(2)`.
-    pub fn enable_on_exec(&mut self, enable_on_exec: bool) -> &mut Self {
+    pub fn enable_on_exec(mut self, enable_on_exec: bool) -> Self {
         self.attrs.set_enable_on_exec(enable_on_exec.into());
         self
     }
 
     /// If set, then the kernel will generate fork and exit records.
-    pub fn task(&mut self, task: bool) -> &mut Self {
+    pub fn task(mut self, task: bool) -> Self {
         self.attrs.set_task(task.into());
         self
     }
@@ -520,7 +520,7 @@ impl<'a> Builder<'a> {
     ///
     /// [`wakeup_events`]: Self::wakeup_events
     /// [`Sampler::next_blocking`]: crate::Sampler::next_blocking
-    pub fn wakeup_watermark(&mut self, watermark: usize) -> &mut Self {
+    pub fn wakeup_watermark(mut self, watermark: usize) -> Self {
         self.attrs.set_watermark(1);
         self.attrs.wakeup_watermark = watermark as _;
         self
@@ -540,7 +540,7 @@ impl<'a> Builder<'a> {
     /// [manpage]: https://www.mankier.com/2/perf_event_open
     /// [`wakeup_watermark`]: Builder::wakeup_watermark
     /// [`Sampler::next_blocking`]: crate::Sampler::next_blocking
-    pub fn wakeup_events(&mut self, events: usize) -> &mut Self {
+    pub fn wakeup_events(mut self, events: usize) -> Self {
         self.attrs.set_watermark(0);
         self.attrs.wakeup_events = events as _;
         self
@@ -553,7 +553,7 @@ impl<'a> Builder<'a> {
     /// there are hardware limitations around how small the skid can be.
     ///
     /// Also see [`SampleSkid`].
-    pub fn precise_ip(&mut self, skid: SampleSkid) -> &mut Self {
+    pub fn precise_ip(mut self, skid: SampleSkid) -> Self {
         self.attrs.set_precise_ip(skid as _);
         self
     }
@@ -561,7 +561,7 @@ impl<'a> Builder<'a> {
     /// Enable the generation of MMAP records for non-executable memory maps.
     ///
     /// This is the data counterpart of [`mmap`](Builder::mmap).
-    pub fn mmap_data(&mut self, mmap_data: bool) -> &mut Self {
+    pub fn mmap_data(mut self, mmap_data: bool) -> Self {
         self.attrs.set_mmap_data(mmap_data.into());
         self
     }
@@ -573,7 +573,7 @@ impl<'a> Builder<'a> {
     /// records include the trailer.
     ///
     /// [manpage]: https://www.mankier.com/2/perf_event_open
-    pub fn sample_id_all(&mut self, sample_id_all: bool) -> &mut Self {
+    pub fn sample_id_all(mut self, sample_id_all: bool) -> Self {
         self.attrs.set_sample_id_all(sample_id_all.into());
         self
     }
@@ -585,7 +585,7 @@ impl<'a> Builder<'a> {
     /// See the [manpage] for more documentation.
     ///
     /// [manpage]: https://www.mankier.com/2/perf_event_open
-    pub fn exclude_host(&mut self, exclude_host: bool) -> &mut Self {
+    pub fn exclude_host(mut self, exclude_host: bool) -> Self {
         self.attrs.set_exclude_host(exclude_host.into());
         self
     }
@@ -597,14 +597,14 @@ impl<'a> Builder<'a> {
     /// See the [manpage] for more documentation.
     ///
     /// [manpage]: https://www.mankier.com/2/perf_event_open
-    pub fn exclude_guest(&mut self, exclude_guest: bool) -> &mut Self {
+    pub fn exclude_guest(mut self, exclude_guest: bool) -> Self {
         self.attrs.set_exclude_guest(exclude_guest.into());
         self
     }
 
     /// Do not include stack frames in the kernel when gathering callchains as
     /// a part of recording a sample.
-    pub fn exclude_callchain_kernel(&mut self, exclude_kernel: bool) -> &mut Self {
+    pub fn exclude_callchain_kernel(mut self, exclude_kernel: bool) -> Self {
         self.attrs
             .set_exclude_callchain_kernel(exclude_kernel.into());
         self
@@ -612,7 +612,7 @@ impl<'a> Builder<'a> {
 
     /// Do not include stack frames from userspace when gathering a callchain
     /// as a part of recording a sample.
-    pub fn exclude_callchain_user(&mut self, exclude_user: bool) -> &mut Self {
+    pub fn exclude_callchain_user(mut self, exclude_user: bool) -> Self {
         self.attrs.set_exclude_callchain_user(exclude_user.into());
         self
     }
@@ -622,7 +622,7 @@ impl<'a> Builder<'a> {
     /// This record has enough info to uniquely identify which instance of a
     /// shared map it corresponds to. Note that you also need to set the `mmap`
     /// option for this to work.
-    pub fn mmap2(&mut self, mmap2: bool) -> &mut Self {
+    pub fn mmap2(mut self, mmap2: bool) -> Self {
         self.attrs.set_mmap2(mmap2.into());
         self
     }
@@ -632,7 +632,7 @@ impl<'a> Builder<'a> {
     ///
     /// This option doesn't actually change the behaviour of the kernel.
     /// Instead, it is useful for feature detection.
-    pub fn comm_exec(&mut self, comm_exec: bool) -> &mut Self {
+    pub fn comm_exec(mut self, comm_exec: bool) -> Self {
         self.attrs.set_comm_exec(comm_exec.into());
         self
     }
@@ -646,7 +646,7 @@ impl<'a> Builder<'a> {
     /// documentation on what the different clock values mean.
     ///
     /// [0]: https://www.mankier.com/2/clock_gettime
-    pub fn clockid(&mut self, clockid: impl Into<Option<Clock>>) -> &mut Self {
+    pub fn clockid(mut self, clockid: impl Into<Option<Clock>>) -> Self {
         let clockid = clockid.into();
         self.attrs.set_use_clockid(clockid.is_some().into());
         self.attrs.clockid = clockid.map(Clock::into_raw).unwrap_or(0);
@@ -657,72 +657,72 @@ impl<'a> Builder<'a> {
     ///
     /// Also enables the generation of `SWITCH_CPU_WIDE` records if profiling
     /// in cpu-wide mode.
-    pub fn context_switch(&mut self, context_switch: bool) -> &mut Self {
+    pub fn context_switch(mut self, context_switch: bool) -> Self {
         self.attrs.set_context_switch(context_switch.into());
         self
     }
 
     /// Generate `NAMESPACES` records when a task enters a new namespace.
-    pub fn namespaces(&mut self, namespaces: bool) -> &mut Self {
+    pub fn namespaces(mut self, namespaces: bool) -> Self {
         self.attrs.set_namespaces(namespaces.into());
         self
     }
 
     /// Generate `KSYMBOL` records when kernel symbols are registered or
     /// unregistered.
-    pub fn ksymbol(&mut self, ksymbol: bool) -> &mut Self {
+    pub fn ksymbol(mut self, ksymbol: bool) -> Self {
         self.attrs.set_ksymbol(ksymbol.into());
         self
     }
 
     /// Generate `BPF_EVENT` records when eBPF programs are loaded or unloaded.
-    pub fn bpf_event(&mut self, bpf_event: bool) -> &mut Self {
+    pub fn bpf_event(mut self, bpf_event: bool) -> Self {
         self.attrs.set_bpf_event(bpf_event.into());
         self
     }
 
     /// Output data for non-aux events to the aux buffer, if supported by the
     /// hardware.
-    pub fn aux_output(&mut self, aux_output: bool) -> &mut Self {
+    pub fn aux_output(mut self, aux_output: bool) -> Self {
         self.attrs.set_aux_output(aux_output.into());
         self
     }
 
     /// Generate `CGROUP` records when a new cgroup is created.
-    pub fn cgroup(&mut self, cgroup: bool) -> &mut Self {
+    pub fn cgroup(mut self, cgroup: bool) -> Self {
         self.attrs.set_cgroup(cgroup.into());
         self
     }
 
     /// Generate `TEXT_POKE` records when the kernel text (i.e. code) is
     /// modified.
-    pub fn text_poke(&mut self, text_poke: bool) -> &mut Self {
+    pub fn text_poke(mut self, text_poke: bool) -> Self {
         self.attrs.set_text_poke(text_poke.into());
         self
     }
 
     /// Whether to include the build id in `MMAP2` events.
-    pub fn build_id(&mut self, build_id: bool) -> &mut Self {
+    pub fn build_id(mut self, build_id: bool) -> Self {
         self.attrs.set_build_id(build_id.into());
         self
     }
 
     /// Only inherit the counter to new threads in the same process, not to
     /// other processes.
-    pub fn inherit_thread(&mut self, inherit_thread: bool) -> &mut Self {
+    pub fn inherit_thread(mut self, inherit_thread: bool) -> Self {
         self.attrs.set_inherit_thread(inherit_thread.into());
         self
     }
 
     /// Disable this counter when it successfully calls `execve(2)`.
-    pub fn remove_on_exec(&mut self, remove_on_exec: bool) -> &mut Self {
+    pub fn remove_on_exec(mut self, remove_on_exec: bool) -> Self {
         self.attrs.set_remove_on_exec(remove_on_exec.into());
         self
     }
 
     /// Synchronously send `SIGTRAP` to the process that created the counter
     /// when the sampled events overflow.
-    pub fn sigtrap(&mut self, sigtrap: bool) -> &mut Self {
+    pub fn sigtrap(mut self, sigtrap: bool) -> Self {
         self.attrs.set_sigtrap(sigtrap.into());
         self
     }
@@ -731,7 +731,7 @@ impl<'a> Builder<'a> {
     ///
     /// This can be used to figure out which event caused the signal to be sent.
     /// It does nothing unless [`sigtrap`](Self::sigtrap) is also set to `true`.
-    pub fn sig_data(&mut self, sig_data: u64) -> &mut Self {
+    pub fn sig_data(mut self, sig_data: u64) -> Self {
         self.attrs.sig_data = sig_data;
         self
     }
@@ -740,7 +740,7 @@ impl<'a> Builder<'a> {
     ///
     /// This does nothing unless [`SampleFlag::BRANCH_STACK`] is specified in
     /// the sample flags.
-    pub fn branch_sample_type(&mut self, flags: SampleBranchFlag) -> &mut Self {
+    pub fn branch_sample_type(mut self, flags: SampleBranchFlag) -> Self {
         self.attrs.branch_sample_type = flags.bits();
         self
     }
@@ -753,7 +753,7 @@ impl<'a> Builder<'a> {
     /// The actual layout of the register mask is architecture specific.
     /// You will generally want the `PERF_REG_<arch>` constants in
     /// [`perf_event_open_sys`]. (e.g. `PERF_REG_X86_SP`).
-    pub fn sample_regs_user(&mut self, regs: u64) -> &mut Self {
+    pub fn sample_regs_user(mut self, regs: u64) -> Self {
         self.attrs.sample_regs_user = regs;
         self
     }
@@ -766,7 +766,7 @@ impl<'a> Builder<'a> {
     /// The actual layout of the register mask is architecture specific.
     /// You will generally want the `PERF_REG_<arch>` constants in
     /// [`perf_event_open_sys`]. (e.g. `PERF_REG_X86_SP`).
-    pub fn sample_regs_intr(&mut self, regs: u64) -> &mut Self {
+    pub fn sample_regs_intr(mut self, regs: u64) -> Self {
         self.attrs.sample_regs_intr = regs;
         self
     }
@@ -783,7 +783,7 @@ impl<'a> Builder<'a> {
     /// stack size or else samples will be lost.
     ///
     /// [`Sampler`]: crate::Sampler
-    pub fn sample_stack_user(&mut self, stack: u32) -> &mut Self {
+    pub fn sample_stack_user(mut self, stack: u32) -> Self {
         self.attrs.sample_stack_user = stack;
         self
     }
@@ -798,13 +798,13 @@ impl<'a> Builder<'a> {
     /// `/proc/sys/kernel/perf_event_max_stack`. Setting `sample_max_stack` to
     /// larger than that limit will result in an `EOVERFLOW` error when building
     /// the counter.
-    pub fn sample_max_stack(&mut self, max_stack: u16) -> &mut Self {
+    pub fn sample_max_stack(mut self, max_stack: u16) -> Self {
         self.attrs.sample_max_stack = max_stack;
         self
     }
 
     /// Specify how much data is required before the kernel emits an AUX record.
-    pub fn aux_watermark(&mut self, watermark: u32) -> &mut Self {
+    pub fn aux_watermark(mut self, watermark: u32) -> Self {
         self.attrs.aux_watermark = watermark;
         self
     }
@@ -813,7 +813,7 @@ impl<'a> Builder<'a> {
     ///
     /// This does nothing unless [`SampleFlag::AUX`] is set in the sample flags.
     /// Note that the emitted aux data can be smaller than the requested size.
-    pub fn aux_sample_size(&mut self, sample_size: u32) -> &mut Self {
+    pub fn aux_sample_size(mut self, sample_size: u32) -> Self {
         self.attrs.aux_sample_size = sample_size;
         self
     }

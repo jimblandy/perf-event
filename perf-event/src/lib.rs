@@ -685,3 +685,19 @@ fn test_drop_member_before_group() {
     let counts = group.read().expect("reading group is okay");
     assert_eq!(counts.len(), 1);
 }
+
+/// Builder API has a mix of by-value and by-ref-mut methods #64
+///
+/// This test is a little silly, since it can't cover newly introduced
+/// methods, which are almost certainly where future problems would
+/// arise. But we should have at least some record that we actually
+/// fixed the issue.
+#[test]
+fn regression_64() {
+    let counter = Builder::new()
+        .inherit(true)
+        .kind(events::Hardware::INSTRUCTIONS)
+        .build()
+        .unwrap();
+    let _ = counter;
+}
