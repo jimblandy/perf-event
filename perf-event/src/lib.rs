@@ -72,6 +72,9 @@
 
 #![deny(missing_docs)]
 
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+compile_error!("This crate can only be used on Linux kernels.");
+
 /// A helper macro for silencing warnings when a type is only implemented so
 /// that it can be linked in the docs.
 macro_rules! used_in_docs {
@@ -656,7 +659,6 @@ fn simple_build() {
 }
 
 #[test]
-#[cfg(target_os = "linux")]
 fn test_error_code_is_correct() {
     // This configuration should always result in EINVAL
     let builder = Builder::new()
@@ -673,7 +675,6 @@ fn test_error_code_is_correct() {
 }
 
 #[test]
-#[cfg(target_os = "linux")]
 fn test_drop_member_before_group() {
     let mut group = Group::new().expect("creating group is ok");
     let counter = Builder::new()
