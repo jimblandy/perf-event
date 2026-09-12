@@ -86,9 +86,44 @@ impl Event {
                     Breakpoint::Code { addr } => {
                         attr.bp_type = bindings::HW_BREAKPOINT_X;
                         attr.__bindgen_anon_3.bp_addr = addr;
-                        // According to the perf_event_open man page, execute breakpoints
-                        // should set len to sizeof(long).
-                        attr.__bindgen_anon_4.bp_len = std::mem::size_of::<libc::c_long>() as _;
+                        // According to the perf_event_open man page, execute
+                        // breakpoints should set len to sizeof(long).
+                        //
+                        // However, investigation for #68 shows that on an x86_64
+                        // kernel, this must be 8 even when the userspace program is
+                        // built as an x86 (32-bit) program, where sizeof(long) == 4;
+                        // otherwise, `perf_event_open` returns `EINVAL`.
+                        //
+                        // This seems to be due to this check in `arch_build_bp_info`
+                        // in `arch/x86/kernel/hw_breakpoint.c`:
+                        //
+                        //           /*
+                        //            * x86 inst breakpoints need to have a specific undefined len.
+                        //            * But we still need to check userspace is not trying to setup
+                        //            * an unsupported length, to get a range breakpoint for example.
+                        //            */
+                        //           if (attr->bp_len == sizeof(long)) {
+                        //                   hw->len = X86_BREAKPOINT_LEN_X;
+                        //                   return 0;
+                        //           }
+                        //           fallthrough;
+                        //   default:
+                        //           return -EINVAL;
+                        //
+                        // This is populating the x86-specific breakpoint info `hw`
+                        // from the generic `perf_event_open` values. On an x86_64
+                        // kernel, `sizeof(long)` will be 8 regardless of the
+                        // architecture of the userspace process.
+                        //
+                        // We have no easy way to tell what architecture the kernel
+                        // was compiled for, but 32-bit x86 processors are very rare,
+                        // so for the time being, we'll just always use `8` on x86
+                        // targets. If someone complains, then we can try harder.
+                        attr.__bindgen_anon_4.bp_len = if cfg!(target_arch = "x86") {
+                            8
+                        } else {
+                            std::mem::size_of::<libc::c_long>() as _
+                        };
                     }
                 }
             }
@@ -363,8 +398,7 @@ bitflags! {
 /// We can use a breakpoint to count the number of times that a function gets
 /// called, as long as the compiler does not optimize the function away.
 ///
-// Execution breakpoints broken on x86 (32-bit) #68
-/// ```ignore-i686-unknown-linux-gnu
+/// ```
 /// # use perf_event::Builder;
 /// # use perf_event::events::Breakpoint;
 /// #[inline(never)]

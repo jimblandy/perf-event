@@ -32,7 +32,6 @@ fn data() {
     assert_eq!(counter.read().unwrap(), 1000);
 }
 
-#[cfg(not(target_arch = "x86"))] // Execution breakpoints broken on x86 (32-bit) #68
 #[test]
 fn execute() {
     let data = b"TEST DATA".to_vec();
