@@ -1,0 +1,7 @@
+[package]
+name = "right"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+perf-event-open-sys = "7.0.0"
