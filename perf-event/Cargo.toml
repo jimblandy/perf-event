@@ -18,7 +18,7 @@ categories = [
 [features]
 # Enable syscall interception hooks for mock testing and logging.
 hooks = []
-default = ["hooks"]
+default = []
 
 [dependencies]
 bitflags = "2.9.0"

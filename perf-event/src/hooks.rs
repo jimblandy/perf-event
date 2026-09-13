@@ -34,6 +34,22 @@
 //! it does provide the means with which one can build more ergonomic
 //! test harnesses.
 //!
+//! ## Interactions with the user's thread-local storage
+//!
+//! If you are placing `perf-event` counters or groups in thread-local storage,
+//! you should probably avoid the `"hooks"` feature, as it may interact with
+//! your code unpredictably. This is because the `"hooks"` feature uses
+//! thread-local storage internally, and when a thread exits, the order in which
+//! thread-local items are destructed is not specified.
+//!
+//! Suppose the user has thread-local items that include `perf-event` counters
+//! or groups. If the [`LocalKey`] that this module uses internally is
+//! destructed before the user's thread-local item that includes counters or
+//! groups, then any attempt to use them in the user's thread-local destructor
+//! (say, to log the thread's final results) will panic.
+//!
+//! [`LocalKey`]: std::thread::LocalKey
+//!
 //! ## Stability
 //!
 //! Using `set_thread_hooks`, you can observe the exact sequence of
