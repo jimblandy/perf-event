@@ -1,5 +1,7 @@
 * Crate release
 ** ~perf-event-open-sys~
+- [ ] Check for a new release of `bindgen`. If there is a new one that
+  has been out for two weeks, install it and regenerate the bindings.
 - [ ] Run the command:
 
   #+BEGIN_SRC sh
@@ -37,6 +39,8 @@
 - [ ] ~cargo publish -p perf-event-open-sys~
 - [ ] Create a new tag called `perf-event-vX.Y.Z` and push it to the repo.
 * Generate bindings for a new Linux kernel version
+- [ ] Check for a new release of `bindgen`. If there is a new one that
+  has been out for two weeks, install it and regenerate the bindings.
 - [ ] In ~perf-event-open-sys/regenerate.sh~, update ~version~ to the
   desired Linux kernel version. You don't need to download the sources
   yourself; the script fetches them, and caches them in the ~target~
