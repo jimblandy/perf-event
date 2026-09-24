@@ -1,43 +1,43 @@
 * Crate release
-** ~perf-event-open-sys~
-- [ ] Check for a new release of `bindgen`. If there is a new one that
-  has been out for two weeks, install it and regenerate the bindings.
-- [ ] Run the command:
+- Release ~perf-event-open-sys~
+  - [ ] Check for a new release of `bindgen`. If there is a new one that
+    has been out for two weeks, install it and regenerate the bindings.
+  - [ ] Run the command:
 
-  #+BEGIN_SRC sh
-  cd perf-event-open-sys && cargo semver-checks
-  #+END_SRC
+    #+BEGIN_SRC sh
+    cd perf-event-open-sys && cargo semver-checks
+    #+END_SRC
 
-  See the notes in ~perf-event-open-sys/README.md~ for advice on how
-  to interpret the results.
+    See the notes in ~perf-event-open-sys/README.md~ for advice on how
+    to interpret the results.
 
-- [ ] new version number (as directed by above)
-  - [ ] ~perf-event-open-sys/Cargo.toml~
-  - [ ] ~perf-event/Cargo.toml~ as dependency
-- [ ] ~cargo fmt~
-- [ ] ~cargo clippy --workspace --tests~
-- [ ] ~cargo test --workspace~
-- [ ] Update ~perf-event-open-sys/RELEASE-NOTES.md~.
-- [ ] ~cargo publish -p perf-event-open-sys --dry-run~
-- [ ] ~cargo publish -p perf-event-open-sys~
-- [ ] Create a new tag called `perf-event-open-sys-vX.Y.Z` and push it to the repo.
-** ~perf-event~
-- [ ] Run the command:
+  - [ ] new version number (as directed by above)
+    - [ ] ~perf-event-open-sys/Cargo.toml~
+    - [ ] ~perf-event/Cargo.toml~ as dependency
+  - [ ] ~cargo fmt~
+  - [ ] ~cargo clippy --workspace --tests~
+  - [ ] ~cargo test --workspace~
+  - [ ] Update ~perf-event-open-sys/RELEASE-NOTES.md~.
+  - [ ] ~cargo publish -p perf-event-open-sys --dry-run~
+  - [ ] ~cargo publish -p perf-event-open-sys~
+  - [ ] Create a new tag called `perf-event-open-sys-vX.Y.Z` and push it to the repo.
+- Release ~perf-event~
+  - [ ] Run the command:
 
-  #+BEGIN_SRC sh
-  cd perf-event && cargo semver-checks
-  #+END_SRC
+    #+BEGIN_SRC sh
+    cd perf-event && cargo semver-checks
+    #+END_SRC
 
-  See notes above about ~cargo semver-checks~.
+    See notes above about ~cargo semver-checks~.
 
-- [ ] new version number (as directed by above)
-  - [ ] ~perf-event/Cargo.toml~
-- [ ] ~cargo fmt~
-- [ ] ~cargo clippy --workspace --tests~
-- [ ] ~cargo test --workspace~
-- [ ] ~cargo publish -p perf-event --dry-run~
-- [ ] ~cargo publish -p perf-event-open-sys~
-- [ ] Create a new tag called `perf-event-vX.Y.Z` and push it to the repo.
+  - [ ] new version number (as directed by above)
+    - [ ] ~perf-event/Cargo.toml~
+  - [ ] ~cargo fmt~
+  - [ ] ~cargo clippy --workspace --tests~
+  - [ ] ~cargo test --workspace~
+  - [ ] ~cargo publish -p perf-event --dry-run~
+  - [ ] ~cargo publish -p perf-event-open-sys~
+  - [ ] Create a new tag called `perf-event-vX.Y.Z` and push it to the repo.
 * Generate bindings for a new Linux kernel version
 - [ ] Check for a new release of `bindgen`. If there is a new one that
   has been out for two weeks, install it and regenerate the bindings.
