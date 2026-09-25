@@ -1,5 +1,24 @@
 # Release notes for `perf-event-open-sys`
 
+## UNRELEASED
+
+-   Regenerated bindings with bindgen 0.73.2.
+
+-   A bug fix in the new bindgen, [rust-bindgen#3247], caused a few changes in
+    the generated bindings that affect `perf-event-open-sys`'s public interface
+    in a semver-incompatible way.
+
+    Structs affected:
+    - `perf_event_attr`
+    - `perf_branch_entry`
+    - synthesized bitfield types for `perf_event_attr`, `perf_event_mmap_page`,
+      and `perf_mem_data_src`
+
+    None of these source incompatibilities reflect actual changes to the ABI.
+    The struct layout has not changed.
+
+[rust-bindgen#3247]: https://github.com/rust-lang/rust-bindgen/pull/3247
+
 ## 7.0.0
 
 -   All bindings have been regenerated from the headers for Linux v7.1.13.
