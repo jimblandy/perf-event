@@ -183,7 +183,8 @@
     target_arch = "x86_64",
     target_arch = "riscv64",
     target_arch = "powerpc64",
-    target_arch = "loongarch64"
+    target_arch = "loongarch64",
+    target_arch = "s390x"
 ))]
 mod attr;
 
@@ -209,6 +210,10 @@ pub mod bindings;
 
 #[cfg(target_arch = "loongarch64")]
 #[path = "bindings_loongarch64.rs"]
+pub mod bindings;
+
+#[cfg(target_arch = "s390x")]
+#[path = "bindings_s390x.rs"]
 pub mod bindings;
 
 // Provide actual callable code only on Linux/Android. See "Using perf
