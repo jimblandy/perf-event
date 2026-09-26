@@ -157,6 +157,8 @@ impl Counter {
     ///     }
     ///     # Ok(()) }
     ///
+    /// The caller can assume that `time_running <= time_enabled`.
+    ///
     /// Note that `Group` also has a [`read`] method, which reads all
     /// its member `Counter`s' values at once.
     ///
@@ -165,16 +167,18 @@ impl Counter {
         let mut buf = [0_u64; 3];
         self.file.read_exact(u64::slice_as_bytes_mut(&mut buf))?;
 
-        let cat = CountAndTime {
+        // We used to assert that the time running was no greater than the time
+        // enabled, but in #65 a user reported hitting that assertion. I suspect
+        // a kernel race (see the issue for details), so we clamp instead of
+        // asserting.
+        let time_enabled = buf[1];
+        let time_running = buf[2].min(time_enabled);
+
+        Ok(CountAndTime {
             count: buf[0],
-            time_enabled: buf[1],
-            time_running: buf[2],
-        };
-
-        // Does the kernel ever return nonsense?
-        assert!(cat.time_running <= cat.time_enabled);
-
-        Ok(cat)
+            time_enabled,
+            time_running,
+        })
     }
 }
 
