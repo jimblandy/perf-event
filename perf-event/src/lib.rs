@@ -419,6 +419,8 @@ impl Group {
     ///          (counts[&counter1] as f64 / counts[&counter2] as f64) * 100.0);
     /// ```
     ///
+    /// The caller can assume that `counts.time_running() <= counts.time_enabled()`.
+    ///
     /// [`Counts`]: struct.Counts.html
     pub fn read(&mut self) -> io::Result<Counts> {
         // Since we passed `PERF_FORMAT_{ID,GROUP,TOTAL_TIME_{ENABLED,RUNNING}}`,
@@ -444,16 +446,21 @@ impl Group {
         let words = bytes / std::mem::size_of::<u64>();
         data.truncate(words);
 
-        let counts = Counts { data };
+        let mut counts = Counts { data };
 
         // We should have gotten as many `u64`s as the count would suggest.
         assert_eq!(words, Counts::size_in_u64s(counts.len()));
 
+        // We used to assert that a group's time running was no greater than its
+        // time enabled. However, in #65 a user reported tripping our analogous
+        // assertion for `Counter`. In that case, we suspect a kernel race, so
+        // we replaced that assertion with a clamp. In this case, the kernel's
+        // locking for groups looks correct, but we decided to clamp here
+        // anyway.
+        counts.data[2] = counts.data[2].min(counts.data[1]);
+
         // CountsIter assumes that the group's dummy count appears first.
         assert_eq!(counts.nth_ref(0).0, self.id);
-
-        // Does the kernel ever return nonsense?
-        assert!(counts.time_running() <= counts.time_enabled());
 
         // Update `max_members` for the next read.
         self.max_members = counts.len();
@@ -500,6 +507,9 @@ impl Counts {
 
     /// Return the number of nanoseconds the `Group` was actually collecting
     /// counts that contributed to this `Counts`' contents.
+    ///
+    /// The caller can assume that this is never greater than
+    /// `self.time_enabled()`.
     pub fn time_running(&self) -> u64 {
         self.data[2]
     }
