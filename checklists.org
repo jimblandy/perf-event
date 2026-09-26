@@ -1,7 +1,5 @@
 * Crate release
 - Release ~perf-event-open-sys~
-  - [ ] Check for a new release of `bindgen`. If there is a new one that
-    has been out for two weeks, install it and regenerate the bindings.
   - [ ] Run the command:
 
     #+BEGIN_SRC sh
@@ -11,6 +9,13 @@
     See the notes in ~perf-event-open-sys/README.md~ for advice on how
     to interpret the results.
 
+  - [ ] If there are semver-incompatible changes to the API, make a new major release.
+    - [ ] Check for a new release of `bindgen`. If there is a new one
+      that has been out for two weeks, install it and regenerate the
+      bindings. Bindgen may introduce semver-incompatible changes, so
+      unless we know of important bugs in the current bindings, it's
+      best only to upgrade bindgen when Linux has forced us to make a
+      new major release anyway.
   - [ ] new version number (as directed by above)
     - [ ] ~perf-event-open-sys/Cargo.toml~
     - [ ] ~perf-event/Cargo.toml~ as dependency
@@ -45,12 +50,7 @@
   desired Linux kernel version. You don't need to download the sources
   yourself; the script fetches them, and caches them in the ~target~
   directory.
-- [ ] Run the command:
-
-  #+BEGIN_SRC
-  cd perf-event-open-sys && ./regenerate.sh
-  #+END_SRC
-
+- [ ] From any directory, run the ~regenerate.sh~ script.
   This fetches the kernel sources if necessary, runs bindgen, and
   splices its output into the `bindings` module's source code,
   preserving the documentation.
