@@ -2,6 +2,9 @@
 
 ## UNRELEASED
 
+-   All bindings have been regenerated from the headers for Linux v7.2.8.
+    This did not result in any additions or changes to the API.
+
 ## 7.0.0
 
 -   All bindings have been regenerated from the headers for Linux v7.1.13.
