@@ -1,6 +1,7 @@
 * Crate release
 - Release ~perf-event-open-sys~
-  - [ ] Milestone "Next `sys` release" complete
+  - [ ] Ensure that all issues in the GitHub "Next `sys` release"
+    milestone are closed.
   - [ ] Run the command:
 
     #+BEGIN_SRC sh
@@ -17,18 +18,20 @@
       unless we know of important bugs in the current bindings, it's
       best only to upgrade bindgen when Linux has forced us to make a
       new major release anyway.
-  - [ ] new version number (as directed by above)
+  - [ ] Assign the crate a new version number ,as directed by above. Update in:
     - [ ] ~perf-event-open-sys/Cargo.toml~
     - [ ] ~perf-event/Cargo.toml~ as dependency
-  - [ ] ~cargo fmt~
-  - [ ] ~cargo clippy --workspace --tests~
-  - [ ] ~cargo test --workspace~
+  - [ ] Run: ~cargo fmt~
+  - [ ] Run: ~cargo clippy --workspace --tests~
+  - [ ] Run: ~cargo test --workspace~
   - [ ] Update ~perf-event-open-sys/RELEASE-NOTES.md~.
-  - [ ] ~cargo publish -p perf-event-open-sys --dry-run~
-  - [ ] ~cargo publish -p perf-event-open-sys~
-  - [ ] Create a new tag called `perf-event-open-sys-vX.Y.Z` and push it to the repo.
+  - [ ] Publish the crate:
+    - [ ] ~cargo publish -p perf-event-open-sys --dry-run~
+    - [ ] ~cargo publish -p perf-event-open-sys~
+  - [ ] Create a new tag called `perf-event-open-sys-vX.Y.Z`, and push it to the repo.
 - Release ~perf-event~
-  - [ ] Milestone "Next `perf-event` release" complete
+  - [ ] Ensure that all issues in the GitHub "Next `perf-event` release"
+    milestone are closed.
   - [ ] Run the command:
 
     #+BEGIN_SRC sh
@@ -37,27 +40,26 @@
 
     See notes above about ~cargo semver-checks~.
 
-  - [ ] new version number (as directed by above)
+  - [ ] Assign the crate a new version number ,as directed by above. Update in:
     - [ ] ~perf-event/Cargo.toml~
-  - [ ] ~cargo fmt~
-  - [ ] ~cargo clippy --workspace --tests~
-  - [ ] ~cargo test --workspace~
-  - [ ] ~cargo publish -p perf-event --dry-run~
-  - [ ] ~cargo publish -p perf-event-open-sys~
-  - [ ] Create a new tag called `perf-event-vX.Y.Z` and push it to the repo.
+  - [ ] Run: ~cargo fmt~
+  - [ ] Run: ~cargo clippy --workspace --tests~
+  - [ ] Run: ~cargo test --workspace~
+  - [ ] Publish the crate:
+    - [ ] ~cargo publish -p perf-event --dry-run~
+    - [ ] ~cargo publish -p perf-event-open-sys~
+  - [ ] Create a new tag called `perf-event-vX.Y.Z`, and push it to the repo.
 * Generate bindings for a new Linux kernel version
-- [ ] Check for a new release of `bindgen`. If there is a new one that
-  has been out for two weeks, install it and regenerate the bindings.
 - [ ] In ~perf-event-open-sys/regenerate.sh~, update ~version~ to the
   desired Linux kernel version. You don't need to download the sources
   yourself; the script fetches them, and caches them in the ~target~
   directory.
-- [ ] From any directory, run the ~regenerate.sh~ script.
-  This fetches the kernel sources if necessary, runs bindgen, and
-  splices its output into the `bindings` module's source code,
-  preserving the documentation.
+- [ ] From any directory, run the ~regenerate.sh~ script. This fetches
+  the kernel sources if necessary, runs bindgen, and splices its
+  output into the `bindings` module's source code, preserving the
+  documentation.
 - [ ] ~cargo test --workspace~
-- [ ] Look at the diff, and mention any `perf_event_open` API features
-  that are now covered in ~perf-event-open-sys/RELEASE-NOTES.md~.
+- [ ] Look at the diff, and update  ~perf-event-open-sys/RELEASE-NOTES.md~
+  to cover any new `perf_event_open` API features.
 - [ ] Consider releasing a new version of the ~perf-event-open-sys~
   crate; see checklist above.
