@@ -86,7 +86,7 @@ pub mod ioctls {
         { DISABLE, DISABLE, c_uint }
         { REFRESH, REFRESH, c_int }
         { RESET, RESET, c_uint }
-        { PERIOD, PERIOD, u64 }
+        { PERIOD, PERIOD, *const u64 }
         { SET_OUTPUT, SET_OUTPUT, c_int }
         { SET_FILTER, SET_FILTER, *mut c_char }
         { ID, ID, *mut u64 }
