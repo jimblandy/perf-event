@@ -1,5 +1,6 @@
 * Crate release
 - Release ~perf-event-open-sys~
+  - [ ] Milestone "Next `sys` release" complete
   - [ ] Run the command:
 
     #+BEGIN_SRC sh
@@ -27,6 +28,7 @@
   - [ ] ~cargo publish -p perf-event-open-sys~
   - [ ] Create a new tag called `perf-event-open-sys-vX.Y.Z` and push it to the repo.
 - Release ~perf-event~
+  - [ ] Milestone "Next `perf-event` release" complete
   - [ ] Run the command:
 
     #+BEGIN_SRC sh
