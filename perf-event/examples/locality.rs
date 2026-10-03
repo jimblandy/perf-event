@@ -1,12 +1,12 @@
 /*! Observe the L1 data cache hit rate under two different access patterns.
 
-This example measures L1 data cache hit rate and prefetch counts while
-accessing a 40MB array linearly, and then randomly.
+This example measures L1 data cache hit rate while accessing a 40MB
+array linearly, and then randomly.
 
 One surprising finding is that, even though the loop accessing the
 array is extremely simple, a `dev` build performs seven times as many
 reads as a `release` build. Furthermore, in a `dev` build, the L1 data
-cache still manages to achieve an 85% hit rate even under the random
+cache still manages to achieve an 86% hit rate even under the random
 access pattern, which should be completely uncacheable.
 
 This suggests that the machine code for a `dev` build generates a lot
@@ -15,12 +15,17 @@ of it. This would seem to render `dev` builds unsuitable for assessing
 cache behavior.
 
     $ cargo run --quiet --example locality
-    linear: hits / reads: 68791796 / 70043629  98.21%, prefetched  1250129
-    random: hits / reads: 60639316 / 70642773  85.84%, prefetched       84
+    linear: misses / reads:  1251734 / 70038297   1.79%
+    random: misses / reads: 10015294 / 70451603  14.22%
 
     $ cargo run --quiet --example locality --release
-    linear: hits / reads:  8750124 / 10000528  87.50%, prefetched  1249700
-    random: hits / reads:    11500 / 10009804   0.11%, prefetched      149
+    linear: misses / reads:  1250392 / 10000713  12.50%
+    random: misses / reads:  9998262 / 10011094  99.87%
+
+On some machines, running the same `--release` executable reports more
+misses than reads, which should be impossible. If you know why this
+occurs, please file an issue at
+`https://github.com/jimblandy/perf-event`.
 
 */
 
@@ -104,16 +109,6 @@ fn measure(label: &str, task: impl FnOnce()) {
         })
         .build()
         .expect("building read_miss_counter is ok");
-    let prefetch_counter = Builder::new()
-        .group(&mut group)
-        .kind(Cache {
-            which: WhichCache::L1D,
-            operation: CacheOp::PREFETCH,
-            result: CacheResult::ACCESS,
-        })
-        .build()
-        .expect("building prefetch_counter is ok");
-
     group.enable().expect("enabling group is ok");
     task();
     group.disable().expect("disabling group is ok");
@@ -121,13 +116,10 @@ fn measure(label: &str, task: impl FnOnce()) {
     let counts = group.read().expect("reading group is ok");
     let reads = counts[&read_counter];
     let read_misses = counts[&read_miss_counter];
-    let read_hits = reads - read_misses;
-    let prefetches = counts[&prefetch_counter];
 
     println!(
-        "{label}: hits / reads: {read_hits:8} / {reads:8} {:6.2}%, \
-         prefetched {prefetches:8}",
-        (read_hits as f64 / reads as f64) * 100.0,
+        "{label}: misses / reads: {read_misses:8} / {reads:8} {:6.2}%",
+        (read_misses as f64 / reads as f64) * 100.0,
     );
 
     if counts.time_enabled() != counts.time_running() {
