@@ -54,7 +54,7 @@ the type definitions in the `bindings` module can be useful for code
 that needs to parse perf-related data produced on Linux or Android
 systems. The syscall and ioctl wrapper functions are not available.
 
-### Updating the System Call Bindings
+### Updating the system call bindings
 
 The `bindings` module defines Rust equivalents for the types and constants used
 by the Linux `perf_event_open` system call and its related ioctls. These are
@@ -64,7 +64,7 @@ features are added at a steady pace.
 
 To update the generated bindings, consult the checklist in `../checklists.org`.
 
-### Deciding when a major release is necessary.
+### Is a major release necessary?
 
 A release that introduces [non-semver-compatible][compat] changes to
 the crate's API must assign the crate a new major version number.
@@ -83,7 +83,7 @@ Beware! `cargo semver-checks` does not detect all breaking changes!
 For example, it did not report any incompatibility when [#79] changed
 the type of `perf_event_open_sys::ioctl::PERIOD`'s second argument
 from `u64` to `*const u64`. This is a known limitation in `cargo
-semver-checks`; see [cargo-semver-checks#637].
+semver-checks`: see [cargo-semver-checks#637].
 
 [bindgen]: https://crates.io/crates/bindgen
 [cargo semver-checks]: https://github.com/obi1kenobi/cargo-semver-checks
