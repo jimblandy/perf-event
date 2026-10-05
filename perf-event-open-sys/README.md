@@ -64,7 +64,12 @@ features are added at a steady pace.
 
 To update the generated bindings, consult the checklist in `../checklists.org`.
 
-You can use [cargo semver-checks] to check whether the resulting changes are
+### Deciding when a major release is necessary.
+
+A release that introduces [non-semver-compatible][compat] changes to
+the crate's API must assign the crate a new major version number.
+
+You can use [`cargo semver-checks`] to check whether the resulting changes are
 semver-compatible. We don't always literally follow the standards set by
 cargo-semver-checks but it is generally a good starting point for determining
 whether the change is a breaking one. Changes we would tolerate:
@@ -74,5 +79,14 @@ whether the change is a breaking one. Changes we would tolerate:
   construct, so they are affected any time a bitfield is added.
   These functions are unweildy and rarely used.
 
+Beware! `cargo semver-checks` does not detect all breaking changes!
+For example, it did not report any incompatibility when [#79] changed
+the type of `perf_event_open_sys::ioctl::PERIOD`'s second argument
+from `u64` to `*const u64`. This is a known limitation in `cargo
+semver-checks`; see [cargo-semver-checks#637].
+
 [bindgen]: https://crates.io/crates/bindgen
 [cargo semver-checks]: https://github.com/obi1kenobi/cargo-semver-checks
+[compat]: https://doc.rust-lang.org/cargo/reference/semver.html
+[#79]: https://github.com/jimblandy/perf-event/pull/79
+[cargo-semver-checks#637]: https://github.com/obi1kenobi/cargo-semver-checks/issues/637
