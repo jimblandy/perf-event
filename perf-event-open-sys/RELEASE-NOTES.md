@@ -2,6 +2,8 @@
 
 ## UNRELEASED
 
+-   Added support for Linux on IBM Z (`s390x`).
+
 -   All bindings have been regenerated from the headers for Linux v7.2.8.
     This did not result in any additions or changes to the API.
 
