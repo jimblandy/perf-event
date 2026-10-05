@@ -86,14 +86,14 @@ pub mod ioctls {
         { DISABLE, DISABLE, c_uint }
         { REFRESH, REFRESH, c_int }
         { RESET, RESET, c_uint }
-        { PERIOD, PERIOD, u64 }
+        { PERIOD, PERIOD, *const u64 }
         { SET_OUTPUT, SET_OUTPUT, c_int }
-        { SET_FILTER, SET_FILTER, *mut c_char }
+        { SET_FILTER, SET_FILTER, *const c_char }
         { ID, ID, *mut u64 }
         { SET_BPF, SET_BPF, u32 }
         { PAUSE_OUTPUT, PAUSE_OUTPUT, u32 }
         { QUERY_BPF, QUERY_BPF, *mut perf_event_query_bpf }
-        { MODIFY_ATTRIBUTES, MODIFY_ATTRIBUTES, *mut perf_event_attr }
+        { MODIFY_ATTRIBUTES, MODIFY_ATTRIBUTES, *const perf_event_attr }
     }
 
     unsafe fn untyped_ioctl<A>(fd: c_int, ioctl: bindings::perf_event_ioctls, arg: A) -> c_int {
