@@ -50,6 +50,14 @@
     - [ ] ~cargo publish -p perf-event-open-sys~
   - [ ] Create a new tag called `perf-event-vX.Y.Z`, and push it to the repo.
 * Generate bindings for a new Linux kernel version
+- [ ] Ensure you are using the same version of ~bindgen~ that was used
+  to generate the extant bindings. The bindgen version is recorded in the
+  header comments in the ~bindings_ARCH.rs~ files.
+
+  Switching to a new ~bindgen~ version should always be its own
+  commit, separate from updating the Linux version, since new
+  ~bindgen~ versions can sometimes introduce semver-incompatible
+  changes.
 - [ ] In ~perf-event-open-sys/regenerate.sh~, update ~version~ to the
   desired Linux kernel version. You don't need to download the sources
   yourself; the script fetches them, and caches them in the ~target~
