@@ -12,7 +12,7 @@
     to interpret the results.
 
   - [ ] If there are semver-incompatible changes to the API, make a new major release.
-    - [ ] Check for a new release of `bindgen`. If there is a new one
+    - [ ] Check for a new release of ~bindgen~. If there is a new one
       that has been out for two weeks, install it and regenerate the
       bindings. Bindgen may introduce semver-incompatible changes, so
       unless we know of important bugs in the current bindings, it's
@@ -28,7 +28,7 @@
   - [ ] Publish the crate:
     - [ ] ~cargo publish -p perf-event-open-sys --dry-run~
     - [ ] ~cargo publish -p perf-event-open-sys~
-  - [ ] Create a new tag called `perf-event-open-sys-vX.Y.Z`, and push it to the repo.
+  - [ ] Create a new tag called ~perf-event-open-sys-vX.Y.Z~, and push it to the repo.
 - Release ~perf-event~
   - [ ] Ensure that all issues in the GitHub "Next `perf-event` release"
     milestone are closed.
@@ -48,7 +48,7 @@
   - [ ] Publish the crate:
     - [ ] ~cargo publish -p perf-event --dry-run~
     - [ ] ~cargo publish -p perf-event-open-sys~
-  - [ ] Create a new tag called `perf-event-vX.Y.Z`, and push it to the repo.
+  - [ ] Create a new tag called ~perf-event-vX.Y.Z~, and push it to the repo.
 * Generate bindings for a new Linux kernel version
 - [ ] Ensure you are using the same version of ~bindgen~ that was used
   to generate the extant bindings. The bindgen version is recorded in the
@@ -63,11 +63,10 @@
   yourself; the script fetches them, and caches them in the ~target~
   directory.
 - [ ] From any directory, run the ~regenerate.sh~ script. This fetches
-  the kernel sources if necessary, runs bindgen, and splices its
-  output into the `bindings` module's source code, preserving the
-  documentation.
+  the kernel sources if necessary, runs bindgen, and generates the
+  ~bindings_ARCH.rs~ files.
 - [ ] ~cargo test --workspace~
 - [ ] Look at the diff, and update  ~perf-event-open-sys/RELEASE-NOTES.md~
-  to cover any new `perf_event_open` API features.
+  to cover any new ~perf_event_open~ API features.
 - [ ] Consider releasing a new version of the ~perf-event-open-sys~
   crate; see checklist above.
