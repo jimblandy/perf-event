@@ -1,7 +1,8 @@
 * Crate release
 - Release ~perf-event-open-sys~
-  - [ ] Ensure that all issues in the GitHub "Next `sys` release"
-    milestone are closed.
+  - [ ] Ensure that ~trunk~ is checked out.
+  - [ ] Ensure that all issues in the GitHub milestone for this
+    release are closed.
   - [ ] Run the command:
 
     #+BEGIN_SRC sh
