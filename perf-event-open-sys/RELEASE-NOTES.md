@@ -1,6 +1,6 @@
 # Release notes for `perf-event-open-sys`
 
-## UNRELEASED
+## 7.1.0
 
 -   Added support for Linux on IBM Z (`s390x`).
 
