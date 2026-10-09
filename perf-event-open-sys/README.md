@@ -83,7 +83,12 @@ Beware! `cargo semver-checks` does not detect all breaking changes!
 For example, it did not report any incompatibility when [#79] changed
 the type of `perf_event_open_sys::ioctl::PERIOD`'s second argument
 from `u64` to `*const u64`. This is a known limitation in `cargo
-semver-checks`: see [cargo-semver-checks#637].
+semver-checks`: see [cargo-semver-checks#637]. Workarounds:
+
+- The test `perf-event-open-sys/tests/args-semver.rs` should have
+  compilation errors if the signature of any function in
+  `perf-event-open-sys` changes. If you have to update this test,
+  update the version number in `perf-event-open-sys/Cargo.toml`.
 
 [bindgen]: https://crates.io/crates/bindgen
 [cargo semver-checks]: https://github.com/obi1kenobi/cargo-semver-checks
