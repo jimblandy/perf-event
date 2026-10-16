@@ -104,6 +104,7 @@ pub mod hooks;
 mod builder;
 mod counter;
 mod flags;
+mod kernel_conversion;
 
 // When the `"hooks"` feature is not enabled, call directly into
 // `perf-event-open-sys`.

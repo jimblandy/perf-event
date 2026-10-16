@@ -197,6 +197,17 @@ mod attr;
 #[cfg_attr(target_arch = "s390x", path = "bindings_s390x.rs")]
 pub mod bindings;
 
+use perf_event_open_sys_traits::PerfEventAttrType;
+unsafe impl PerfEventAttrType for bindings::perf_event_attr {
+    fn size(&self) -> usize {
+        self.size as usize
+    }
+
+    fn set_size(&mut self, size: usize) {
+        self.size = std::convert::TryFrom::try_from(size).unwrap();
+    }
+}
+
 // Provide actual callable code only on Linux/Android. See "Using perf
 // types on other platforms", in the top-level crate docs.
 #[cfg(any(target_os = "linux", target_os = "android"))]

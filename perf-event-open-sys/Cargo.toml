@@ -21,3 +21,7 @@ categories = [
 
 [dependencies]
 libc = "0.2"
+
+[dependencies.perf-event-open-sys-traits]
+path = "../traits"
+version = "1"

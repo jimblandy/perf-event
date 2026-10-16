@@ -5,6 +5,7 @@ use std::os::fd::AsRawFd;
 use std::os::fd::FromRawFd;
 
 use libc::pid_t;
+use perf_event_open_sys_traits::PerfEventAttrType;
 use sys::bindings::perf_event_attr;
 
 use crate::check_errno_syscall;
@@ -65,11 +66,14 @@ use crate::SampleSkid;
 /// on.
 ///
 /// Internally, a `Builder` is just a wrapper around the kernel's `struct
-/// perf_event_attr` type.
+/// perf_event_attr` type. You can access it with the [`attrs`] and
+/// [`set_attrs`] functions.
 ///
 /// [`enable`]: Counter::enable
 /// [`kind`]: Builder::kind
 /// [`group`]: Builder::group
+/// [`attrs`]: Builder::attrs
+/// [`set_attrs`]: Builder::set_attrs
 pub struct Builder<'a> {
     attrs: perf_event_attr,
     who: EventPid<'a>,
@@ -197,16 +201,6 @@ impl<'a> Builder<'a> {
 }
 
 impl<'a> Builder<'a> {
-    /// Directly access the [`perf_event_attr`] within this builder.
-    pub fn attrs(&self) -> &perf_event_attr {
-        &self.attrs
-    }
-
-    /// Directly access the [`perf_event_attr`] within this builder.
-    pub fn attrs_mut(&mut self) -> &mut perf_event_attr {
-        &mut self.attrs
-    }
-
     /// Observe the calling process. (This is the default.)
     pub fn observe_self(mut self) -> Builder<'a> {
         self.who = EventPid::ThisProcess;
@@ -304,6 +298,75 @@ impl<'a> Builder<'a> {
         }
 
         self.attrs.read_format = read_format.bits();
+        self
+    }
+
+    /// Return this `Builder`'s state as a [`perf_event_attr`] value.
+    ///
+    /// The return type can be a [`perf_event_attr`] struct from any major
+    /// version of the [`perf-event-open-sys`] crate, at the caller's choice. If
+    /// this crate and the caller were built with different versions of the sys
+    /// crate:
+    ///
+    /// - If this crate is using a newer version of `perf_event_attr`
+    ///   internally, this function panics if truncation to the return type
+    ///   would lose any non-zero bits in the current state. (This should only
+    ///   happen if you have used `Builder` to request features that your
+    ///   `perf_event_attr` cannot represent.)
+    ///
+    /// - If this crate is using an older version of the struct internally, then
+    ///   it will pad its value with zeros to match the size of the return type.
+    ///
+    /// Because of the Linux kernel's own rules around backwards compatibility,
+    /// this should ensure that both `Builder` and the caller agree on what the
+    /// state means.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if converting `self`'s internal state to the return
+    /// type would lose information.
+    ///
+    /// [`perf-event-open-sys`]: sys
+    #[track_caller]
+    pub fn attrs<A: PerfEventAttrType>(&self) -> A {
+        crate::kernel_conversion::checked_convert_attrs(self.attrs)
+    }
+
+    /// Set this `Builder`'s internal state to `new`.
+    ///
+    /// The `new` argument can be a [`perf_event_attr`] struct from any major
+    /// version of the [`perf-event-open-sys`] crate, at the caller's choice. If
+    /// this crate and the caller were built with different versions of the sys
+    /// crate:
+    ///
+    /// - If this crate is using a newer version of `perf_event_attr`
+    ///   internally, then `new` is padded with zeros to match the size of
+    ///   `Builder`'s state.
+    ///
+    /// - If this crate is using an older version of the struct internally, this
+    ///   function panics if truncating `new` to the internal type would lose
+    ///   any non-zero bits. (This should only happen if `new` requests features
+    ///   that this `Builder` does not understand.)
+    ///
+    /// Because of the Linux kernel's own rules around backwards compatibility,
+    /// this should ensure that both `Builder` and the caller agree on what the
+    /// state means.
+    ///
+    /// The size specified in `new`'s [`size`] field is ignored. This function
+    /// always uses `A`'s full size.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if converting `new` to the version of
+    /// `perf_event_attr` used to represent `self`'s internal state would lose
+    /// information.
+    ///
+    /// [`perf-event-open-sys`]: sys
+    /// [`size`]: field@perf_event_open_sys::bindings::perf_event_attr::size
+    #[track_caller]
+    pub fn set_attrs<A: PerfEventAttrType>(mut self, new: A) -> Self {
+        self.attrs = crate::kernel_conversion::checked_convert_attrs(new);
+
         self
     }
 }
