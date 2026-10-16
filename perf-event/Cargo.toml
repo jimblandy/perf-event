@@ -16,9 +16,15 @@ categories = [
 ]
 
 [features]
-# Enable syscall interception hooks for mock testing and logging.
-hooks = []
 default = []
+
+# Enable syscall interception hooks for mock testing and logging.
+#
+# This feature is meant for internal use, and is not covered by the
+# usual semver rules. New minor and patch releases of `perf-event` may
+# make breaking changes to the API offered when this feature is
+# enabled.
+hooks = []
 
 [dependencies]
 bitflags = "2.9.0"
