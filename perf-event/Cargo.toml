@@ -33,3 +33,7 @@ libc = "0.2"
 [dependencies.perf-event-open-sys]
 path = "../perf-event-open-sys"
 version = "8.0"
+
+[dependencies.perf-event-open-sys-traits]
+path = "../traits"
+version = "1"
