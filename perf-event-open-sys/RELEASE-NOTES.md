@@ -1,5 +1,21 @@
 # Release notes for `perf-event-open-sys`
 
+## 8.0.0
+
+-   This release has been assigned a new major version number because
+    the type of the second argument to
+    `perf_event_open_sys::ioctls::PERIOD` changed from `u64` to
+    `*const u64`, which will break callers.
+
+-   The following functions in `perf_event_open_sys::ioctls` have had
+    the types of their second arguments corrected:
+
+    - `PERIOD` (from `u64` to `*const u64`)
+    - `SET_FILTER` (from `*mut c_char` to `*const c_char`)
+    - `MODIFY_ATTRIBUTES` (from `*mut perf_event_attr` to `*const perf_event_attr`)
+
+    Only the change to `PERIOD`'s signature is a breaking change.
+
 ## 7.1.0
 
 -   Added support for Linux on IBM Z (`s390x`).

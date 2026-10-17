@@ -66,7 +66,7 @@ fn call_ioctls_RESET(fd: c_int, arg: c_uint) {
     };
 }
 
-fn call_ioctls_PERIOD(fd: c_int, arg: u64) {
+fn call_ioctls_PERIOD(fd: c_int, arg: *const u64) {
     unsafe {
         let _ = perf_event_open_sys::ioctls::PERIOD(fd, arg);
     };
