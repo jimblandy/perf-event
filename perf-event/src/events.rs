@@ -280,6 +280,19 @@ pub struct Cache {
     pub result: CacheResult,
 }
 
+macro_rules! cache {
+    ($func_name:ident, $which:ident, $op:ident, $res:ident) => {
+        /// Const helper constructor for the cache variant `$ident`
+        pub const fn $func_name() -> Self {
+            Self {
+                which: WhichCache::$which,
+                operation: CacheOp::$op,
+                result: CacheResult::$res
+            }
+        }
+    }
+}
+
 impl From<Cache> for Event {
     fn from(hw: Cache) -> Event {
         Event::Cache(hw)
@@ -290,6 +303,55 @@ impl Cache {
     fn as_config(&self) -> u64 {
         self.which as u64 | ((self.operation as u64) << 8) | ((self.result as u64) << 16)
     }
+
+    cache!(l1d_read_access, L1D, READ, ACCESS);
+    cache!(l1d_read_miss, L1D, READ, MISS);
+    cache!(l1d_write_access, L1D, WRITE, ACCESS);
+    cache!(l1d_write_miss, L1D, WRITE, MISS);
+    cache!(l1d_prefetch_access, L1D, PREFETCH, ACCESS);
+    cache!(l1d_prefetch_miss, L1D, PREFETCH, MISS);
+
+    cache!(l1i_read_access, L1I, READ, ACCESS);
+    cache!(l1i_read_miss, L1I, READ, MISS);
+    cache!(l1i_write_access, L1I, WRITE, ACCESS);
+    cache!(l1i_write_miss, L1I, WRITE, MISS);
+    cache!(l1i_prefetch_access, L1I, PREFETCH, ACCESS);
+    cache!(l1i_prefetch_miss, L1I, PREFETCH, MISS);
+
+    cache!(ll_read_access, LL, READ, ACCESS);
+    cache!(ll_read_miss, LL, READ, MISS);
+    cache!(ll_write_access, LL, WRITE, ACCESS);
+    cache!(ll_write_miss, LL, WRITE, MISS);
+    cache!(ll_prefetch_access, LL, PREFETCH, ACCESS);
+    cache!(ll_prefetch_miss, LL, PREFETCH, MISS);
+
+    cache!(dtlb_read_access, DTLB, READ, ACCESS);
+    cache!(dtlb_read_miss, DTLB, READ, MISS);
+    cache!(dtlb_write_access, DTLB, WRITE, ACCESS);
+    cache!(dtlb_write_miss, DTLB, WRITE, MISS);
+    cache!(dtlb_prefetch_access, DTLB, PREFETCH, ACCESS);
+    cache!(dtlb_prefetch_miss, DTLB, PREFETCH, MISS);
+
+    cache!(itlb_read_access, ITLB, READ, ACCESS);
+    cache!(itlb_read_miss, ITLB, READ, MISS);
+    cache!(itlb_write_access, ITLB, WRITE, ACCESS);
+    cache!(itlb_write_miss, ITLB, WRITE, MISS);
+    cache!(itlb_prefetch_access, ITLB, PREFETCH, ACCESS);
+    cache!(itlb_prefetch_miss, ITLB, PREFETCH, MISS);
+
+    cache!(bpu_read_access, BPU, READ, ACCESS);
+    cache!(bpu_read_miss, BPU, READ, MISS);
+    cache!(bpu_write_access, BPU, WRITE, ACCESS);
+    cache!(bpu_write_miss, BPU, WRITE, MISS);
+    cache!(bpu_prefetch_access, BPU, PREFETCH, ACCESS);
+    cache!(bpu_prefetch_miss, BPU, PREFETCH, MISS);
+
+    cache!(node_read_access, NODE, READ, ACCESS);
+    cache!(node_read_miss, NODE, READ, MISS);
+    cache!(node_write_access, NODE, WRITE, ACCESS);
+    cache!(node_write_miss, NODE, WRITE, MISS);
+    cache!(node_prefetch_access, NODE, PREFETCH, ACCESS);
+    cache!(node_prefetch_miss, NODE, PREFETCH, MISS);
 }
 
 /// A cache whose events we would like to count.
