@@ -1,16 +1,9 @@
-use perf_event::events::{Cache, CacheOp, CacheResult, Hardware, WhichCache};
+use perf_event::events::{Cache, Hardware};
 use perf_event::{Builder, Group};
 
 fn main() -> std::io::Result<()> {
-    const ACCESS: Cache = Cache {
-        which: WhichCache::L1D,
-        operation: CacheOp::READ,
-        result: CacheResult::ACCESS,
-    };
-    const MISS: Cache = Cache {
-        result: CacheResult::MISS,
-        ..ACCESS
-    };
+    const ACCESS: Cache = Cache::l1d_read_access();
+    const MISS: Cache = Cache::l1d_read_miss();
 
     let mut group = Group::new()?;
     let access_counter = Builder::new().group(&mut group).kind(ACCESS).build()?;
