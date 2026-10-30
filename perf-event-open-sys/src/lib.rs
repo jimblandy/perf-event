@@ -188,32 +188,13 @@
 ))]
 mod attr;
 
-#[cfg(target_arch = "aarch64")]
-#[path = "bindings_aarch64.rs"]
-pub mod bindings;
-
-#[cfg(target_arch = "x86_64")]
-#[path = "bindings_x86_64.rs"]
-pub mod bindings;
-
-#[cfg(target_arch = "x86")]
-#[path = "bindings_i686.rs"]
-pub mod bindings;
-
-#[cfg(target_arch = "riscv64")]
-#[path = "bindings_riscv64gc.rs"]
-pub mod bindings;
-
-#[cfg(target_arch = "powerpc64")]
-#[path = "bindings_powerpc64.rs"]
-pub mod bindings;
-
-#[cfg(target_arch = "loongarch64")]
-#[path = "bindings_loongarch64.rs"]
-pub mod bindings;
-
-#[cfg(target_arch = "s390x")]
-#[path = "bindings_s390x.rs"]
+#[cfg_attr(target_arch = "aarch64", path = "bindings_aarch64.rs")]
+#[cfg_attr(target_arch = "x86_64", path = "bindings_x86_64.rs")]
+#[cfg_attr(target_arch = "x86", path = "bindings_i686.rs")]
+#[cfg_attr(target_arch = "riscv64", path = "bindings_riscv64gc.rs")]
+#[cfg_attr(target_arch = "powerpc64", path = "bindings_powerpc64.rs")]
+#[cfg_attr(target_arch = "loongarch64", path = "bindings_loongarch64.rs")]
+#[cfg_attr(target_arch = "s390x", path = "bindings_s390x.rs")]
 pub mod bindings;
 
 // Provide actual callable code only on Linux/Android. See "Using perf
