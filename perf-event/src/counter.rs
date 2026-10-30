@@ -46,6 +46,7 @@ use crate::{check_errno_syscall, CountAndTime};
 /// Internally, a `Counter` is just a wrapper around an event file descriptor.
 ///
 /// [`read`]: Counter::read
+/// [`Group`]: crate::Group
 pub struct Counter {
     /// The file descriptor for this counter, returned by `perf_event_open`.
     ///
@@ -120,7 +121,7 @@ impl Counter {
     /// Note that `Group` also has a [`read`] method, which reads all
     /// its member `Counter`s' values at once.
     ///
-    /// [`read`]: Group::read
+    /// [`read`]: crate::Group::read
     /// [`read_count_and_time`]: Counter::read_count_and_time
     pub fn read(&mut self) -> io::Result<u64> {
         Ok(self.read_count_and_time()?.count)
@@ -162,7 +163,7 @@ impl Counter {
     /// Note that `Group` also has a [`read`] method, which reads all
     /// its member `Counter`s' values at once.
     ///
-    /// [`read`]: Group::read
+    /// [`read`]: crate::Group::read
     pub fn read_count_and_time(&mut self) -> io::Result<CountAndTime> {
         let mut buf = [0_u64; 3];
         self.file.read_exact(u64::slice_as_bytes_mut(&mut buf))?;
