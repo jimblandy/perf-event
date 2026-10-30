@@ -5,8 +5,8 @@
 // - Linux Perf mailing list thread:
 //   https://lore.kernel.org/linux-perf-users/69859989.a00a0220.34fa92.0026.GAE@google.com/
 
-use perf_event::Builder;
 use perf_event::events::{Event, Hardware, Software};
+use perf_event::Builder;
 
 fn main() {
     for _ in 0..100 {
