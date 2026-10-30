@@ -12,10 +12,8 @@ use crate::events;
 use crate::events::Event;
 use crate::flags::ReadFormat;
 use crate::sys;
-use crate::Clock;
 use crate::Counter;
 use crate::Group;
-use crate::SampleBranchFlag;
 use crate::SampleSkid;
 
 /// A builder for [`Counter`]s.
@@ -294,13 +292,12 @@ impl<'a> Builder<'a> {
 
     /// Set the fields to include when reading from the counter.
     ///
-    /// Note that this method is _not_ additive, unlike [`sample`].
+    /// Note that this method is _not_ additive: it replaces any flags
+    /// previously set.
     ///
     /// The implementation of this library will silently mask out certain flags
     /// if they would be invalid. For example, we will not allow you to set
     /// [`ReadFormat::GROUP`] when building a single counter.
-    ///
-    /// [`sample`]: Builder::sample
     pub fn read_format(mut self, mut read_format: ReadFormat) -> Self {
         if read_format.contains(ReadFormat::GROUP) {
             read_format |= ReadFormat::ID;
@@ -425,33 +422,16 @@ impl<'a> Builder<'a> {
         self
     }
 
-    /// Enable the generation of MMAP records for executable memory maps.
-    ///
-    /// MMAP records are emitted when the process/thread that is being
-    /// observed creates a new executable memory mapping.
-    pub fn mmap(mut self, mmap: bool) -> Self {
-        self.attrs.set_mmap(mmap.into());
-        self
-    }
-
-    /// Enable the tracking of process command name changes.
-    ///
-    /// This can happen when a process calls `execve(2)`, `prctl(PR_SET_NAME)`,
-    /// or writes to `/proc/self/comm`.
-    ///
-    /// If you also set the [`comm_exec`](Builder::comm_exec) flag, then the
-    /// kernel will indicate which of these process name changes were due to
-    /// calls to `execve(2)`.
-    pub fn comm(mut self, comm: bool) -> Self {
-        self.attrs.set_comm(comm.into());
-        self
-    }
-
     /// Set the period at which the kernel will generate sample events.
     ///
     /// As an example, if the event is `Hardware::INSTRUCTIONS` and `period`
     /// is 100_000 then every 100_000 instructions the kernel will generate an
     /// event.
+    ///
+    /// This crate does not yet provide access to the sample records the kernel
+    /// produces, but overflows can still be observed via [`sigtrap`], or via
+    /// `SIGIO` by using `fcntl(2)` to enable I/O signaling on the counter's
+    /// file descriptor.
     ///
     /// Note that the actual precision at which the sample corresponds to the
     /// instant and location at which Nth event occurred is controlled by the
@@ -460,6 +440,7 @@ impl<'a> Builder<'a> {
     /// This setting is mutually exclusive with [`sample_frequency`].
     ///
     /// [`precise_ip`]: Builder::precise_ip
+    /// [`sigtrap`]: Builder::sigtrap
     /// [`sample_frequency`]: Builder::sample_frequency
     pub fn sample_period(mut self, period: u64) -> Self {
         self.attrs.set_freq(0);
@@ -504,48 +485,6 @@ impl<'a> Builder<'a> {
         self
     }
 
-    /// If set, then the kernel will generate fork and exit records.
-    pub fn task(mut self, task: bool) -> Self {
-        self.attrs.set_task(task.into());
-        self
-    }
-
-    /// Set how many bytes will be written before the kernel sends an overflow
-    /// notification.
-    ///
-    /// This controls how much data will be emitted before
-    /// [`Sampler::next_blocking`] will wake up once blocked.
-    ///
-    /// This setting is mutually exclusive with [`wakeup_events`].
-    ///
-    /// [`wakeup_events`]: Self::wakeup_events
-    /// [`Sampler::next_blocking`]: crate::Sampler::next_blocking
-    pub fn wakeup_watermark(mut self, watermark: usize) -> Self {
-        self.attrs.set_watermark(1);
-        self.attrs.wakeup_watermark = watermark as _;
-        self
-    }
-
-    /// Set how many samples will be written before the kernel sends an
-    /// overflow notification.
-    ///
-    /// This controls how much data will be emitted before
-    /// [`Sampler::next_blocking`] will wake up once blocked. Note that only
-    /// sample records (`PERF_RECORD_SAMPLE`) count towards the event count.
-    ///
-    /// Some caveats apply, see the [manpage] for the full documentation.
-    ///
-    /// This method is mutually exclusive with [`wakeup_watermark`].
-    ///
-    /// [manpage]: https://www.mankier.com/2/perf_event_open
-    /// [`wakeup_watermark`]: Builder::wakeup_watermark
-    /// [`Sampler::next_blocking`]: crate::Sampler::next_blocking
-    pub fn wakeup_events(mut self, events: usize) -> Self {
-        self.attrs.set_watermark(0);
-        self.attrs.wakeup_events = events as _;
-        self
-    }
-
     /// Control how much skid is permitted when recording events.
     ///
     /// Skid is the number of instructions that occur between an event occuring
@@ -555,26 +494,6 @@ impl<'a> Builder<'a> {
     /// Also see [`SampleSkid`].
     pub fn precise_ip(mut self, skid: SampleSkid) -> Self {
         self.attrs.set_precise_ip(skid as _);
-        self
-    }
-
-    /// Enable the generation of MMAP records for non-executable memory maps.
-    ///
-    /// This is the data counterpart of [`mmap`](Builder::mmap).
-    pub fn mmap_data(mut self, mmap_data: bool) -> Self {
-        self.attrs.set_mmap_data(mmap_data.into());
-        self
-    }
-
-    /// If enabled, then a subset of the sample fields will additionally be
-    /// included in most non-`PERF_RECORD_SAMPLE` samples.
-    ///
-    /// See the [manpage] for the exact fields that are included and which
-    /// records include the trailer.
-    ///
-    /// [manpage]: https://www.mankier.com/2/perf_event_open
-    pub fn sample_id_all(mut self, sample_id_all: bool) -> Self {
-        self.attrs.set_sample_id_all(sample_id_all.into());
         self
     }
 
@@ -599,111 +518,6 @@ impl<'a> Builder<'a> {
     /// [manpage]: https://www.mankier.com/2/perf_event_open
     pub fn exclude_guest(mut self, exclude_guest: bool) -> Self {
         self.attrs.set_exclude_guest(exclude_guest.into());
-        self
-    }
-
-    /// Do not include stack frames in the kernel when gathering callchains as
-    /// a part of recording a sample.
-    pub fn exclude_callchain_kernel(mut self, exclude_kernel: bool) -> Self {
-        self.attrs
-            .set_exclude_callchain_kernel(exclude_kernel.into());
-        self
-    }
-
-    /// Do not include stack frames from userspace when gathering a callchain
-    /// as a part of recording a sample.
-    pub fn exclude_callchain_user(mut self, exclude_user: bool) -> Self {
-        self.attrs.set_exclude_callchain_user(exclude_user.into());
-        self
-    }
-
-    /// Generate an extended executable mmap record.
-    ///
-    /// This record has enough info to uniquely identify which instance of a
-    /// shared map it corresponds to. Note that you also need to set the `mmap`
-    /// option for this to work.
-    pub fn mmap2(mut self, mmap2: bool) -> Self {
-        self.attrs.set_mmap2(mmap2.into());
-        self
-    }
-
-    /// Check whether the kernel will annotate COMM records with the COMM_EXEC
-    /// bit when they occur due to an `execve(2)` call.
-    ///
-    /// This option doesn't actually change the behaviour of the kernel.
-    /// Instead, it is useful for feature detection.
-    pub fn comm_exec(mut self, comm_exec: bool) -> Self {
-        self.attrs.set_comm_exec(comm_exec.into());
-        self
-    }
-
-    /// Select which linux clock to use for timestamps.
-    ///
-    /// If `clockid` is `None` then the kernel will use an internal timer. This
-    /// timer may not be any of the options for clockid.
-    ///
-    /// See [`Clock`] and the [`clock_getttime(2)`][0] manpage for
-    /// documentation on what the different clock values mean.
-    ///
-    /// [0]: https://www.mankier.com/2/clock_gettime
-    pub fn clockid(mut self, clockid: impl Into<Option<Clock>>) -> Self {
-        let clockid = clockid.into();
-        self.attrs.set_use_clockid(clockid.is_some().into());
-        self.attrs.clockid = clockid.map(Clock::into_raw).unwrap_or(0);
-        self
-    }
-
-    /// Generate `SWITCH` records when a context switch occurs.
-    ///
-    /// Also enables the generation of `SWITCH_CPU_WIDE` records if profiling
-    /// in cpu-wide mode.
-    pub fn context_switch(mut self, context_switch: bool) -> Self {
-        self.attrs.set_context_switch(context_switch.into());
-        self
-    }
-
-    /// Generate `NAMESPACES` records when a task enters a new namespace.
-    pub fn namespaces(mut self, namespaces: bool) -> Self {
-        self.attrs.set_namespaces(namespaces.into());
-        self
-    }
-
-    /// Generate `KSYMBOL` records when kernel symbols are registered or
-    /// unregistered.
-    pub fn ksymbol(mut self, ksymbol: bool) -> Self {
-        self.attrs.set_ksymbol(ksymbol.into());
-        self
-    }
-
-    /// Generate `BPF_EVENT` records when eBPF programs are loaded or unloaded.
-    pub fn bpf_event(mut self, bpf_event: bool) -> Self {
-        self.attrs.set_bpf_event(bpf_event.into());
-        self
-    }
-
-    /// Output data for non-aux events to the aux buffer, if supported by the
-    /// hardware.
-    pub fn aux_output(mut self, aux_output: bool) -> Self {
-        self.attrs.set_aux_output(aux_output.into());
-        self
-    }
-
-    /// Generate `CGROUP` records when a new cgroup is created.
-    pub fn cgroup(mut self, cgroup: bool) -> Self {
-        self.attrs.set_cgroup(cgroup.into());
-        self
-    }
-
-    /// Generate `TEXT_POKE` records when the kernel text (i.e. code) is
-    /// modified.
-    pub fn text_poke(mut self, text_poke: bool) -> Self {
-        self.attrs.set_text_poke(text_poke.into());
-        self
-    }
-
-    /// Whether to include the build id in `MMAP2` events.
-    pub fn build_id(mut self, build_id: bool) -> Self {
-        self.attrs.set_build_id(build_id.into());
         self
     }
 
@@ -733,88 +547,6 @@ impl<'a> Builder<'a> {
     /// It does nothing unless [`sigtrap`](Self::sigtrap) is also set to `true`.
     pub fn sig_data(mut self, sig_data: u64) -> Self {
         self.attrs.sig_data = sig_data;
-        self
-    }
-
-    /// Specify which branches to include in the branch record.
-    ///
-    /// This does nothing unless [`SampleFlag::BRANCH_STACK`] is specified in
-    /// the sample flags.
-    pub fn branch_sample_type(mut self, flags: SampleBranchFlag) -> Self {
-        self.attrs.branch_sample_type = flags.bits();
-        self
-    }
-
-    /// Specify which user-level CPU registers to dump in a sample.
-    ///
-    /// This does nothing unless [`SampleFlag::REGS_USER`] is part of the
-    /// specified [`sample`](Builder::sample) flags.
-    ///
-    /// The actual layout of the register mask is architecture specific.
-    /// You will generally want the `PERF_REG_<arch>` constants in
-    /// [`perf_event_open_sys`]. (e.g. `PERF_REG_X86_SP`).
-    pub fn sample_regs_user(mut self, regs: u64) -> Self {
-        self.attrs.sample_regs_user = regs;
-        self
-    }
-
-    /// Specify which user- or kernel-level CPU registers to dump in a sample.
-    ///
-    /// This does nothing unless [`SampleFlag::REGS_INTR`] is part of the
-    /// specified [`sample`](Builder::sample) flags.
-    ///
-    /// The actual layout of the register mask is architecture specific.
-    /// You will generally want the `PERF_REG_<arch>` constants in
-    /// [`perf_event_open_sys`]. (e.g. `PERF_REG_X86_SP`).
-    pub fn sample_regs_intr(mut self, regs: u64) -> Self {
-        self.attrs.sample_regs_intr = regs;
-        self
-    }
-
-    /// Specify the maximum size of the user stack to dump.
-    ///
-    /// This option does nothing unless [`SampleFlag::STACK_USER`] is set in the
-    /// sample flags.
-    ///
-    /// Note that the size of the array allocated within the sample record will
-    /// always be exactly this size, even if the actual collected stack data is
-    /// much smaller. The allocated sample buffer (when constructing a
-    /// [`Sampler`]) will need to be large enough to accommodate the chosen
-    /// stack size or else samples will be lost.
-    ///
-    /// [`Sampler`]: crate::Sampler
-    pub fn sample_stack_user(mut self, stack: u32) -> Self {
-        self.attrs.sample_stack_user = stack;
-        self
-    }
-
-    /// Specify the maximum number of stack frames to include when unwinding the
-    /// user stack.
-    ///
-    /// This does nothing unless [`SampleFlag::CALLCHAIN`] is set in the sample
-    /// flags.
-    ///
-    /// Note that the kernel has a user configurable limit specified at
-    /// `/proc/sys/kernel/perf_event_max_stack`. Setting `sample_max_stack` to
-    /// larger than that limit will result in an `EOVERFLOW` error when building
-    /// the counter.
-    pub fn sample_max_stack(mut self, max_stack: u16) -> Self {
-        self.attrs.sample_max_stack = max_stack;
-        self
-    }
-
-    /// Specify how much data is required before the kernel emits an AUX record.
-    pub fn aux_watermark(mut self, watermark: u32) -> Self {
-        self.attrs.aux_watermark = watermark;
-        self
-    }
-
-    /// Specify the desired size of AUX data.
-    ///
-    /// This does nothing unless [`SampleFlag::AUX`] is set in the sample flags.
-    /// Note that the emitted aux data can be smaller than the requested size.
-    pub fn aux_sample_size(mut self, sample_size: u32) -> Self {
-        self.attrs.aux_sample_size = sample_size;
         self
     }
 }

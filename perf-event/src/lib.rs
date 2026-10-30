@@ -117,7 +117,7 @@ use hooks::sys;
 
 pub use crate::builder::Builder;
 pub use crate::counter::Counter;
-pub use crate::flags::{Clock, ReadFormat, SampleBranchFlag, SampleSkid};
+pub use crate::flags::{ReadFormat, SampleSkid};
 
 /// A group of counters that can be managed as a unit.
 ///
