@@ -133,7 +133,7 @@ macro_rules! define_ioctls {
         $expand ! { DISABLE, perf_event_ioctls_DISABLE, c_uint }
         $expand ! { REFRESH, perf_event_ioctls_REFRESH, c_int }
         $expand ! { RESET, perf_event_ioctls_RESET, c_uint }
-        $expand ! { PERIOD, perf_event_ioctls_PERIOD, u64 }
+        $expand ! { PERIOD, perf_event_ioctls_PERIOD, *const u64 }
         $expand ! { SET_OUTPUT, perf_event_ioctls_SET_OUTPUT, c_int }
         $expand ! { SET_FILTER, perf_event_ioctls_SET_FILTER, *mut c_char }
         $expand ! { ID, perf_event_ioctls_ID, *mut u64 }
