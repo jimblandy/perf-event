@@ -104,3 +104,33 @@ jobs:
         with:
           command: clippy
           args: --workspace --all-features --all-targets
+
+  package:
+    name: Run 'cargo package'
+    # Build the crates as `cargo publish` would, from their packaged
+    # sources, with `path` dependencies replaced by registry
+    # dependencies. Unpublished versions of crates in the list are
+    # served from a temporary local registry, but everything else,
+    # including `perf-event-open-sys-traits`, comes from crates.io, as
+    # it will for our users.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+      - uses: Swatinem/rust-cache@v1
+      - name: check out sources
+        uses: actions/checkout@v3
+      - name: cargo package
+        uses: actions-rs/cargo@v1
+        with:
+          command: package
+          args: -p perf-event -p perf-event-open-sys
+      - name: cargo package --all-features
+        uses: actions-rs/cargo@v1
+        with:
+          command: package
+          args: -p perf-event -p perf-event-open-sys --all-features
